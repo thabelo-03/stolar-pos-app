@@ -28,7 +28,7 @@ export default function MultiRoleDashboard() {
         <Text style={styles.wideBtnText}>SELL / SCAN ITEM</Text>
       </TouchableOpacity>
       <FeatureTile icon="add-circle" title="Add Stock" subtitle="Quick Entry" color="#10b981" />
-      <FeatureTile icon="calculator" title="Change" subtitle="Calculator" color="#f59e0b" />
+      <FeatureTile icon="calculator" title="Change" subtitle="Calculator" color="#f59e0b" onPress={() => router.push('/change-calculator')} />
       <FeatureTile icon="document-text" title="Daily Report" subtitle="My Sales" color="#6366f1" />
       <FeatureTile icon="cart" title="Selling" subtitle="Cart View" color="#ec4899" />
     </View>
