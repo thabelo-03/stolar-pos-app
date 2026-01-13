@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs'); // For password security
 require('dotenv').config();
+const Shop = require('./models/Shop');
 
 const User = require('./models/User'); // Import the User Model
 const Product = require('./models/Product'); // Import the Product Model
@@ -58,13 +59,67 @@ app.post('/api/auth/login', async (req, res) => {
     res.json({ 
       success: true, 
       role: user.role, 
-      name: user.name 
+      name: user.name, 
+      id: user._id
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
+// --- ADMIN: GET ALL USERS ---
+app.get('/api/users', async (req, res) => {
+  try {
+    // We find all users but hide their passwords for security
+    const users = await User.find({}, '-password').sort({ name: 1 });
+    res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+app.get('/api/products', async (req, res) => {
+  try {
+    const products = await Product.find().sort({ updatedAt: -1 });
+    res.json(products);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+// REGISTER A NEW SHOP
+// REGISTER A NEW SHOP (With Auto-Generated Code)
+// REGISTER A NEW SHOP
+app.post('/api/shops/register', async (req, res) => {
+  try {
+    const { name, location, managerId } = req.body;
+    
+    // 1. Generate the Code
+    const generatedCode = `STLR-${Math.floor(1000 + Math.random() * 9000)}`;
+
+    // 2. Create Shop
+    const newShop = new Shop({
+      name,
+      location,
+      branchCode: generatedCode,
+      manager: (managerId && managerId.length === 24) ? managerId : null
+    });
+
+    // 3. Save
+    await newShop.save();
+
+    // 4. IMPORTANT: Send a clean JSON response
+    console.log(`✅ Success: ${name} saved with code ${generatedCode}`);
+    
+    return res.status(201).json({ 
+      success: true, 
+      branchCode: generatedCode,
+      shop: newShop 
+    });
+
+  } catch (err) {
+    console.error("❌ Registration Error:", err.message);
+    return res.status(500).json({ success: false, message: err.message });
+  }
+});
 // --- PRODUCT ROUTES ---
 
 // 3. ADD/UPDATE STOCK ROUTE
