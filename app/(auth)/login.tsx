@@ -1,23 +1,45 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Login() {
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
-    // HARDCODED USER CHECK
-    if (email === 'admin@stolar.com' && password === 'admin123') {
-      router.replace({ pathname: '/(tabs)/home', params: { role: 'admin' } });
-    } else if (email === 'manager@stolar.com' && password === 'manager123') {
-      router.replace({ pathname: '/(tabs)/home', params: { role: 'manager' } });
-    } else if (email === 'cashier@stolar.com' && password === 'cashier123') {
-      router.replace({ pathname: '/(tabs)/home', params: { role: 'cashier' } });
-    } else {
-      Alert.alert("Login Failed", "Invalid email or password. Hint: admin@stolar.com / admin123");
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert("Error", "Please enter both email and password");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // UPDATED: Using your specific computer IP 192.168.54.12
+      const response = await fetch('http://192.168.54.12:5000/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        // Success! Passing the role to the home screen
+        router.replace({ 
+          pathname: '/(tabs)/home', 
+          params: { role: data.role, name: data.name } 
+        });
+      } else {
+        Alert.alert("Login Failed", data.message || "Invalid email or password");
+      }
+    } catch (error) {
+      // This usually means the IP is wrong or the server is closed
+      Alert.alert("Network Error", "Cannot reach the server. Make sure your computer and phone are on the same Wi-Fi and server is running.");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -45,6 +67,7 @@ export default function Login() {
             placeholderTextColor="#94a3b8"
             value={email}
             onChangeText={setEmail}
+            keyboardType="email-address"
           />
         </View>
 
@@ -60,8 +83,16 @@ export default function Login() {
           />
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleLogin}>
-          <Text style={styles.submitText}>Login</Text>
+        <TouchableOpacity 
+          style={styles.submitButton} 
+          onPress={handleLogin}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#FFFFFF" />
+          ) : (
+            <Text style={styles.submitText}>Login</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.signupLink} onPress={() => router.push('/(auth)/signup')}>
@@ -73,6 +104,7 @@ export default function Login() {
     </KeyboardAvoidingView>
   );
 }
+
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF', padding: 25 },

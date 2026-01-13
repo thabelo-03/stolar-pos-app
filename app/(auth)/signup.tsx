@@ -1,15 +1,44 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 export default function Signup() {
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [role, setRole] = useState('cashier');
+  const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSignup = () => {
-    // Basic bypass: Just navigate to the app for now
-    router.replace('/(tabs)');
+  const handleSignup = async () => {
+    if (!name || !email || !password) {
+      Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // REPLACE 192.168.1.XX with your Computer's Local IP Address
+     const response = await fetch('http://192.168.54.12:5000/api/auth/signup', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/json' },
+  body: JSON.stringify({ name, email, password, role }),
+});
+
+      const data = await response.json();
+
+      if (response.ok) {
+        Alert.alert("Success", "Account created! Please login.");
+        router.push('/(auth)/login');
+      } else {
+        Alert.alert("Signup Failed", data.message || "Something went wrong");
+      }
+    } catch (error) {
+      Alert.alert("Network Error", "Could not connect to server. Check your IP and connection.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -23,9 +52,28 @@ export default function Signup() {
       </View>
 
       <View style={styles.form}>
-        <TextInput placeholder="Full Name" style={styles.input} placeholderTextColor="#94a3b8" />
-        <TextInput placeholder="Email Address" style={styles.input} keyboardType="email-address" autoCapitalize="none" />
-        <TextInput placeholder="Password" style={styles.input} secureTextEntry />
+        <TextInput 
+          placeholder="Full Name" 
+          style={styles.input} 
+          placeholderTextColor="#94a3b8" 
+          value={name}
+          onChangeText={setName}
+        />
+        <TextInput 
+          placeholder="Email Address" 
+          style={styles.input} 
+          keyboardType="email-address" 
+          autoCapitalize="none" 
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput 
+          placeholder="Password" 
+          style={styles.input} 
+          secureTextEntry 
+          value={password}
+          onChangeText={setPassword}
+        />
 
         <Text style={styles.roleLabel}>Select Staff Role:</Text>
         <View style={styles.roleContainer}>
@@ -40,8 +88,16 @@ export default function Signup() {
           ))}
         </View>
 
-        <TouchableOpacity style={styles.submitButton} onPress={handleSignup}>
-          <Text style={styles.submitText}>Create Account</Text>
+        <TouchableOpacity 
+          style={styles.submitButton} 
+          onPress={handleSignup}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <Text style={styles.submitText}>Create Account</Text>
+          )}
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.loginLink} onPress={() => router.push('/(auth)/login')}>
@@ -68,7 +124,7 @@ const styles = StyleSheet.create({
   roleButtonActive: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
   roleText: { color: '#64748b', fontSize: 11, fontWeight: '700' },
   roleTextActive: { color: '#FFFFFF' },
-  submitButton: { backgroundColor: '#1e40af', padding: 18, borderRadius: 12, alignItems: 'center' },
+  submitButton: { backgroundColor: '#1e40af', padding: 18, borderRadius: 12, alignItems: 'center', height: 60, justifyContent: 'center' },
   submitText: { color: '#FFFFFF', fontSize: 18, fontWeight: 'bold' },
   loginLink: { marginTop: 25, alignItems: 'center' },
   loginLinkText: { color: '#64748b', fontSize: 15 },
