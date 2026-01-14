@@ -92,6 +92,10 @@ export default function Login() {
           />
         </View>
 
+        <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')} style={styles.forgotPassword}>
+          <Text style={styles.forgotPasswordText}>Forgot Password?</Text>
+        </TouchableOpacity>
+
         <TouchableOpacity 
           style={styles.submitButton} 
           onPress={handleLogin} 
@@ -130,6 +134,8 @@ const styles = StyleSheet.create({
   signupLink: { marginTop: 25, alignItems: 'center' },
   signupLinkText: { color: '#64748b', fontSize: 15 },
   signupLinkHighlight: { color: '#1e40af', fontWeight: 'bold' },
+  forgotPassword: { alignSelf: 'flex-end', marginBottom: 20 },
+  forgotPasswordText: { color: '#1e40af', fontWeight: '600' },
   loadingOverlay: {
     position: 'absolute',
     top: 0,
