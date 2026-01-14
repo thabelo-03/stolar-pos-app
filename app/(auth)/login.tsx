@@ -97,17 +97,20 @@ export default function Login() {
           onPress={handleLogin} 
           disabled={loading}
         >
-          {loading ? (
-            <ActivityIndicator color="#FFFFFF" />
-          ) : (
-            <Text style={styles.submitText}>Login to System</Text>
-          )}
+          <Text style={styles.submitText}>Login to System</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.signupLink} onPress={() => router.push('/(auth)/signup')}>
           <Text style={styles.signupLinkText}>Need access? <Text style={styles.signupLinkHighlight}>Register Staff</Text></Text>
         </TouchableOpacity>
       </View>
+
+      {loading && (
+        <View style={styles.loadingOverlay}>
+          <ActivityIndicator size="large" color="#FFFFFF" />
+          <Text style={styles.loadingText}>Authenticating...</Text>
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 }
@@ -127,4 +130,21 @@ const styles = StyleSheet.create({
   signupLink: { marginTop: 25, alignItems: 'center' },
   signupLinkText: { color: '#64748b', fontSize: 15 },
   signupLinkHighlight: { color: '#1e40af', fontWeight: 'bold' },
+  loadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1000,
+  },
+  loadingText: {
+    marginTop: 10,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+  },
 });
