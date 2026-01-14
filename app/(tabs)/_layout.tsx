@@ -24,10 +24,35 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
+        name="inventory"
+        options={{
+          title: 'Inventory',
+          tabBarIcon: ({ color }) => <IconSymbol size={28} name="list.bullet" color={color} />,
+        }}
+      />
+      {/* <Tabs.Screen
         name="explore"
         options={{
           title: 'Explore',
           tabBarIcon: ({ color }) => <IconSymbol size={28} name="paperplane.fill" color={color} />,
+        }}
+      /> */}
+      <Tabs.Screen
+        name="daily-summary"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="add-stock"
+        options={{
+          href: null,
+        }}
+      />
+      <Tabs.Screen
+        name="last-sales"
+        options={{
+          href: null,
         }}
       />
     </Tabs>

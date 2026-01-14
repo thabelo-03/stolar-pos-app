@@ -6,6 +6,7 @@ import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity
 export default function CashierHome() {
   const router = useRouter();
   const { name } = useLocalSearchParams();
+  const cashierName = Array.isArray(name) ? name[0] : name;
 
   return (
     <SafeAreaView style={styles.container}>
@@ -16,7 +17,7 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolarr POS</Text>
-            <Text style={styles.statusSub}>CASHIER • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
           </View>
           <TouchableOpacity style={styles.notificationBtn}>
             <Ionicons name="notifications" size={26} color="white" />
@@ -42,7 +43,10 @@ export default function CashierHome() {
         <View style={styles.mainGrid}>
           {/* 3. Left Side: Start Selling Card */}
           <View style={[styles.card, styles.leftCard]}>
-             <TouchableOpacity style={styles.miniHeroButton}>
+             <TouchableOpacity 
+               style={styles.miniHeroButton}
+               onPress={() => router.push('/(pos)/scan')}
+             >
                 <MaterialCommunityIcons name="barcode-scan" size={24} color="white" />
                 <Text style={styles.miniHeroTitle}>START SELLING</Text>
                 <Text style={styles.miniHeroSub}>SCAN / SEARCH</Text>
@@ -56,7 +60,7 @@ export default function CashierHome() {
             <View style={styles.card}>
               <Text style={styles.sectionLabel}>Quick Actions</Text>
               
-              <TouchableOpacity style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/daily-summary')}>
                 <View style={[styles.iconBox, { backgroundColor: '#eef2ff' }]}>
                   <Ionicons name="document-text" size={20} color="#6366f1" />
                 </View>
@@ -66,7 +70,7 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionRow}>
+              <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/last-sales')}>
                 <View style={[styles.iconBox, { backgroundColor: '#fffbeb' }]}>
                   <Ionicons name="receipt" size={20} color="#f59e0b" />
                 </View>
@@ -80,7 +84,7 @@ export default function CashierHome() {
             {/* Add Stock Card */}
             <View style={styles.card}>
               <Text style={styles.sectionLabel}>Add Stock</Text>
-              <TouchableOpacity style={styles.addStockBtn}>
+              <TouchableOpacity style={styles.addStockBtn} onPress={() => router.push('/(tabs)/add-stock')}>
                 <View style={styles.addStockIcon}>
                    <Ionicons name="add-circle" size={24} color="#059669" />
                 </View>

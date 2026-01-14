@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { API_BASE_URL } from '../(tabs)/api';
 
 export default function Signup() {
   const [name, setName] = useState('');
@@ -19,8 +20,7 @@ export default function Signup() {
 
     setLoading(true);
     try {
-      // REPLACE 192.168.1.XX with your Computer's Local IP Address
-     const response = await fetch('http://192.168.54.12:5000/api/auth/signup', {
+     const response = await fetch(`${API_BASE_URL}/auth/signup`, {
   method: 'POST',
   headers: { 'Content-Type': 'application/json' },
   body: JSON.stringify({ name, email, password, role }),
