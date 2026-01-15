@@ -38,7 +38,7 @@ export default function TabLayout() {
         tabBarShowLabel: true,
         tabBarStyle: {
           height: 70,
-          paddingBottom: 10,
+          paddingBottom: 5,
           paddingTop: 10,
           backgroundColor: '#ffffff',
           borderTopWidth: 1,
@@ -48,7 +48,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 12,
           fontWeight: '600',
-          marginBottom: 5,
+          marginBottom: 2,
         },
       }}>
       <Tabs.Screen
@@ -75,16 +75,49 @@ export default function TabLayout() {
         }}
       />
       
+      {/* New: Cart Tab */}
       <Tabs.Screen
-        name="add-stock"
+        name="cart"
         options={{
-          href: null,
+          title: 'Cart',
+          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "cart" : "cart-outline"} color={color} />,
         }}
       />
+
+      {/* New: Scan Tab */}
+      <Tabs.Screen
+        name="scan"
+        options={{
+          title: 'Scan',
+          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "qr-code" : "qr-code-outline"} color={color} />,
+        }}
+      />
+
+      {/* Modified: Last Sales Tab */}
       <Tabs.Screen
         name="last-sales"
         options={{
-          href: null,
+          title: 'Sales', // Changed title to 'Sales' for brevity
+          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "receipt" : "receipt-outline"} color={color} />,
+          // Removed href: null to make it visible in the tab bar
+        }}
+      />
+      
+      {/* New: Add Stock Tab */}
+      <Tabs.Screen
+        name="add-stock"
+        options={{
+          title: 'Add Stock',
+          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "add-circle" : "add-circle-outline"} color={color} />,
+        }}
+      />
+      
+      {/* Hidden: Home (Duplicate/Arrow as per user) */}
+      <Tabs.Screen
+        name="home" // This corresponds to app/(tabs)/home.tsx
+        options={{
+          href: null, // Hide it from the tab bar
+          title: 'Home Hidden', // Give it a distinct title for debugging if needed
         }}
       />
     </Tabs>

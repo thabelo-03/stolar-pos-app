@@ -22,6 +22,9 @@ export default function RootLayout() {
         {/* Main App Group */}
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         
+        {/* Cashier Group */}
+        <Stack.Screen name="(cashier)" options={{ headerShown: false }} />
+        
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
       </Stack>
       <StatusBar style="auto" />
