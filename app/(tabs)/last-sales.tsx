@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -62,11 +62,16 @@ export default function LastSalesScreen() {
   const filteredSales = useMemo(() => {
     if (!searchQuery) return sales;
     const lowerText = searchQuery.toLowerCase();
-    return sales.filter((item) => 
-      (item.items && item.items.toLowerCase().includes(lowerText)) ||
+    return sales.filter((item) => {
+      // Handle items as array (from DB) or string (mock data)
+      const itemsString = Array.isArray(item.items) 
+        ? item.items.map((i: any) => i.name).join(' ').toLowerCase()
+        : (item.items || '').toLowerCase();
+
+      return itemsString.includes(lowerText) ||
       (item.time && item.time.toLowerCase().includes(lowerText)) ||
-      ((item.total || item.amount || 0).toString().includes(lowerText))
-    );
+      ((item.total || item.amount || 0).toString().includes(lowerText));
+    });
   }, [sales, searchQuery]);
 
   const handleLoadMore = () => {
@@ -82,6 +87,36 @@ export default function LastSalesScreen() {
       <View style={styles.footerLoader}>
         <ActivityIndicator size="small" color={textColor} />
       </View>
+    );
+  };
+
+  const handleRefund = (saleId: string) => {
+    Alert.alert(
+      'Confirm Refund',
+      'Are you sure you want to refund this sale? Stock will be restored.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Refund',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/sales/${saleId}/refund`, {
+                method: 'POST',
+              });
+              const data = await response.json();
+              if (response.ok) {
+                Alert.alert('Success', 'Sale refunded successfully');
+                fetchSales(1); // Refresh list
+              } else {
+                Alert.alert('Error', data.message || 'Failed to refund sale');
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Could not connect to server');
+            }
+          }
+        }
+      ]
     );
   };
 
@@ -109,15 +144,31 @@ export default function LastSalesScreen() {
         <FlatList
           data={filteredSales}
           keyExtractor={(item) => item.id || Math.random().toString()}
-          renderItem={({ item }) => (
-            <ThemedView style={styles.saleItem}>
+          renderItem={({ item }) => {
+            const isRefunded = item.status === 'refunded';
+            return (
+            <ThemedView style={[styles.saleItem, isRefunded && styles.refundedItem]}>
               <View>
                 <ThemedText type="defaultSemiBold">${Number(item.total || item.amount || 0).toFixed(2)}</ThemedText>
-                <ThemedText style={styles.itemsText}>{item.items || 'Items'}</ThemedText>
+                <ThemedText style={styles.itemsText}>
+                  {Array.isArray(item.items) 
+                    ? item.items.map((i: any) => `${i.quantity}x ${i.name}`).join(', ')
+                    : (item.items || 'Items')
+                  }
+                </ThemedText>
+                {isRefunded && <Text style={styles.refundedBadge}>REFUNDED</Text>}
               </View>
-              <ThemedText style={styles.timeText}>{item.time || 'Just now'}</ThemedText>
+              <View style={{ alignItems: 'flex-end', gap: 8 }}>
+                <ThemedText style={styles.timeText}>{item.time || 'Just now'}</ThemedText>
+                {!isRefunded && (
+                  <TouchableOpacity onPress={() => handleRefund(item.id)} style={styles.refundButton}>
+                    <Text style={styles.refundButtonText}>Refund</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
             </ThemedView>
-          )}
+            );
+          }}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<ThemedText style={{ textAlign: 'center', marginTop: 20 }}>No recent sales found.</ThemedText>}
           onEndReached={handleLoadMore}
@@ -148,4 +199,8 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 8 },
   searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
   footerLoader: { paddingVertical: 20, alignItems: 'center' },
+  refundButton: { backgroundColor: '#fee2e2', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 6 },
+  refundButtonText: { color: '#dc2626', fontSize: 12, fontWeight: '600' },
+  refundedItem: { opacity: 0.7, backgroundColor: 'rgba(200, 200, 200, 0.1)' },
+  refundedBadge: { color: '#dc2626', fontSize: 10, fontWeight: 'bold', marginTop: 2 },
 });

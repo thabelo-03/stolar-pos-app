@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import * as Notifications from 'expo-notifications';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -28,7 +28,7 @@ export default function TabLayout() {
 
     const fetchLowStock = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/inventory`);
+        const response = await fetch(`${API_BASE_URL}/products`);
         const data = await response.json();
         if (response.ok && Array.isArray(data)) {
           // Count items with quantity less than 5

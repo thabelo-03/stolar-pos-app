@@ -29,50 +29,88 @@ export default function AddStockScreen() {
       return;
     }
 
-    setLoading(true);
+    const numPrice = Number(price);
+    const numCost = Number(costPrice);
 
-    if (barcode) {
-      try {
-        const checkResponse = await fetch(`${API_BASE_URL}/inventory`);
-        const inventory = await checkResponse.json();
-        if (Array.isArray(inventory)) {
-          const duplicate = inventory.find((item: any) => item.barcode === barcode);
-          if (duplicate) {
-            Alert.alert('Duplicate Barcode', `This barcode is already assigned to "${duplicate.name}".`);
-            setLoading(false);
-            return;
-          }
-        }
-      } catch (e) {}
+    if (numPrice <= numCost) {
+      Alert.alert('Invalid Price', 'Selling price must be greater than cost price.');
+      return;
     }
 
-    try {
-      const response = await fetch(`${API_BASE_URL}/inventory`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice) }),
-      });
+    const margin = ((numPrice - numCost) / numPrice) * 100;
 
-      const data = await response.json();
+    const executeSave = async () => {
+      setLoading(true);
 
-      if (response.ok) {
-        Alert.alert('Success', 'Stock added successfully');
-        router.back();
-      } else if (response.status === 409) {
-        Alert.alert('Duplicate Item', 'An item with this name already exists.');
-      } else {
-        Alert.alert('Error', data.message || 'Failed to add stock');
+      if (barcode) {
+        try {
+          const checkResponse = await fetch(`${API_BASE_URL}/products`);
+          const inventory = await checkResponse.json();
+          if (Array.isArray(inventory)) {
+            const duplicate = inventory.find((item: any) => item.barcode === barcode);
+            if (duplicate) {
+              Alert.alert('Duplicate Barcode', `This barcode is already assigned to "${duplicate.name}".`);
+              setLoading(false);
+              return;
+            }
+          }
+        } catch (e) {}
       }
-    } catch (error) {
-      Alert.alert('Network Error', 'Could not connect to server');
-    } finally {
-      setLoading(false);
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/products/add`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice) }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          Alert.alert(
+            'Success',
+            'Stock added successfully',
+            [{ text: 'OK', onPress: () => router.back() }]
+          );
+        } else if (response.status === 409) {
+          Alert.alert('Duplicate Item', 'An item with this name already exists.');
+        } else {
+          Alert.alert('Error', data.message || 'Failed to add stock');
+        }
+      } catch (error) {
+        Alert.alert('Network Error', 'Could not connect to server');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (margin < 5) {
+      Alert.alert(
+        'Low Profit Margin',
+        `The profit margin is only ${margin.toFixed(1)}%. Are you sure you want to proceed?`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Yes, Save', onPress: executeSave }
+        ]
+      );
+    } else {
+      executeSave();
     }
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     setBarcode(data);
     setIsScanning(false);
+  };
+
+  const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
+    const cleanText = text.replace(/[^0-9]/g, '');
+    if (cleanText === '') {
+      setFunction('');
+      return;
+    }
+    const numberValue = parseFloat(cleanText) / 100;
+    setFunction(numberValue.toFixed(2));
   };
 
   return (
@@ -123,7 +161,7 @@ export default function AddStockScreen() {
           <TextInput 
             style={[styles.input, { color: textColor, borderColor: textColor }]}
             value={price}
-            onChangeText={setPrice}
+            onChangeText={(text) => handleCurrencyChange(text, setPrice)}
             keyboardType="numeric"
             placeholder="0.00"
             placeholderTextColor={placeholderColor}
@@ -135,7 +173,7 @@ export default function AddStockScreen() {
           <TextInput 
             style={[styles.input, { color: textColor, borderColor: textColor }]}
             value={costPrice}
-            onChangeText={setCostPrice}
+            onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
             keyboardType="numeric"
             placeholder="0.00"
             placeholderTextColor={placeholderColor}

@@ -30,7 +30,7 @@ export default function InventoryScreen() {
 
   const fetchInventory = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/inventory`);
+      const response = await fetch(`${API_BASE_URL}/products`);
       const data = await response.json();
       if (response.ok) {
         setInventory(data);
@@ -61,7 +61,7 @@ export default function InventoryScreen() {
 
   const deleteItem = async (id: string) => {
     try {
-      const response = await fetch(`${API_BASE_URL}/inventory/${id}`, {
+      const response = await fetch(`${API_BASE_URL}/products/${id}`, {
         method: 'DELETE',
       });
       if (response.ok) {
@@ -119,22 +119,22 @@ export default function InventoryScreen() {
           onPress: async () => {
             setLoading(true);
             const dummyItems = [
-              { name: 'Milk 1L', quantity: 20, barcode: '8801', price: 2.50, costPrice: 1.80 },
-              { name: 'Whole Wheat Bread', quantity: 15, barcode: '8802', price: 3.00, costPrice: 2.10 },
-              { name: 'Large Eggs (12)', quantity: 30, barcode: '8803', price: 4.50, costPrice: 3.50 },
-              { name: 'Salted Butter', quantity: 3, barcode: '8804', price: 5.00, costPrice: 3.80 },
-              { name: 'Cheddar Cheese', quantity: 8, barcode: '8805', price: 6.50, costPrice: 4.50 },
-              { name: 'Red Apples', quantity: 50, barcode: '8806', price: 0.80, costPrice: 0.40 },
-              { name: 'Bananas', quantity: 4, barcode: '8807', price: 0.60, costPrice: 0.30 },
-              { name: 'Orange Juice', quantity: 12, barcode: '8808', price: 4.00, costPrice: 2.50 },
-              { name: 'Corn Flakes', quantity: 10, barcode: '8809', price: 3.50, costPrice: 2.20 },
-              { name: 'Coffee Beans', quantity: 25, barcode: '8810', price: 12.00, costPrice: 8.00 },
+              { name: 'Milk 1L', quantity: 20, barcode: '8801', price: 2.50, costPrice: 1.80 ,category: 'General'},
+              { name: 'Whole Wheat Bread', quantity: 15, barcode: '8802', price: 3.00, costPrice: 2.10, category: 'General' },
+              { name: 'Large Eggs (12)', quantity: 30, barcode: '8803', price: 4.50, costPrice: 3.50, category: 'General' },
+              { name: 'Salted Butter', quantity: 3, barcode: '8804', price: 5.00, costPrice: 3.80, category: 'General' },
+              { name: 'Cheddar Cheese', quantity: 8, barcode: '8805', price: 6.50, costPrice: 4.50, category: 'General' },
+              { name: 'Red Apples', quantity: 50, barcode: '8806', price: 0.80, costPrice: 0.40, category: 'Fruits' },
+              { name: 'Bananas', quantity: 4, barcode: '8807', price: 0.60, costPrice: 0.30 ,category: 'General'},
+              { name: 'Orange Juice', quantity: 12, barcode: '8808', price: 4.00, costPrice: 2.50, category: 'General' },
+              { name: 'Corn Flakes', quantity: 10, barcode: '8809', price: 3.50, costPrice: 2.20, category: 'Medicine' },
+              { name: 'Coffee Beans', quantity: 25, barcode: '8810', price: 12.00, costPrice: 8.00, category: 'General' },
             ];
 
             let count = 0;
             for (const item of dummyItems) {
               try {
-                await fetch(`${API_BASE_URL}/inventory`, {
+                await fetch(`${API_BASE_URL}/products/add`, {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify(item),
@@ -173,7 +173,7 @@ export default function InventoryScreen() {
               const id = item._id || item.id;
               if (id) {
                 try {
-                  await fetch(`${API_BASE_URL}/inventory/${id}`, { method: 'DELETE' });
+                  await fetch(`${API_BASE_URL}/products/${id}`, { method: 'DELETE' });
                   count++;
                 } catch (e) {}
               }

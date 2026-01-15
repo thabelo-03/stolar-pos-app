@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, FlatList, Platform, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -20,15 +21,59 @@ export default function ProfitReportScreen() {
     salesCount: 0
   });
   const [salesList, setSalesList] = useState<any[]>([]);
+  const [allSales, setAllSales] = useState<any[]>([]);
+  const [date, setDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    if (allSales.length > 0) {
+      filterDataByDate();
+    } else {
+      setSalesList([]);
+      setReportData({ revenue: 0, cost: 0, profit: 0, margin: 0, salesCount: 0 });
+    }
+  }, [allSales, date]);
+
+  const filterDataByDate = () => {
+    const filtered = allSales.filter(sale => {
+      const saleDate = new Date(sale.date);
+      return saleDate.getMonth() === date.getMonth() &&
+             saleDate.getFullYear() === date.getFullYear();
+    });
+
+    let totalRevenue = 0;
+    let totalCost = 0;
+
+    filtered.forEach(sale => {
+      totalRevenue += (sale.total || sale.amount || 0);
+      totalCost += sale.cost;
+    });
+
+    setSalesList(filtered);
+    setReportData({
+      revenue: totalRevenue,
+      cost: totalCost,
+      profit: totalRevenue - totalCost,
+      margin: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0,
+      salesCount: filtered.length
+    });
+  };
+
+  const onChange = (event: any, selectedDate?: Date) => {
+    setShowPicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
+
   const fetchData = async () => {
     try {
       // 1. Fetch Inventory to get Cost Prices
-      const invResponse = await fetch(`${API_BASE_URL}/inventory`);
+      const invResponse = await fetch(`${API_BASE_URL}/products`);
       const inventoryData = await invResponse.json();
       
       // Create a map for quick lookup: barcode -> costPrice
@@ -46,9 +91,6 @@ export default function ProfitReportScreen() {
       const salesData = await salesResponse.json();
 
       if (Array.isArray(salesData)) {
-        let totalRevenue = 0;
-        let totalCost = 0;
-
         const processedSales = salesData.map((sale: any) => {
           let saleCost = 0;
           const saleRevenue = Number(sale.total || sale.amount || 0);
@@ -63,9 +105,6 @@ export default function ProfitReportScreen() {
             });
           }
 
-          totalRevenue += saleRevenue;
-          totalCost += saleCost;
-
           return {
             ...sale,
             cost: saleCost,
@@ -76,14 +115,7 @@ export default function ProfitReportScreen() {
         // Sort by date descending
         processedSales.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-        setSalesList(processedSales);
-        setReportData({
-          revenue: totalRevenue,
-          cost: totalCost,
-          profit: totalRevenue - totalCost,
-          margin: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0,
-          salesCount: salesData.length
-        });
+        setAllSales(processedSales);
       }
     } catch (error) {
       console.log('Error calculating profit:', error);
@@ -100,6 +132,25 @@ export default function ProfitReportScreen() {
         </TouchableOpacity>
         <ThemedText type="title">Profit Report</ThemedText>
       </View>
+
+      <View style={styles.filterContainer}>
+        <TouchableOpacity style={styles.dateButton} onPress={() => setShowPicker(true)}>
+          <Ionicons name="calendar-outline" size={20} color={textColor} />
+          <ThemedText style={styles.dateText}>
+            {date.toLocaleDateString('default', { month: 'long', year: 'numeric' })}
+          </ThemedText>
+          <Ionicons name="chevron-down" size={16} color={textColor} />
+        </TouchableOpacity>
+      </View>
+
+      {showPicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="default"
+          onChange={onChange}
+        />
+      )}
 
       {loading ? (
         <ActivityIndicator size="large" color={textColor} style={{ marginTop: 20 }} />
@@ -158,4 +209,7 @@ const styles = StyleSheet.create({
   cardValue: { fontSize: 18, fontWeight: 'bold' },
   sectionTitle: { marginBottom: 10 },
   saleItem: { flexDirection: 'row', justifyContent: 'space-between', padding: 15, backgroundColor: 'rgba(150,150,150,0.1)', borderRadius: 10 },
+  filterContainer: { marginBottom: 15 },
+  dateButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(150,150,150,0.1)', padding: 10, borderRadius: 8, alignSelf: 'flex-start' },
+  dateText: { marginHorizontal: 8, fontWeight: '600' },
 });
