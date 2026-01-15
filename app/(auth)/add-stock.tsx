@@ -25,7 +25,7 @@ export default function AddStockScreen() {
 
     setLoading(true);
     try {
-      const response = await fetch(`${API_BASE_URL}/inventory/add`, {
+      const response = await fetch(`${API_BASE_URL}/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: itemName, quantity: Number(quantity) }),
@@ -36,6 +36,8 @@ export default function AddStockScreen() {
       if (response.ok) {
         Alert.alert('Success', 'Stock added successfully');
         router.back();
+      } else if (response.status === 409) {
+        Alert.alert('Duplicate Item', 'An item with this name already exists.');
       } else {
         Alert.alert('Error', data.message || 'Failed to add stock');
       }

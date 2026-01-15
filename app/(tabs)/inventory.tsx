@@ -1,20 +1,30 @@
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, RefreshControl, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
-import { API_BASE_URL } from '../(auth)/api';
+import { API_BASE_URL } from './api';
+interface InventoryItem {
+  _id?: string;
+  id?: string;
+  name: string;
+  barcode?: string;
+  quantity: number | string;
+}
 
 export default function InventoryScreen() {
   const router = useRouter();
-  const [inventory, setInventory] = useState<any[]>([]);
+  const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const textColor = useThemeColor({}, 'text');
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isScanning, setIsScanning] = useState(false);
 
   const fetchInventory = async () => {
     try {
@@ -40,10 +50,12 @@ export default function InventoryScreen() {
     fetchInventory();
   };
 
-  const filteredInventory = inventory.filter((item: any) => 
-    (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-    (item.barcode && item.barcode.toString().includes(searchQuery))
-  );
+  const filteredInventory = useMemo(() => {
+    return inventory.filter((item) => 
+      (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (item.barcode && item.barcode.toString().includes(searchQuery))
+    );
+  }, [inventory, searchQuery]);
 
   const deleteItem = async (id: string) => {
     try {
@@ -51,7 +63,7 @@ export default function InventoryScreen() {
         method: 'DELETE',
       });
       if (response.ok) {
-        setInventory((prev: any[]) => prev.filter((item) => (item._id || item.id) !== id));
+        setInventory((prev) => prev.filter((item) => (item._id || item.id) !== id));
         Alert.alert('Success', 'Item deleted successfully');
       } else {
         Alert.alert('Error', 'Failed to delete item');
@@ -61,7 +73,13 @@ export default function InventoryScreen() {
     }
   };
 
-  const handleItemPress = (item: any) => {
+  const handleItemPress = (item: InventoryItem) => {
+    const itemId = item._id || item.id;
+    if (!itemId) {
+      Alert.alert('Error', 'Item ID is missing');
+      return;
+    }
+
     Alert.alert(
       'Manage Item',
       `Choose an action for ${item.name}`,
@@ -71,16 +89,21 @@ export default function InventoryScreen() {
           text: 'Edit', 
           onPress: () => router.push({
             pathname: '/(tabs)/add-stock',
-            params: { id: item._id || item.id, name: item.name, quantity: item.quantity, mode: 'edit' }
+            params: { id: itemId, name: item.name, quantity: item.quantity, mode: 'edit' }
           }) 
         },
         { 
           text: 'Delete', 
           style: 'destructive', 
-          onPress: () => deleteItem(item._id || item.id) 
+          onPress: () => deleteItem(itemId) 
         },
       ]
     );
+  };
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    setSearchQuery(data);
+    setIsScanning(false);
   };
 
   return (
@@ -101,14 +124,36 @@ export default function InventoryScreen() {
           value={searchQuery}
           onChangeText={setSearchQuery}
         />
+        <TouchableOpacity onPress={async () => {
+          if (!permission?.granted) {
+            const { granted } = await requestPermission();
+            if (granted) setIsScanning(true);
+          } else {
+            setIsScanning(true);
+          }
+        }}>
+          <Ionicons name="barcode-outline" size={24} color={textColor} />
+        </TouchableOpacity>
       </View>
+
+      <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
+        <CameraView style={styles.camera} facing="back" onBarcodeScanned={handleBarcodeScanned}>
+          <View style={styles.cameraOverlay}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setIsScanning(false)}>
+              <Ionicons name="close" size={30} color="white" />
+            </TouchableOpacity>
+            <View style={styles.scanFrame} />
+            <Text style={styles.scanText}>Scanning...</Text>
+          </View>
+        </CameraView>
+      </Modal>
 
       {loading ? (
         <ActivityIndicator size="large" color={textColor} style={{ marginTop: 20 }} />
       ) : (
         <FlatList
           data={filteredInventory}
-          keyExtractor={(item: any) => item._id || item.id || Math.random().toString()}
+          keyExtractor={(item) => item._id || item.id || Math.random().toString()}
           renderItem={({ item }) => (
             <TouchableOpacity onPress={() => handleItemPress(item)}>
               <ThemedView style={styles.itemCard}>
@@ -162,4 +207,9 @@ const styles = StyleSheet.create({
   qtyContainer: { alignItems: 'center', minWidth: 50 },
   qtyLabel: { fontSize: 10, opacity: 0.6 },
   emptyText: { textAlign: 'center', marginTop: 50, opacity: 0.5 },
+  camera: { flex: 1 },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
+  scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
 });

@@ -37,7 +37,7 @@ export default function AddStockScreen() {
     try {
       const url = isEditMode 
         ? `${API_BASE_URL}/inventory/${params.id}`
-        : `${API_BASE_URL}/inventory/add`;
+        : `${API_BASE_URL}/inventory`;
       
       const method = isEditMode ? 'PUT' : 'POST';
 
@@ -52,6 +52,8 @@ export default function AddStockScreen() {
       if (response.ok) {
         Alert.alert('Success', isEditMode ? 'Stock updated successfully' : 'Stock added successfully');
         router.back();
+      } else if (response.status === 409) {
+        Alert.alert('Duplicate Item', 'An item with this name already exists.');
       } else {
         Alert.alert('Error', data.message || 'Failed to add stock');
       }
