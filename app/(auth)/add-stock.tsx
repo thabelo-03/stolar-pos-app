@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
+import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, Button, StyleSheet, TextInput, TouchableOpacity } from 'react-native';
+import { ActivityIndicator, Alert, Button, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { API_BASE_URL } from '../(tabs)/api';
 import { ThemedText } from '../../components/themed-text';
@@ -11,24 +12,45 @@ import { useThemeColor } from '../../hooks/use-theme-color';
 export default function AddStockScreen() {
   const router = useRouter();
   const [itemName, setItemName] = useState('');
+  const [barcode, setBarcode] = useState('');
   const [quantity, setQuantity] = useState('');
+  const [price, setPrice] = useState('');
+  const [costPrice, setCostPrice] = useState('');
   const [loading, setLoading] = useState(false);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [isScanning, setIsScanning] = useState(false);
   
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = '#888';
 
   const handleSave = async () => {
-    if (!itemName || !quantity) {
+    if (!itemName || !quantity || !price || !costPrice) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
     setLoading(true);
+
+    if (barcode) {
+      try {
+        const checkResponse = await fetch(`${API_BASE_URL}/inventory`);
+        const inventory = await checkResponse.json();
+        if (Array.isArray(inventory)) {
+          const duplicate = inventory.find((item: any) => item.barcode === barcode);
+          if (duplicate) {
+            Alert.alert('Duplicate Barcode', `This barcode is already assigned to "${duplicate.name}".`);
+            setLoading(false);
+            return;
+          }
+        }
+      } catch (e) {}
+    }
+
     try {
       const response = await fetch(`${API_BASE_URL}/inventory`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: itemName, quantity: Number(quantity) }),
+        body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice) }),
       });
 
       const data = await response.json();
@@ -46,6 +68,11 @@ export default function AddStockScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    setBarcode(data);
+    setIsScanning(false);
   };
 
   return (
@@ -68,6 +95,54 @@ export default function AddStockScreen() {
         </ThemedView>
 
         <ThemedView>
+          <ThemedText type="defaultSemiBold">Barcode</ThemedText>
+          <View style={styles.barcodeRow}>
+            <TextInput 
+              style={[styles.input, { color: textColor, borderColor: textColor, flex: 1 }]}
+              value={barcode}
+              onChangeText={setBarcode}
+              placeholder="Scan or enter barcode"
+              placeholderTextColor={placeholderColor}
+              keyboardType="numeric"
+            />
+            <TouchableOpacity onPress={async () => {
+              if (!permission?.granted) {
+                const { granted } = await requestPermission();
+                if (granted) setIsScanning(true);
+              } else {
+                setIsScanning(true);
+              }
+            }} style={[styles.input, { borderColor: textColor, justifyContent: 'center', alignItems: 'center', width: 50 }]}>
+              <Ionicons name="barcode-outline" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
+        </ThemedView>
+
+        <ThemedView>
+          <ThemedText type="defaultSemiBold">Price</ThemedText>
+          <TextInput 
+            style={[styles.input, { color: textColor, borderColor: textColor }]}
+            value={price}
+            onChangeText={setPrice}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor={placeholderColor}
+          />
+        </ThemedView>
+
+        <ThemedView>
+          <ThemedText type="defaultSemiBold">Cost Price</ThemedText>
+          <TextInput 
+            style={[styles.input, { color: textColor, borderColor: textColor }]}
+            value={costPrice}
+            onChangeText={setCostPrice}
+            keyboardType="numeric"
+            placeholder="0.00"
+            placeholderTextColor={placeholderColor}
+          />
+        </ThemedView>
+
+        <ThemedView>
           <ThemedText type="defaultSemiBold">Quantity</ThemedText>
           <TextInput 
             style={[styles.input, { color: textColor, borderColor: textColor }]}
@@ -85,6 +160,18 @@ export default function AddStockScreen() {
           <Button title="Save Stock" onPress={handleSave} />
         )}
       </ThemedView>
+
+      <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
+        <CameraView style={styles.camera} facing="back" onBarcodeScanned={handleBarcodeScanned}>
+          <View style={styles.cameraOverlay}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setIsScanning(false)}>
+              <Ionicons name="close" size={30} color="white" />
+            </TouchableOpacity>
+            <View style={styles.scanFrame} />
+            <Text style={styles.scanText}>Scanning...</Text>
+          </View>
+        </CameraView>
+      </Modal>
     </ThemedView>
   );
 }
@@ -108,4 +195,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
     opacity: 0.8,
   },
+  barcodeRow: { flexDirection: 'row', gap: 10 },
+  camera: { flex: 1 },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
+  scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
 });

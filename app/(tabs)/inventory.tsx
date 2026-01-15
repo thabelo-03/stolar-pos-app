@@ -14,6 +14,8 @@ interface InventoryItem {
   name: string;
   barcode?: string;
   quantity: number | string;
+  price?: number | string;
+  costPrice?: number | string;
 }
 
 export default function InventoryScreen() {
@@ -89,7 +91,7 @@ export default function InventoryScreen() {
           text: 'Edit', 
           onPress: () => router.push({
             pathname: '/(tabs)/add-stock',
-            params: { id: itemId, name: item.name, quantity: item.quantity, mode: 'edit' }
+            params: { id: itemId, name: item.name, quantity: item.quantity, barcode: item.barcode, price: item.price, costPrice: item.costPrice, mode: 'edit' }
           }) 
         },
         { 
@@ -106,13 +108,100 @@ export default function InventoryScreen() {
     setIsScanning(false);
   };
 
+  const handleSeedData = async () => {
+    Alert.alert(
+      'Seed Database',
+      'Add dummy inventory items?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Add Data',
+          onPress: async () => {
+            setLoading(true);
+            const dummyItems = [
+              { name: 'Milk 1L', quantity: 20, barcode: '8801', price: 2.50, costPrice: 1.80 },
+              { name: 'Whole Wheat Bread', quantity: 15, barcode: '8802', price: 3.00, costPrice: 2.10 },
+              { name: 'Large Eggs (12)', quantity: 30, barcode: '8803', price: 4.50, costPrice: 3.50 },
+              { name: 'Salted Butter', quantity: 3, barcode: '8804', price: 5.00, costPrice: 3.80 },
+              { name: 'Cheddar Cheese', quantity: 8, barcode: '8805', price: 6.50, costPrice: 4.50 },
+              { name: 'Red Apples', quantity: 50, barcode: '8806', price: 0.80, costPrice: 0.40 },
+              { name: 'Bananas', quantity: 4, barcode: '8807', price: 0.60, costPrice: 0.30 },
+              { name: 'Orange Juice', quantity: 12, barcode: '8808', price: 4.00, costPrice: 2.50 },
+              { name: 'Corn Flakes', quantity: 10, barcode: '8809', price: 3.50, costPrice: 2.20 },
+              { name: 'Coffee Beans', quantity: 25, barcode: '8810', price: 12.00, costPrice: 8.00 },
+            ];
+
+            let count = 0;
+            for (const item of dummyItems) {
+              try {
+                await fetch(`${API_BASE_URL}/inventory`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(item),
+                });
+                count++;
+              } catch (e) {}
+            }
+            
+            setLoading(false);
+            Alert.alert('Success', `Added ${count} items`);
+            fetchInventory();
+          }
+        }
+      ]
+    );
+  };
+
+  const handleDeleteAll = async () => {
+    if (inventory.length === 0) {
+      Alert.alert('Info', 'Inventory is already empty.');
+      return;
+    }
+
+    Alert.alert(
+      'Delete All Inventory',
+      'Are you sure you want to delete ALL items? This action cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete All',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
+            let count = 0;
+            for (const item of inventory) {
+              const id = item._id || item.id;
+              if (id) {
+                try {
+                  await fetch(`${API_BASE_URL}/inventory/${id}`, { method: 'DELETE' });
+                  count++;
+                } catch (e) {}
+              }
+            }
+            setLoading(false);
+            Alert.alert('Success', `Deleted ${count} items`);
+            fetchInventory();
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <ThemedView style={styles.container}>
       <View style={styles.header}>
         <ThemedText type="title">Inventory</ThemedText>
-        <TouchableOpacity onPress={() => router.push('/(tabs)/add-stock')}>
-          <Ionicons name="add-circle" size={28} color="#1e40af" />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 15 }}>
+          <TouchableOpacity onPress={handleDeleteAll}>
+            <Ionicons name="trash-outline" size={28} color="#ef4444" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleSeedData}>
+            <Ionicons name="cloud-upload-outline" size={28} color="#1e40af" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/add-stock')}>
+            <Ionicons name="add-circle" size={28} color="#1e40af" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <View style={styles.searchContainer}>
@@ -154,22 +243,35 @@ export default function InventoryScreen() {
         <FlatList
           data={filteredInventory}
           keyExtractor={(item) => item._id || item.id || Math.random().toString()}
-          renderItem={({ item }) => (
-            <TouchableOpacity onPress={() => handleItemPress(item)}>
-              <ThemedView style={styles.itemCard}>
-              <View>
-                <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                <ThemedText style={styles.barcodeText}>
-                  {item.barcode ? `Barcode: ${item.barcode}` : 'No Barcode'}
-                </ThemedText>
-              </View>
-              <View style={styles.qtyContainer}>
-                <ThemedText type="title" style={{ fontSize: 18 }}>{item.quantity}</ThemedText>
-                <ThemedText style={styles.qtyLabel}>Qty</ThemedText>
-              </View>
-              </ThemedView>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const isLowStock = Number(item.quantity) < 5;
+            const price = Number(item.price || 0);
+            const cost = Number(item.costPrice || 0);
+            const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+
+            return (
+              <TouchableOpacity onPress={() => handleItemPress(item)}>
+                <ThemedView style={styles.itemCard}>
+                  <View>
+                    <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
+                    <ThemedText style={styles.barcodeText}>
+                      {item.barcode ? `Barcode: ${item.barcode}` : 'No Barcode'} • ${price.toFixed(2)}
+                    </ThemedText>
+                    <Text style={[styles.marginText, { color: margin >= 0 ? '#10b981' : '#ef4444' }]}>
+                      Margin: {margin.toFixed(1)}%
+                    </Text>
+                    {isLowStock && (
+                      <Text style={styles.lowStockText}>⚠️ Low Stock</Text>
+                    )}
+                  </View>
+                  <View style={styles.qtyContainer}>
+                    <ThemedText type="title" style={{ fontSize: 18, color: isLowStock ? '#ef4444' : undefined }}>{item.quantity}</ThemedText>
+                    <ThemedText style={styles.qtyLabel}>Qty</ThemedText>
+                  </View>
+                </ThemedView>
+              </TouchableOpacity>
+            );
+          }}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
           ListEmptyComponent={
@@ -212,4 +314,6 @@ const styles = StyleSheet.create({
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
+  lowStockText: { color: '#ef4444', fontSize: 12, fontWeight: 'bold', marginTop: 4 },
+  marginText: { fontSize: 12, marginTop: 2, fontWeight: '600' },
 });
