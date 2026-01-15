@@ -1,12 +1,28 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function CashierHome() {
   const router = useRouter();
-  const { name } = useLocalSearchParams();
+  const { name, role } = useLocalSearchParams();
   const cashierName = Array.isArray(name) ? name[0] : name;
+  const userRole = Array.isArray(role) ? role[0] : role;
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Logout", 
+          style: "destructive",
+          onPress: () => router.replace('/(auth)/login') 
+        }
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -19,10 +35,18 @@ export default function CashierHome() {
             <Text style={styles.brandTitle}>Stolarr POS</Text>
             <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
           </View>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Ionicons name="notifications" size={26} color="white" />
-            <View style={styles.notificationBadge}><Text style={styles.badgeText}>1</Text></View>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/profile-settings')}>
+              <Ionicons name="settings-outline" size={26} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={26} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.notificationBtn}>
+              <Ionicons name="notifications" size={26} color="white" />
+              <View style={styles.notificationBadge}><Text style={styles.badgeText}>1</Text></View>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -31,7 +55,7 @@ export default function CashierHome() {
         {/* 2. Large Start Selling Button */}
         <TouchableOpacity 
           style={styles.heroButton}
-          onPress={() => router.push('/(pos)/scan')}
+          onPress={() => router.push('/(tabs)/scan')}
         >
           <MaterialCommunityIcons name="barcode-scan" size={40} color="white" />
           <View style={styles.heroTextContainer}>
@@ -45,7 +69,7 @@ export default function CashierHome() {
           <View style={[styles.card, styles.leftCard]}>
              <TouchableOpacity 
                style={styles.miniHeroButton}
-               onPress={() => router.push('/(pos)/scan')}
+               onPress={() => router.push('/(tabs)/scan')}
              >
                 <MaterialCommunityIcons name="barcode-scan" size={24} color="white" />
                 <Text style={styles.miniHeroTitle}>START SELLING</Text>
@@ -70,6 +94,7 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
+              {(userRole === 'admin' || userRole === 'manager') && (
               <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/last-sales')}>
                 <View style={[styles.iconBox, { backgroundColor: '#fffbeb' }]}>
                   <Ionicons name="receipt" size={20} color="#f59e0b" />
@@ -79,6 +104,7 @@ export default function CashierHome() {
                   <Text style={styles.actionSub}>Receipts</Text>
                 </View>
               </TouchableOpacity>
+              )}
             </View>
 
             {/* Add Stock Card */}

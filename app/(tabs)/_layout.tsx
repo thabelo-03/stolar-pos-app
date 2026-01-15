@@ -1,30 +1,56 @@
 import { Ionicons } from '@expo/vector-icons';
+import * as Notifications from 'expo-notifications';
 import { Tabs } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL } from './api';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
 
 export default function TabLayout() {
   const colorScheme = useColorScheme();
   const [lowStockCount, setLowStockCount] = useState<number | undefined>(undefined);
 
   useEffect(() => {
+    const requestPermissions = async () => {
+      await Notifications.requestPermissionsAsync();
+    };
+
     const fetchLowStock = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/inventory`);
+        const response = await fetch(`${API_BASE_URL}/products`);
         const data = await response.json();
         if (response.ok && Array.isArray(data)) {
           // Count items with quantity less than 5
           const count = data.filter((item: any) => Number(item.quantity) < 5).length;
           setLowStockCount(count > 0 ? count : undefined);
+
+          if (count > 0) {
+            await Notifications.scheduleNotificationAsync({
+              content: {
+                title: "Low Stock Alert ⚠️",
+                body: `You have ${count} items running low on stock. Check Inventory.`,
+              },
+              trigger: null,
+            });
+          }
         }
       } catch (error) {
         // Silently fail for badge updates
       }
     };
 
+    requestPermissions();
     fetchLowStock();
   }, []);
 
@@ -109,6 +135,25 @@ export default function TabLayout() {
         options={{
           title: 'Add Stock',
           tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "add-circle" : "add-circle-outline"} color={color} />,
+        }}
+      />
+      
+      {/* New: Profit Report Tab */}
+      <Tabs.Screen
+        name="profit-report"
+        options={{
+          href: null,
+          title: 'Profit',
+          tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "trending-up" : "trending-up-outline"} color={color} />,
+        }}
+      />
+      
+      {/* New: Profile Settings Tab (Hidden) */}
+      <Tabs.Screen
+        name="profile-settings"
+        options={{
+          href: null,
+          title: 'Settings',
         }}
       />
       

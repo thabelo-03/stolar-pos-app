@@ -31,7 +31,7 @@ export default function CashierHome() {
         {/* 2. Large Start Selling Button */}
         <TouchableOpacity 
           style={styles.heroButton}
-          onPress={() => router.push('/(pos)/scan')}
+          onPress={() => router.push('/(tabs)/scan')}
         >
           <MaterialCommunityIcons name="barcode-scan" size={40} color="white" />
           <View style={styles.heroTextContainer}>
@@ -45,7 +45,7 @@ export default function CashierHome() {
           <View style={[styles.card, styles.leftCard]}>
              <TouchableOpacity 
                style={styles.miniHeroButton}
-               onPress={() => router.push('/(pos)/scan')}
+               onPress={() => router.push('/(tabs)/scan')}
              >
                 <MaterialCommunityIcons name="barcode-scan" size={24} color="white" />
                 <Text style={styles.miniHeroTitle}>START SELLING</Text>
@@ -77,6 +77,16 @@ export default function CashierHome() {
                 <View>
                   <Text style={styles.actionTitle}>My Last 10 Sales</Text>
                   <Text style={styles.actionSub}>Receipts</Text>
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/profit-report')}>
+                <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="trending-up" size={20} color="#16a34a" />
+                </View>
+                <View>
+                  <Text style={styles.actionTitle}>Profit Report</Text>
+                  <Text style={styles.actionSub}>Margins & Revenue</Text>
                 </View>
               </TouchableOpacity>
             </View>

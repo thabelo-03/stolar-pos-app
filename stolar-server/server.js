@@ -7,6 +7,7 @@ const Shop = require('./models/Shop');
 
 const User = require('./models/User'); // Import the User Model
 const Product = require('./models/Product'); // Import the Product Model
+const Sale = require('./models/Sale'); // Import the Sale Model
 
 const app = express();
 
@@ -122,8 +123,54 @@ app.post('/api/shops/register', async (req, res) => {
 });
 // --- PRODUCT ROUTES ---
 
+// GET PRODUCT BY BARCODE
+app.get('/api/products/:barcode', async (req, res) => {
+  try {
+    const product = await Product.findOne({ barcode: req.params.barcode });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    res.json(product);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // 3. ADD/UPDATE STOCK ROUTE
 app.post('/api/products/add', async (req, res) => {
+  // 1. Add costPrice to the destructuring
+  const { name, barcode, category, price, costPrice, quantity } = req.body; 
+
+  console.log("Received data:", req.body);
+
+  try {
+    let product = await Product.findOne({ barcode });
+    const addQty = isNaN(Number(quantity)) ? 0 : Number(quantity);
+
+    if (product) {
+      product.stockQuantity = (product.stockQuantity || 0) + addQty;
+      // 2. Optionally update price/costPrice if they changed
+      product.price = Number(price);
+      product.costPrice = Number(costPrice); 
+      product.updatedAt = Date.now();
+      await product.save();
+      return res.json({ success: true, message: "Stock updated", product });
+    } else {
+      product = new Product({ 
+        name, 
+        barcode, 
+        category, 
+        price: Number(price), 
+        costPrice: Number(costPrice), // 3. Save the cost price for new items
+        stockQuantity: addQty 
+      });
+      await product.save();
+      return res.status(201).json({ success: true, message: "New product registered", product });
+    }
+  } catch (err) {
+    console.error("Internal Server Error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+/*app.post('/api/products/add', async (req, res) => {
   const { name, barcode, category, price, quantity } = req.body;
 
   try {
@@ -141,6 +188,104 @@ app.post('/api/products/add', async (req, res) => {
     }
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});*/
+
+// --- SALES ROUTES ---
+
+// 1. RECORD A NEW SALE (CHECKOUT)
+app.post('/api/sales', async (req, res) => {
+  try {
+    const { items, total, paymentMethod, date } = req.body;
+
+    // Create new sale record
+    const newSale = new Sale({
+      items,
+      total,
+      paymentMethod,
+      date
+    });
+
+    await newSale.save();
+
+    // Deduct stock for each item
+    for (const item of items) {
+      if (item.barcode) {
+        const product = await Product.findOne({ barcode: item.barcode });
+        if (product) {
+          product.stockQuantity = Math.max(0, (product.stockQuantity || 0) - item.quantity);
+          await product.save();
+        }
+      }
+    }
+
+    res.status(201).json({ success: true, message: "Sale recorded successfully", sale: newSale });
+  } catch (err) {
+    console.error("Checkout Error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// REFUND A SALE
+app.post('/api/sales/:id/refund', async (req, res) => {
+  try {
+    const sale = await Sale.findById(req.params.id);
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+    if (sale.status === 'refunded') return res.status(400).json({ message: "Sale already refunded" });
+
+    // Restore Stock
+    for (const item of sale.items) {
+      if (item.barcode) {
+        const product = await Product.findOne({ barcode: item.barcode });
+        if (product) {
+          product.stockQuantity = (product.stockQuantity || 0) + item.quantity;
+          await product.save();
+        }
+      }
+    }
+
+    sale.status = 'refunded';
+    await sale.save();
+
+    res.json({ success: true, message: "Sale refunded successfully", sale });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 2. GET ALL SALES (For Reports)
+app.get('/api/sales', async (req, res) => {
+  try {
+    const sales = await Sale.find().sort({ date: -1 });
+    res.json(sales);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 3. GET RECENT SALES (Paginated)
+app.get('/api/sales/recent', async (req, res) => {
+  try {
+    const { limit = 10, page = 1 } = req.query;
+    const sales = await Sale.find()
+      .sort({ date: -1 })
+      .limit(Number(limit))
+      .skip((Number(page) - 1) * Number(limit));
+    
+    // Format data for frontend consistency if needed, but sending raw is fine too
+    // The frontend will handle the 'items' array
+    const formattedSales = sales.map(sale => ({
+      id: sale._id,
+      time: new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      total: sale.total,
+      items: sale.items, // Send the full array
+      amount: sale.total,
+      status: sale.status
+    }));
+
+    res.json(formattedSales);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
