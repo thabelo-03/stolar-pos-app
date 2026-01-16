@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Modal, SafeAreaView, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import CalendarView from '../../components/ui/CalendarView';
+import CalendarView from '@/components/ui/CalendarView';
 
 // Assume a type for your sales data for better type-checking
 interface SalesData {
@@ -15,7 +15,20 @@ interface SalesData {
 
 export default function OperationHub() {
   const router = useRouter();
-  const { branchCode, shopName } = useLocalSearchParams();
+  const { shop: shopString } = useLocalSearchParams();
+
+  // Parse the shop object from the navigation parameters
+  let shop: { name: string; branchCode: string } = { name: 'Shop', branchCode: 'N/A' };
+  if (typeof shopString === 'string') {
+    try {
+      shop = JSON.parse(shopString);
+    } catch (e) {
+      console.error("Failed to parse shop data", e);
+      // Handle error, maybe show a message or go back
+    }
+  }
+
+  const { name: shopName, branchCode } = shop;
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [isCalendarVisible, setCalendarVisible] = useState(false);
 

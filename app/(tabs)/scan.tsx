@@ -7,7 +7,6 @@ import { Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'rea
 export default function ScanScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
-  const [scanned, setScanned] = useState(false);
   const [manualEntry, setManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState('');
 
@@ -27,18 +26,17 @@ export default function ScanScreen() {
     );
   }
 
-  const handleBarCodeScanned = ({ type, data }: { type: string; data: string }) => {
-    setScanned(true);
-    // TODO: Handle the scanned data (e.g., add to cart)
-    alert(`Scanned: ${data}`);
-    
-    // Reset scan state after delay
-    setTimeout(() => setScanned(false), 2000);
+  const handleBarCodeScanned = ({ data }: { data: string }) => {
+    // Navigate to the cart screen with the scanned barcode
+    router.push({
+      pathname: '/(tabs)/cart',
+      params: { barcode: data },
+    });
   };
 
   const handleManualSubmit = () => {
     if (manualCode.trim()) {
-      handleBarCodeScanned({ type: 'manual', data: manualCode });
+      handleBarCodeScanned({ data: manualCode });
       setManualCode('');
       setManualEntry(false);
     }
@@ -51,7 +49,7 @@ export default function ScanScreen() {
       <CameraView
         style={styles.camera}
         facing="back"
-        onBarcodeScanned={scanned ? undefined : handleBarCodeScanned}
+        onBarcodeScanned={handleBarCodeScanned}
       >
         <View style={styles.overlay}>
           <TouchableOpacity style={styles.closeButton} onPress={() => router.back()}>

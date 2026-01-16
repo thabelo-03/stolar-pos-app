@@ -1,12 +1,26 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
-import { FlatList, Platform, RefreshControl, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FlatList, Platform, RefreshControl, StyleSheet, TouchableOpacity, View, ActivityIndicator } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
+import { API_BASE_URL } from '../config';
+
+interface Transaction {
+  id: string;
+  time: string;
+  amount: number;
+  items: string;
+}
+
+interface SummaryData {
+  totalSales: number;
+  numberOfTransactions: number;
+  transactions: Transaction[];
+}
 
 export default function DailySummaryScreen() {
   const router = useRouter();
@@ -14,6 +28,40 @@ export default function DailySummaryScreen() {
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<SummaryData | null>(null);
+
+  const fetchSummary = useCallback(async (selectedDate: Date) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const dateString = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD
+      const response = await fetch(`${API_BASE_URL}/sales/summary/${dateString}`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch summary data');
+      }
+      const data = await response.json();
+      setSummaryData(data);
+    } catch (e) {
+        if (e instanceof Error) {
+            setError(e.message);
+        } else {
+            setError('An unknown error occurred');
+        }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchSummary(date);
+  }, [date, fetchSummary]);
+
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    fetchSummary(date).finally(() => setRefreshing(false));
+  }, [date, fetchSummary]);
 
   const onChange = (event: any, selectedDate?: Date) => {
     setShowPicker(Platform.OS === 'ios');
@@ -21,19 +69,6 @@ export default function DailySummaryScreen() {
       setDate(selectedDate);
     }
   };
-
-  const onRefresh = () => {
-    setRefreshing(true);
-    // TODO: Fetch updated data from API here
-    setTimeout(() => setRefreshing(false), 1500);
-  };
-
-  const recentTransactions = [
-    { id: '1', time: '10:23 AM', amount: 24.50, items: 'Coffee, Bagel' },
-    { id: '2', time: '11:05 AM', amount: 12.00, items: 'Sandwich' },
-    { id: '3', time: '11:45 AM', amount: 8.75, items: 'Tea, Cookie' },
-    { id: '4', time: '12:30 PM', amount: 15.50, items: 'Salad, Water' },
-  ];
 
   return (
     <ThemedView style={styles.container}>
@@ -56,37 +91,51 @@ export default function DailySummaryScreen() {
         />
       )}
 
-      <ThemedView style={styles.statsContainer}>
-        <ThemedView style={styles.statItem}>
-          <ThemedText type="subtitle">Total Sales</ThemedText>
-          <ThemedText type="defaultSemiBold">$0.00</ThemedText>
-        </ThemedView>
-        
-        <ThemedView style={styles.statItem}>
-          <ThemedText type="subtitle">Transactions</ThemedText>
-          <ThemedText type="defaultSemiBold">0</ThemedText>
-        </ThemedView>
-      </ThemedView>
-
-      <ThemedText type="subtitle" style={styles.sectionTitle}>Recent Transactions</ThemedText>
-
-      <FlatList
-        data={recentTransactions}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <ThemedView style={styles.transactionItem}>
-            <View>
-              <ThemedText type="defaultSemiBold">${item.amount.toFixed(2)}</ThemedText>
-              <ThemedText style={styles.itemText}>{item.items}</ThemedText>
-            </View>
-            <ThemedText style={styles.timeText}>{item.time}</ThemedText>
+      {loading && !refreshing ? (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" />
+          <ThemedText>Loading summary...</ThemedText>
+        </View>
+      ) : error ? (
+        <View style={styles.centered}>
+          <ThemedText style={styles.errorText}>Error: {error}</ThemedText>
+        </View>
+      ) : summaryData ? (
+        <>
+          <ThemedView style={styles.statsContainer}>
+            <ThemedView style={styles.statItem}>
+              <ThemedText type="subtitle">Total Sales</ThemedText>
+              <ThemedText type="defaultSemiBold">${summaryData.totalSales.toFixed(2)}</ThemedText>
+            </ThemedView>
+            
+            <ThemedView style={styles.statItem}>
+              <ThemedText type="subtitle">Transactions</ThemedText>
+              <ThemedText type="defaultSemiBold">{summaryData.numberOfTransactions}</ThemedText>
+            </ThemedView>
           </ThemedView>
-        )}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
+
+          <ThemedText type="subtitle" style={styles.sectionTitle}>Transactions</ThemedText>
+
+          <FlatList
+            data={summaryData.transactions}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => (
+              <ThemedView style={styles.transactionItem}>
+                <View>
+                  <ThemedText type="defaultSemiBold">${item.amount.toFixed(2)}</ThemedText>
+                  <ThemedText style={styles.itemText}>{item.items}</ThemedText>
+                </View>
+                <ThemedText style={styles.timeText}>{item.time}</ThemedText>
+              </ThemedView>
+            )}
+            contentContainerStyle={styles.listContent}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+            }
+            ListEmptyComponent={<ThemedText style={styles.centered}>No transactions for this day.</ThemedText>}
+          />
+        </>
+      ) : null}
     </ThemedView>
   );
 }
@@ -144,5 +193,14 @@ const styles = StyleSheet.create({
   itemText: {
     fontSize: 14,
     opacity: 0.8,
+    flexShrink: 1,
   },
+  centered: {
+      flex: 1,
+      justifyContent: 'center',
+      alignItems: 'center'
+  },
+  errorText: {
+      color: 'red'
+  }
 });

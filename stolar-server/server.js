@@ -121,6 +121,17 @@ app.post('/api/shops/register', async (req, res) => {
     return res.status(500).json({ success: false, message: err.message });
   }
 });
+
+// GET ALL SHOPS
+app.get('/api/shops', async (req, res) => {
+  try {
+    const shops = await Shop.find().sort({ createdAt: -1 }); // Get newest first
+    res.json(shops);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // --- PRODUCT ROUTES ---
 
 // GET PRODUCT BY BARCODE
@@ -285,6 +296,44 @@ app.get('/api/sales/recent', async (req, res) => {
 
     res.json(formattedSales);
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET SALES SUMMARY FOR A SPECIFIC DATE
+app.get('/api/sales/summary/:dateString', async (req, res) => {
+  try {
+    const { dateString } = req.params;
+    const targetDate = new Date(dateString);
+    
+    // Set up the start and end of the day for the query
+    const startDate = new Date(targetDate.setHours(0, 0, 0, 0));
+    const endDate = new Date(targetDate.setHours(23, 59, 59, 999));
+
+    const sales = await Sale.find({
+      date: {
+        $gte: startDate,
+        $lte: endDate,
+      },
+    }).sort({ date: -1 });
+
+    const totalSales = sales.reduce((sum, sale) => sum + sale.total, 0);
+    const numberOfTransactions = sales.length;
+
+    res.json({
+      totalSales,
+      numberOfTransactions,
+      transactions: sales.map(sale => ({
+        id: sale._id,
+        time: new Date(sale.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        amount: sale.total,
+        // Flatten items to a string description
+        items: sale.items.map(item => `${item.name} (x${item.quantity})`).join(', '),
+        status: sale.status
+      }))
+    });
+  } catch (err) {
+    console.error("Sales summary error:", err);
     res.status(500).json({ message: err.message });
   }
 });
