@@ -55,7 +55,7 @@ export default function Login() {
         if (data.role === 'cashier') {
           if (!data.shopId) {
             // New Staff member: Needs to enter the Manager's Branch Code
-            router.replace('/(cashier)/link-shop');
+            router.replace('/(cashier)/my-shop');
           } else {
             // Established Staff: Go directly to the Sales POS
             await AsyncStorage.setItem('shopId', data.shopId);

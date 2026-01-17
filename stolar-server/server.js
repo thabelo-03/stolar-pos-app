@@ -146,6 +146,17 @@ app.get('/api/shops', async (req, res) => {
   }
 });
 
+// GET SINGLE SHOP BY ID
+app.get('/api/shops/:id', async (req, res) => {
+  try {
+    const shop = await Shop.findById(req.params.id).populate('manager', 'name email');
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+    res.json(shop);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // GET SHOP BY MANAGER ID
 app.get('/api/shops/manager/:managerId', async (req, res) => {
   try {
@@ -170,10 +181,18 @@ app.post('/api/shops/request-link', async (req, res) => {
       return res.status(404).json({ message: 'Shop with this code not found.' });
     }
 
-    // Check if a request already exists
-    const existingRequest = await LinkRequest.findOne({ cashier: userId, shop: shop._id });
+    // Check if user is already linked to a shop
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: 'User not found.' });
+
+    if (user.shopId) {
+      return res.status(400).json({ message: 'You are already linked to a shop.' });
+    }
+
+    // Check if user has ANY pending request
+    const existingRequest = await LinkRequest.findOne({ cashier: userId, status: 'pending' });
     if (existingRequest) {
-      return res.status(400).json({ message: 'You have already sent a request to this shop.' });
+      return res.status(400).json({ message: 'You already have a pending request.' });
     }
     
     // Create a new link request
@@ -185,18 +204,60 @@ app.post('/api/shops/request-link', async (req, res) => {
     await newRequest.save();
 
     // --- NOTIFICATION: Alert the Manager ---
-    const cashierUser = await User.findById(userId);
     await Notification.create({
       recipient: shop.manager,
       sender: userId,
       type: 'link_request',
-      message: `${cashierUser ? cashierUser.name : 'A cashier'} requested to join ${shop.name}`,
+      message: `${user.name} requested to join ${shop.name}`,
       relatedId: newRequest._id
     });
 
     res.status(201).json({ success: true, message: 'Link request sent successfully.' });
 
   } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 2. CASHIER: LEAVE CURRENT SHOP
+app.post('/api/shops/leave', async (req, res) => {
+  try {
+    const { userId } = req.body;
+
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    if (!user.shopId) {
+      return res.status(400).json({ message: "You are not currently linked to any shop." });
+    }
+
+    const shop = await Shop.findById(user.shopId);
+    
+    // 1. Remove cashier from Shop's list
+    if (shop) {
+      await Shop.findByIdAndUpdate(user.shopId, {
+        $pull: { cashiers: userId }
+      });
+
+      // Notify Manager
+      if (shop.manager) {
+        await Notification.create({
+          recipient: shop.manager,
+          sender: userId,
+          type: 'system',
+          message: `${user.name} has left the shop ${shop.name}.`
+        });
+      }
+    }
+
+    // 2. Remove shop link from User
+    user.shopId = null;
+    await user.save();
+
+    res.json({ success: true, message: "You have successfully left the shop." });
+
+  } catch (err) {
+    console.error("Leave Shop Error:", err.message);
     res.status(500).json({ message: err.message });
   }
 });
@@ -305,6 +366,31 @@ app.put('/api/shops/requests/:requestId', async (req, res) => {
     // This log will appear in your VS Code Terminal
     console.error("❌ PUT Request Crash:", err.message); 
     res.status(500).json({ message: "Server error: " + err.message });
+  }
+});
+
+// 4. CASHIER: CHECK MY PENDING REQUEST
+app.get('/api/shops/cashier-request/:userId', async (req, res) => {
+  try {
+    const request = await LinkRequest.findOne({ 
+      cashier: req.params.userId, 
+      status: 'pending' 
+    }).populate('shop', 'name branchCode');
+    
+    res.json(request || null); // Return null if no pending request found
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 5. CASHIER: CANCEL REQUEST
+app.delete('/api/shops/requests/:requestId', async (req, res) => {
+  try {
+    const request = await LinkRequest.findByIdAndDelete(req.params.requestId);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+    res.json({ success: true, message: "Request cancelled" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
