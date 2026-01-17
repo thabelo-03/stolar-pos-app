@@ -24,6 +24,7 @@ const ManagerIndex = () => {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
   const router = useRouter();
 
@@ -52,6 +53,14 @@ const ManagerIndex = () => {
           setShops([]);
         } else {
           throw new Error('Failed to fetch shops');
+        }
+
+        // Fetch notifications for badge count
+        const notifResponse = await fetch(`${API_BASE_URL}/notifications/${userId}`);
+        if (notifResponse.ok) {
+          const notifs = await notifResponse.json();
+          const count = notifs.filter((n: any) => !n.isRead).length;
+          setUnreadCount(count);
         }
       } catch (e) {
         if (e instanceof Error) {
@@ -138,6 +147,11 @@ const ManagerIndex = () => {
         <View style={styles.headerIcons}>
           <TouchableOpacity>
             <Ionicons name="notifications-outline" size={24} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
           </TouchableOpacity>
           <TouchableOpacity onPress={() => setMenuVisible(true)}>
             <Ionicons name="menu" size={24} color="#fff" style={{ marginLeft: 15 }} />
@@ -287,6 +301,25 @@ const styles = StyleSheet.create({
         marginLeft: 15,
         fontSize: 16,
         color: '#1e293b',
+    },
+    notificationBadge: {
+        position: 'absolute',
+        right: -6,
+        top: -6,
+        backgroundColor: '#ef4444',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5,
+        borderColor: '#1e40af',
+    },
+    notificationBadgeText: {
+        color: 'white',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });
 

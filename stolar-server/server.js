@@ -9,6 +9,7 @@ const User = require('./models/User'); // Import the User Model
 const Product = require('./models/Product'); // Import the Product Model
 const Sale = require('./models/Sale'); // Import the Sale Model
 const LinkRequest = require('./models/LinkRequest'); // Import the LinkRequest Model
+const Notification = require('./models/Notification'); // Import Notification Model
 
 const app = express();
 
@@ -183,6 +184,16 @@ app.post('/api/shops/request-link', async (req, res) => {
     });
     await newRequest.save();
 
+    // --- NOTIFICATION: Alert the Manager ---
+    const cashierUser = await User.findById(userId);
+    await Notification.create({
+      recipient: shop.manager,
+      sender: userId,
+      type: 'link_request',
+      message: `${cashierUser ? cashierUser.name : 'A cashier'} requested to join ${shop.name}`,
+      relatedId: newRequest._id
+    });
+
     res.status(201).json({ success: true, message: 'Link request sent successfully.' });
 
   } catch (err) {
@@ -190,6 +201,7 @@ app.post('/api/shops/request-link', async (req, res) => {
   }
 });
 
+/*
 // 2. MANAGER: GET PENDING REQUESTS FOR THEIR SHOP
 app.get('/api/shops/requests', async (req, res) => {
   try {
@@ -210,11 +222,55 @@ app.get('/api/shops/requests', async (req, res) => {
   }
 });
 
+// GET SINGLE REQUEST BY ID
+app.get('/api/shops/requests/:shopIdOrManagerId', async (req, res) => {
+  try {
+    const { managerId } = req.query;
+
+    const requests = await LinkRequest.find({
+      $or: [{ shop: id }, { manager: id }],
+      status: 'pending'
+    })
+      .populate('cashier', 'name email')
+      .populate('shop', 'name location');
+
+    // FIX: If no requests are found, return an empty array [] instead of 404
+    // if (!requests || requests.length === 0) {
+    //   return res.json([]); 
+    // }
+    // FIX: Always return an array, even if empty
+    if (!requests) {
+      return res.json([]); 
+    }
+
+    res.json(requests);
+  } catch (err) {
+    // If there's an error, don't just send the error object to the frontend
+    res.status(500).json([]); 
+  }
+});
+app.get('/api/shops/requests/:shopIdOrManagerId', async (req, res) => {
+  try {
+    const requests = await LinkRequest.find({
+      $or: [{ shop: id }, { manager: id }],
+      status: 'pending'
+    })
+      .populate('cashier', 'name email')
+      .populate('shop', 'name location');
+
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    res.json(request);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+*/
 // 3. MANAGER: APPROVE OR REJECT A REQUEST
 app.put('/api/shops/requests/:requestId', async (req, res) => {
   try {
     const { requestId } = req.params;
-    const { status } = req.body; // 'approved' or 'rejected'
+    const { status } = req.body; // Expecting 'approved' or 'rejected'
 
     const request = await LinkRequest.findById(requestId);
     if (!request) {
@@ -222,14 +278,19 @@ app.put('/api/shops/requests/:requestId', async (req, res) => {
     }
 
     if (status === 'approved') {
-      // Update the request status
       request.status = 'approved';
 
       // 1. Add cashier to the shop's list
-      await Shop.findByIdAndUpdate(request.shop, { $addToSet: { cashiers: request.cashier } });
+      // Ensure your Shop model has a 'cashiers' array field!
+      await Shop.findByIdAndUpdate(request.shop, { 
+        $addToSet: { cashiers: request.cashier } 
+      });
       
-      // 2. Assign the shop to the cashier
-      await User.findByIdAndUpdate(request.cashier, { shopId: request.shop });
+      // 2. Assign the shop to the cashier's user profile
+      // Ensure your User model has a 'shopId' field!
+      await User.findByIdAndUpdate(request.cashier, { 
+        shopId: request.shop 
+      });
 
     } else if (status === 'rejected') {
       request.status = 'rejected';
@@ -241,10 +302,37 @@ app.put('/api/shops/requests/:requestId', async (req, res) => {
     res.json({ success: true, message: `Request has been ${status}.` });
 
   } catch (err) {
-    res.status(500).json({ message: err.message });
+    // This log will appear in your VS Code Terminal
+    console.error("❌ PUT Request Crash:", err.message); 
+    res.status(500).json({ message: "Server error: " + err.message });
   }
 });
 
+// REPLACE all /api/shops/requests routes with this:
+app.get('/api/shops/requests/:id', async (req, res) => {
+  try {
+    const identifier = req.params.id;
+
+    // We check if the ID belongs to a Shop OR a Manager
+    // This handles both ways your frontend might call it
+    const requests = await LinkRequest.find({
+      $or: [
+        { shop: identifier },
+        { manager: identifier }
+      ],
+      status: 'pending'
+    })
+    .populate('cashier', 'name email')
+    .populate('shop', 'name location');
+
+    // IMPORTANT: Always return an array (even if empty) to prevent frontend .map() errors
+    res.json(requests || []);
+
+  } catch (err) {
+    console.error("❌ Server Error in Fetch Requests:", err.message);
+    res.status(500).json([]); 
+  }
+});
 
 // --- PRODUCT ROUTES ---
 
@@ -451,6 +539,62 @@ app.get('/api/sales/summary/:dateString', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+// --- NOTIFICATION ROUTES ---
+
+// GET NOTIFICATIONS FOR A USER
+// 1. GET: Fetch notifications for a specific user
+app.get('/api/notifications/:userId', async (req, res) => {
+  try {
+    const notifications = await Notification.find({ recipient: req.params.userId })
+      .sort({ createdAt: -1 }) // Newest first
+      .limit(20);
+    
+    // Always return an array to avoid frontend .map() crashes
+    res.json(notifications || []);
+  } catch (err) {
+    console.error("Fetch Notifications Error:", err.message);
+    res.status(500).json([]);
+  }
+});
+
+// 2. PUT: Mark a notification as read
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    const notification = await Notification.findByIdAndUpdate(
+      req.params.id,
+      { isRead: true },
+      { new: true }
+    );
+    
+    if (!notification) return res.status(404).json({ message: "Notification not found" });
+    
+    res.json({ success: true, notification });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+/*app.get('/api/notifications/:userId', async (req, res) => {
+  try {
+    const notifications = await Notification.find({ recipient: req.params.userId })
+      .sort({ createdAt: -1 }) // Newest first
+      .limit(20);
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// MARK NOTIFICATION AS READ
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});*/
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));

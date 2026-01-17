@@ -8,6 +8,7 @@ import {
   Alert,
   Clipboard // Added for professional copy-to-clipboard
   ,
+
   Modal,
   SafeAreaView,
   ScrollView,
@@ -67,7 +68,12 @@ export default function OperationHub() {
       // We fetch requests specifically for this branch ID
       const response = await fetch(`${API_BASE_URL}/shops/requests/${shop._id}`);
       const data = await response.json();
-      setPendingRequests(data);
+      //setPendingRequests(data);
+      if (Array.isArray(data)) {
+        setPendingRequests(data);
+      } else {
+        setPendingRequests([]); // Fallback to empty array if it's an error object
+      }
     } catch (error) {
       console.error('Fetch Error', error);
     } finally {
@@ -175,7 +181,7 @@ export default function OperationHub() {
             <Text style={styles.sectionHeader}>Join Requests</Text>
             {isLoading ? <ActivityIndicator color="#1e40af" /> : (
                 <ScrollView>
-                    {pendingRequests.length === 0 ? (
+                    {Array.isArray(pendingRequests) &&pendingRequests.length === 0 ? (
                         <Text style={styles.emptyText}>No pending requests for this branch.</Text>
                     ) : pendingRequests.map(req => (
                         <View key={req._id} style={styles.requestCard}>
