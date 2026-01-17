@@ -94,6 +94,16 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
+              <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(cashier)/link-shop')}>
+                <View style={[styles.iconBox, { backgroundColor: '#eef2ff' }]}>
+                  <Ionicons name="link" size={20} color="#6366f1" />
+                </View>
+                <View>
+                  <Text style={styles.actionTitle}>Link Shop</Text>
+                  <Text style={styles.actionSub}>Connect to a shop</Text>
+                </View>
+              </TouchableOpacity>
+
               {(userRole === 'admin' || userRole === 'manager') && (
               <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/last-sales')}>
                 <View style={[styles.iconBox, { backgroundColor: '#fffbeb' }]}>

@@ -8,6 +8,7 @@ const Shop = require('./models/Shop');
 const User = require('./models/User'); // Import the User Model
 const Product = require('./models/Product'); // Import the Product Model
 const Sale = require('./models/Sale'); // Import the Sale Model
+const LinkRequest = require('./models/LinkRequest'); // Import the LinkRequest Model
 
 const app = express();
 
@@ -61,7 +62,8 @@ app.post('/api/auth/login', async (req, res) => {
       success: true, 
       role: user.role, 
       name: user.name, 
-      id: user._id
+      id: user._id,
+      shopId: user.shopId // Include shopId in the response
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -73,6 +75,17 @@ app.get('/api/users', async (req, res) => {
     // We find all users but hide their passwords for security
     const users = await User.find({}, '-password').sort({ name: 1 });
     res.json(users);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// GET USER BY ID
+app.get('/api/users/:userId', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.userId, '-password');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
@@ -131,6 +144,107 @@ app.get('/api/shops', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
+
+// GET SHOP BY MANAGER ID
+app.get('/api/shops/manager/:managerId', async (req, res) => {
+  try {
+    const shop = await Shop.findOne({ manager: req.params.managerId });
+    if (!shop) return res.status(404).json({ message: "Shop not found for this manager" });
+    res.json(shop);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// --- SHOP LINKING ROUTES ---
+
+// 1. CASHIER: REQUEST TO LINK WITH A SHOP
+app.post('/api/shops/request-link', async (req, res) => {
+  try {
+    const { branchCode, userId } = req.body; // userId is the cashier's ID
+
+    // Find the shop by its unique branch code
+    const shop = await Shop.findOne({ branchCode });
+    if (!shop) {
+      return res.status(404).json({ message: 'Shop with this code not found.' });
+    }
+
+    // Check if a request already exists
+    const existingRequest = await LinkRequest.findOne({ cashier: userId, shop: shop._id });
+    if (existingRequest) {
+      return res.status(400).json({ message: 'You have already sent a request to this shop.' });
+    }
+    
+    // Create a new link request
+    const newRequest = new LinkRequest({
+      cashier: userId,
+      shop: shop._id,
+      manager: shop.manager, // Add manager to the request
+    });
+    await newRequest.save();
+
+    res.status(201).json({ success: true, message: 'Link request sent successfully.' });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 2. MANAGER: GET PENDING REQUESTS FOR THEIR SHOP
+app.get('/api/shops/requests', async (req, res) => {
+  try {
+    const { managerId } = req.query; // Manager's ID from query
+
+    // Find pending requests for this manager and populate cashier and shop info
+    const requests = await LinkRequest.find({ manager: managerId, status: 'pending' })
+      .populate('cashier', 'name email') // Populate cashier's name and email
+      .populate('shop', 'name location'); // Populate shop's name and location
+
+    if (!requests) {
+      return res.status(404).json({ message: 'No pending requests found for you.' });
+    }
+
+    res.json(requests);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 3. MANAGER: APPROVE OR REJECT A REQUEST
+app.put('/api/shops/requests/:requestId', async (req, res) => {
+  try {
+    const { requestId } = req.params;
+    const { status } = req.body; // 'approved' or 'rejected'
+
+    const request = await LinkRequest.findById(requestId);
+    if (!request) {
+      return res.status(404).json({ message: 'Request not found.' });
+    }
+
+    if (status === 'approved') {
+      // Update the request status
+      request.status = 'approved';
+
+      // 1. Add cashier to the shop's list
+      await Shop.findByIdAndUpdate(request.shop, { $addToSet: { cashiers: request.cashier } });
+      
+      // 2. Assign the shop to the cashier
+      await User.findByIdAndUpdate(request.cashier, { shopId: request.shop });
+
+    } else if (status === 'rejected') {
+      request.status = 'rejected';
+    } else {
+      return res.status(400).json({ message: 'Invalid status update.' });
+    }
+
+    await request.save();
+    res.json({ success: true, message: `Request has been ${status}.` });
+
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 
 // --- PRODUCT ROUTES ---
 

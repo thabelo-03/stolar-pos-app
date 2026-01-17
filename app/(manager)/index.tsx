@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator, SafeAreaView, Modal } from 'react-native';
-import { useRouter } from 'expo-router';
-import { API_BASE_URL } from '../config';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { Ionicons } from '@expo/vector-icons'; // Import Ionicons
+import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_BASE_URL } from '../config';
 
 interface Shop {
   _id: string;
@@ -13,25 +14,45 @@ interface Shop {
   branchCode: string;
 }
 
+interface User {
+  name: string;
+  email: string;
+}
+
 const ManagerIndex = () => {
   const [shops, setShops] = useState<Shop[]>([]);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [menuVisible, setMenuVisible] = useState(false);
   const router = useRouter();
 
-  const userName = "Danger Dumani";
-  const userEmail = "danger.dumani@example.com";
-
   useEffect(() => {
-    const fetchShops = async () => {
+    const fetchData = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/shops`);
-        if (!response.ok) {
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) {
+          throw new Error('User not logged in');
+        }
+
+        // Fetch user data
+        const userResponse = await fetch(`${API_BASE_URL}/users/${userId}`);
+        if (!userResponse.ok) {
+          throw new Error('Failed to fetch user data');
+        }
+        const userData = await userResponse.json();
+        setUser(userData);
+
+        // Fetch all shops data
+        const shopResponse = await fetch(`${API_BASE_URL}/shops`);
+        if (shopResponse.ok) {
+          const shopData = await shopResponse.json();
+          setShops(shopData);
+        } else if (shopResponse.status === 404) {
+          setShops([]);
+        } else {
           throw new Error('Failed to fetch shops');
         }
-        const data = await response.json();
-        setShops(data);
       } catch (e) {
         if (e instanceof Error) {
             setError(e.message);
@@ -43,7 +64,7 @@ const ManagerIndex = () => {
       }
     };
 
-    fetchShops();
+    fetchData();
   }, []);
 
   const handleShopPress = (shop: Shop) => {
@@ -55,7 +76,7 @@ const ManagerIndex = () => {
 
   const handleSignOut = () => {
     setMenuVisible(false);
-    // Implement your sign-out logic here
+    AsyncStorage.clear();
     router.replace('/(auth)/login');
   };
 
@@ -63,7 +84,7 @@ const ManagerIndex = () => {
     return (
       <ThemedView style={styles.container}>
         <ActivityIndicator size="large" />
-        <ThemedText>Loading shops...</ThemedText>
+        <ThemedText>Loading...</ThemedText>
       </ThemedView>
     );
   }
@@ -72,6 +93,9 @@ const ManagerIndex = () => {
     return (
       <ThemedView style={styles.container}>
         <ThemedText style={styles.errorText}>Error: {error}</ThemedText>
+        <TouchableOpacity onPress={() => router.replace('/(auth)/login')}>
+          <Text>Go to Login</Text>
+        </TouchableOpacity>
       </ThemedView>
     );
   }
@@ -108,8 +132,8 @@ const ManagerIndex = () => {
 
       <View style={styles.header}>
         <View>
-          <Text style={styles.userName}>{userName}</Text>
-          <Text style={styles.userEmail}>{userEmail}</Text>
+          <Text style={styles.userName}>{user?.name}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity>
@@ -120,7 +144,7 @@ const ManagerIndex = () => {
           </TouchableOpacity>
         </View>
       </View>
-      <ThemedText style={styles.title}>Your Shops</ThemedText>
+      <ThemedText style={styles.title}>Shops</ThemedText>
       <FlatList
         data={shops}
         keyExtractor={(item) => item._id}
@@ -136,13 +160,13 @@ const ManagerIndex = () => {
             <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
           </TouchableOpacity>
         )}
-        ListFooterComponent={() => (
+        ListEmptyComponent={() => (
           <TouchableOpacity
             style={styles.registerShopButton}
             onPress={() => router.push('/(manager)/register-shop')}
           >
             <Ionicons name="add-circle-outline" size={24} color="#1e40af" />
-            <Text style={styles.registerShopButtonText}>Register Another Shop</Text>
+            <Text style={styles.registerShopButtonText}>Register a New Shop</Text>
           </TouchableOpacity>
         )}
       />
