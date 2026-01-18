@@ -49,7 +49,7 @@ export const OfflineService = {
 
     for (const sale of [...queue]) {
       try {
-        const response = await fetch(`${API_BASE_URL}/sales/create`, {
+        const response = await fetch(`${API_BASE_URL}/sales`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(sale),

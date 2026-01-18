@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { API_BASE_URL } from '../config';
 
 export default function RegisterShop() {
   const router = useRouter();
@@ -37,7 +38,7 @@ export default function RegisterShop() {
     setLoading(true);
 
     try {
-      const response = await fetch('http://192.168.54.12:5000/api/shops/register', {
+      const response = await fetch(`${API_BASE_URL}/shops/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

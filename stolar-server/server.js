@@ -103,7 +103,29 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+// --- USER ROUTES ---
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id).select('-password');
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json(user);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // --- SHOP MANAGEMENT ---
+
+app.get('/api/shops', async (req, res) => {
+  try {
+    const { managerId } = req.query;
+    const query = managerId ? { manager: managerId } : {};
+    const shops = await Shop.find(query);
+    res.json(shops);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 app.post('/api/shops/register', async (req, res) => {
   try {
@@ -122,6 +144,32 @@ app.post('/api/shops/register', async (req, res) => {
     res.status(201).json({ success: true, branchCode: generatedCode, shop: newShop });
   } catch (err) {
     res.status(500).json({ success: false, message: err.message });
+  }
+});
+
+app.put('/api/shops/:id', async (req, res) => {
+  try {
+    const { name, location } = req.body;
+    const shop = await Shop.findByIdAndUpdate(
+      req.params.id,
+      { name, location },
+      { new: true } // Return the updated document
+    );
+
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+    res.json({ success: true, shop });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete('/api/shops/:id', async (req, res) => {
+  try {
+    const shop = await Shop.findByIdAndDelete(req.params.id);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+    res.json({ success: true, message: "Shop deleted" });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -235,4 +283,4 @@ app.get('/api/shops/requests/:id', async (req, res) => {
 // (Keep your other existing link request routes below...)
 
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
+app.listen(PORT, '0.0.0.0', () => console.log(`🚀 Server running on port ${PORT}`));

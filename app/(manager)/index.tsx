@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, SafeAreaView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from '../config';
 
 interface Shop {
@@ -26,6 +26,11 @@ const ManagerIndex = () => {
   const [error, setError] = useState<string | null>(null);
   const [unreadCount, setUnreadCount] = useState(0);
   const [menuVisible, setMenuVisible] = useState(false);
+  const [editModalVisible, setEditModalVisible] = useState(false);
+  const [editingShop, setEditingShop] = useState<Shop | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editLocation, setEditLocation] = useState('');
+  const [saving, setSaving] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -45,7 +50,7 @@ const ManagerIndex = () => {
         setUser(userData);
 
         // Fetch all shops data
-        const shopResponse = await fetch(`${API_BASE_URL}/shops`);
+        const shopResponse = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
         if (shopResponse.ok) {
           const shopData = await shopResponse.json();
           setShops(shopData);
@@ -81,6 +86,72 @@ const ManagerIndex = () => {
       pathname: '/(manager)/operations-hub',
       params: { shop: JSON.stringify(shop) },
     });
+  };
+
+  const handleEditPress = (shop: Shop) => {
+    setEditingShop(shop);
+    setEditName(shop.name);
+    setEditLocation(shop.location);
+    setEditModalVisible(true);
+  };
+
+  const saveEditShop = async () => {
+    if (!editingShop) return;
+    if (!editName.trim() || !editLocation.trim()) {
+        Alert.alert("Error", "Name and Location are required");
+        return;
+    }
+
+    setSaving(true);
+    try {
+        const response = await fetch(`${API_BASE_URL}/shops/${editingShop._id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: editName, location: editLocation }),
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+            setShops(prev => prev.map(s => s._id === editingShop._id ? { ...s, name: editName, location: editLocation } : s));
+            setEditModalVisible(false);
+            Alert.alert("Success", "Shop updated successfully");
+        } else {
+            Alert.alert("Error", data.message || "Failed to update shop");
+        }
+    } catch (e) {
+        Alert.alert("Error", "Network error");
+    } finally {
+        setSaving(false);
+    }
+  };
+
+  const handleDeleteShop = (shopId: string, shopName: string) => {
+    Alert.alert(
+      "Delete Shop",
+      `Are you sure you want to delete ${shopName}? This cannot be undone.`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const response = await fetch(`${API_BASE_URL}/shops/${shopId}`, {
+                method: 'DELETE',
+              });
+              if (response.ok) {
+                setShops(prev => prev.filter(shop => shop._id !== shopId));
+              } else {
+                Alert.alert("Error", "Failed to delete shop");
+              }
+            } catch (e) {
+              Alert.alert("Error", "Network error");
+            }
+          }
+        }
+      ]
+    );
   };
 
   const handleSignOut = () => {
@@ -139,6 +210,45 @@ const ManagerIndex = () => {
         </TouchableOpacity>
       </Modal>
 
+      {/* Edit Shop Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={editModalVisible}
+        onRequestClose={() => setEditModalVisible(false)}
+      >
+        <View style={styles.centeredModalOverlay}>
+            <View style={styles.editModalContent}>
+                <Text style={styles.modalTitle}>Edit Shop</Text>
+                
+                <Text style={styles.label}>Shop Name</Text>
+                <TextInput 
+                    style={styles.input} 
+                    value={editName} 
+                    onChangeText={setEditName} 
+                    placeholder="Shop Name"
+                />
+
+                <Text style={styles.label}>Location</Text>
+                <TextInput 
+                    style={styles.input} 
+                    value={editLocation} 
+                    onChangeText={setEditLocation} 
+                    placeholder="Location"
+                />
+
+                <View style={styles.modalButtons}>
+                    <TouchableOpacity style={[styles.modalButton, styles.cancelButton]} onPress={() => setEditModalVisible(false)}>
+                        <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={saveEditShop} disabled={saving}>
+                        {saving ? <ActivityIndicator color="#fff" /> : <Text style={[styles.buttonText, { color: '#fff' }]}>Save</Text>}
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+      </Modal>
+
       <View style={styles.header}>
         <View>
           <Text style={styles.userName}>{user?.name}</Text>
@@ -171,7 +281,15 @@ const ManagerIndex = () => {
                 <ThemedText style={styles.shopLocation}>{item.location}</ThemedText>
               </View>
             </View>
-            <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+              <TouchableOpacity onPress={() => handleEditPress(item)} style={{ padding: 8 }}>
+                <Ionicons name="create-outline" size={24} color="#1e40af" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => handleDeleteShop(item._id, item.name)} style={{ padding: 8 }}>
+                <Ionicons name="trash-outline" size={24} color="#ef4444" />
+              </TouchableOpacity>
+              <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+            </View>
           </TouchableOpacity>
         )}
         ListEmptyComponent={() => (
@@ -301,6 +419,60 @@ const styles = StyleSheet.create({
         marginLeft: 15,
         fontSize: 16,
         color: '#1e293b',
+    },
+    centeredModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    editModalContent: {
+        backgroundColor: 'white',
+        width: '85%',
+        borderRadius: 20,
+        padding: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 15,
+        textAlign: 'center',
+        color: '#1e293b',
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        marginBottom: 5,
+        color: '#334155',
+    },
+    input: {
+        borderWidth: 1,
+        borderColor: '#cbd5e1',
+        borderRadius: 8,
+        padding: 10,
+        marginBottom: 15,
+        fontSize: 16,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginTop: 10,
+    },
+    modalButton: {
+        flex: 1,
+        padding: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+        marginHorizontal: 5,
+    },
+    cancelButton: {
+        backgroundColor: '#e2e8f0',
+    },
+    saveButton: {
+        backgroundColor: '#1e40af',
+    },
+    buttonText: {
+        fontWeight: 'bold',
     },
     notificationBadge: {
         position: 'absolute',
