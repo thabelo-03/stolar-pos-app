@@ -6,15 +6,14 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Clipboard // Added for professional copy-to-clipboard
-  ,
-
+  Clipboard,
   Modal,
   SafeAreaView,
   ScrollView,
   Share,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
@@ -22,11 +21,7 @@ import { API_BASE_URL } from '../config';
 
 interface LinkRequest {
   _id: string;
-  cashier: {
-    _id: string;
-    name: string;
-    email: string;
-  };
+  cashier: { _id: string; name: string; email: string; };
   status: string;
 }
 
@@ -41,7 +36,15 @@ export default function OperationHub() {
   const [pendingRequests, setPendingRequests] = useState<LinkRequest[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // --- 1. SHOP DATA INITIALIZATION ---
+  // --- MULTI-CURRENCY & RATES STATE ---
+  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
+  const [tempZar, setTempZar] = useState('19.2'); 
+  const [tempZig, setTempZig] = useState('26.5');
+
+  // Placeholder stats (In production, fetch from /sales/stats?shopId=...&date=...)
+  const statsUSD = { sales: 150.50, orders: 12 }; 
+
   useEffect(() => {
     const loadShopData = async () => {
       if (typeof shopString === 'string') {
@@ -49,57 +52,87 @@ export default function OperationHub() {
           const parsed = JSON.parse(shopString);
           setShop(parsed);
           await AsyncStorage.setItem('activeShop', shopString);
-        } catch (e) {
-          console.error("Parse Error", e);
-        }
+          fetchCurrentRates(parsed._id); // Fetch saved rates for this shop
+        } catch (e) { console.error("Parse Error", e); }
       } else {
         const stored = await AsyncStorage.getItem('activeShop');
-        if (stored) setShop(JSON.parse(stored));
+        if (stored) {
+            const parsed = JSON.parse(stored);
+            setShop(parsed);
+            fetchCurrentRates(parsed._id);
+        }
       }
     };
     loadShopData();
   }, [shopString]);
 
-  // --- 2. STAFF REQUESTS LOGIC ---
-  const fetchRequests = async () => {
+  // --- API: FETCH SAVED RATES ---
+  const fetchCurrentRates = async (shopId: string) => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/shops/rates/${shopId}`);
+      if (res.ok) {
+        const data = await res.json();
+        setRates(data.rates);
+        setTempZar(data.rates.ZAR.toString());
+        setTempZig(data.rates.ZiG.toString());
+      }
+    } catch (e) { console.log("Using default rates"); }
+  };
+
+  // --- API: UPDATE RATES ---
+  const updateRates = async () => {
     if (!shop?._id) return;
     setIsLoading(true);
     try {
-      // We fetch requests specifically for this branch ID
-      const response = await fetch(`${API_BASE_URL}/shops/requests/${shop._id}`);
-      const data = await response.json();
-      //setPendingRequests(data);
-      if (Array.isArray(data)) {
-        setPendingRequests(data);
+      const newRates = { ZAR: parseFloat(tempZar), ZiG: parseFloat(tempZig) };
+      
+      const response = await fetch(`${API_BASE_URL}/shops/update-rates`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shopId: shop._id,
+          rates: newRates
+        })
+      });
+
+      if (response.ok) {
+        setRates(newRates);
+        Alert.alert("Success", "Daily exchange rates updated for all cashiers.");
       } else {
-        setPendingRequests([]); // Fallback to empty array if it's an error object
+        Alert.alert("Error", "Failed to save rates to server.");
       }
     } catch (error) {
-      console.error('Fetch Error', error);
+      Alert.alert("Network Error", "Check your connection.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  useEffect(() => {
-    if (isStaffModalVisible) fetchRequests();
-  }, [isStaffModalVisible]);
+  const formatValue = (val: number) => {
+    if (displayCurrency === 'ZAR') return `R ${(val * rates.ZAR).toFixed(2)}`;
+    if (displayCurrency === 'ZiG') return `ZiG ${(val * rates.ZiG).toFixed(2)}`;
+    return `$ ${val.toFixed(2)}`;
+  };
 
-  // --- 3. WHATSAPP / SHARE LOGIC ---
+  // --- STAFF REQUESTS ---
+  const fetchRequests = async () => {
+    if (!shop?._id) return;
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/shops/requests/${shop._id}`);
+      const data = await response.json();
+      setPendingRequests(Array.isArray(data) ? data : []);
+    } catch (error) { console.error('Fetch Error', error); }
+    finally { setIsLoading(false); }
+  };
+
   const handleShareCode = async () => {
     if (!shop) return;
-    const msg = `Stolar POS Link\n\nShop: ${shop.name}\nCode: ${shop.branchCode}\n\nCashiers: Enter this code to join my branch!`;
-    
+    const msg = `Stolar POS Link\nShop: ${shop.name}\nCode: ${shop.branchCode}\n\nJoin my branch!`;
     try {
-      // Copy to clipboard first as a backup
       Clipboard.setString(shop.branchCode);
-      
-      await Share.share({
-        message: msg,
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Could not initiate share.');
-    }
+      await Share.share({ message: msg });
+    } catch (error) { Alert.alert('Error', 'Could not share.'); }
   };
 
   const handleRequestUpdate = async (requestId: string, status: 'approved' | 'rejected') => {
@@ -109,31 +142,23 @@ export default function OperationHub() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status })
       });
-
       if (response.ok) {
-        Alert.alert('Success', `Cashier has been ${status}.`);
+        Alert.alert('Success', `Staff member ${status}.`);
         fetchRequests();
       }
-    } catch (error) {
-      Alert.alert('Error', 'Action failed.');
-    }
+    } catch (error) { Alert.alert('Error', 'Action failed.'); }
   };
 
-  if (!shop) return <ActivityIndicator size="large" style={{flex: 1}} />;
+  if (!shop) return <ActivityIndicator size="large" color="#1e40af" style={{flex: 1}} />;
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}>
-          <Ionicons name="arrow-back" size={24} color="white" />
-        </TouchableOpacity>
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="white" /></TouchableOpacity>
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerSubtitle}>Operational Hub</Text>
           <Text style={styles.headerTitle}>{shop.name}</Text>
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{shop.branchCode}</Text>
-          </View>
+          <View style={styles.badge}><Text style={styles.badgeText}>{shop.branchCode}</Text></View>
         </View>
         <TouchableOpacity style={styles.staffBtn} onPress={() => setStaffModalVisible(true)}>
           <Ionicons name="people" size={26} color="white" />
@@ -142,17 +167,55 @@ export default function OperationHub() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Simplified Dashboard Metrics */}
+        {/* VIEW MODE TOGGLE */}
+        <View style={styles.currencyToggleRow}>
+            <Text style={styles.sectionHeader}>View Stats In:</Text>
+            <View style={styles.toggleContainer}>
+                {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+                    <TouchableOpacity 
+                        key={curr} 
+                        onPress={() => setDisplayCurrency(curr)}
+                        style={[styles.toggleBtn, displayCurrency === curr && styles.toggleBtnActive]}
+                    >
+                        <Text style={[styles.toggleBtnText, displayCurrency === curr && styles.toggleBtnTextActive]}>{curr}</Text>
+                    </TouchableOpacity>
+                ))}
+            </View>
+        </View>
+
         <View style={styles.dateBar}>
-            <Text style={styles.dateLabel}>Stats for: {selectedDate.toDateString()}</Text>
-            <TouchableOpacity onPress={() => setCalendarVisible(true)}>
-                <Ionicons name="calendar" size={20} color="#1e40af" />
-            </TouchableOpacity>
+            <Text style={styles.dateLabel}>Date: {selectedDate.toDateString()}</Text>
+            <TouchableOpacity onPress={() => setCalendarVisible(true)}><Ionicons name="calendar" size={20} color="#1e40af" /></TouchableOpacity>
         </View>
 
         <View style={styles.statsGrid}>
-            <MetricBox label="Daily Sales" value="R 0.00" color="#eff6ff" text="#1e40af" />
-            <MetricBox label="Orders" value="0" color="#f0fdf4" text="#16a34a" />
+            <MetricBox label="Revenue" value={formatValue(statsUSD.sales)} color="#eff6ff" text="#1e40af" />
+            <MetricBox label="Orders" value={statsUSD.orders.toString()} color="#f0fdf4" text="#16a34a" />
+        </View>
+
+        {/* SET DAILY RATES */}
+        <View style={styles.rateCard}>
+            <View style={styles.cardHeader}>
+                <Ionicons name="trending-up" size={18} color="#1e293b" />
+                <Text style={styles.cardTitle}>Daily Exchange Rates (vs $1 USD)</Text>
+            </View>
+            <View style={styles.rateInputRow}>
+                <View style={styles.rateField}>
+                    <Text style={styles.rateLabel}>ZAR (Rands)</Text>
+                    <TextInput style={styles.rateInput} value={tempZar} onChangeText={setTempZar} keyboardType="numeric" />
+                </View>
+                <View style={styles.rateField}>
+                    <Text style={styles.rateLabel}>ZiG (Local)</Text>
+                    <TextInput style={styles.rateInput} value={tempZig} onChangeText={setTempZig} keyboardType="numeric" />
+                </View>
+            </View>
+            <TouchableOpacity 
+                style={[styles.updateRateBtn, isLoading && {opacity: 0.6}]} 
+                onPress={updateRates}
+                disabled={isLoading}
+            >
+                {isLoading ? <ActivityIndicator size="small" color="#1e40af" /> : <Text style={styles.updateRateText}>Update Branch Rates</Text>}
+            </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.mainAction} onPress={() => router.push('/(manager)/inventory')}>
@@ -161,59 +224,40 @@ export default function OperationHub() {
         </TouchableOpacity>
       </ScrollView>
 
-      {/* Staff Modal */}
+      {/* Staff Request Modal */}
       <Modal visible={isStaffModalVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalBody}>
-            <Text style={styles.modalTitle}>Branch Staff Link</Text>
-            
+            <Text style={styles.modalTitle}>Branch Staff Management</Text>
             <View style={styles.shareCodeCard}>
-                <Text style={styles.shareLabel}>Cashier Invite Code</Text>
+                <Text style={styles.shareLabel}>Share Invite Code</Text>
                 <View style={styles.codeRow}>
                     <Text style={styles.codeDisplay}>{shop.branchCode}</Text>
                     <TouchableOpacity style={styles.copyBtn} onPress={handleShareCode}>
-                        <Ionicons name="logo-whatsapp" size={20} color="white" />
-                        <Text style={styles.copyBtnText}>Send</Text>
+                        <Ionicons name="logo-whatsapp" size={20} color="white" /><Text style={styles.copyBtnText}>Invite</Text>
                     </TouchableOpacity>
                 </View>
             </View>
-
-            <Text style={styles.sectionHeader}>Join Requests</Text>
+            <Text style={styles.sectionHeader}>Pending Join Requests</Text>
             {isLoading ? <ActivityIndicator color="#1e40af" /> : (
                 <ScrollView>
-                    {Array.isArray(pendingRequests) &&pendingRequests.length === 0 ? (
-                        <Text style={styles.emptyText}>No pending requests for this branch.</Text>
-                    ) : pendingRequests.map(req => (
+                    {pendingRequests.length === 0 ? <Text style={styles.emptyText}>No requests at the moment.</Text> : pendingRequests.map(req => (
                         <View key={req._id} style={styles.requestCard}>
-                            <View>
-                                <Text style={styles.reqName}>{req.cashier.name}</Text>
-                                <Text style={styles.reqEmail}>{req.cashier.email}</Text>
-                            </View>
+                            <View><Text style={styles.reqName}>{req.cashier.name}</Text><Text style={styles.reqEmail}>{req.cashier.email}</Text></View>
                             <View style={styles.reqActions}>
-                                <TouchableOpacity onPress={() => handleRequestUpdate(req._id, 'approved')}>
-                                    <Ionicons name="checkmark-circle" size={32} color="#22c55e" />
-                                </TouchableOpacity>
-                                <TouchableOpacity onPress={() => handleRequestUpdate(req._id, 'rejected')}>
-                                    <Ionicons name="close-circle" size={32} color="#ef4444" style={{marginLeft: 10}} />
-                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleRequestUpdate(req._id, 'approved')}><Ionicons name="checkmark-circle" size={32} color="#22c55e" /></TouchableOpacity>
+                                <TouchableOpacity onPress={() => handleRequestUpdate(req._id, 'rejected')}><Ionicons name="close-circle" size={32} color="#ef4444" style={{marginLeft: 10}} /></TouchableOpacity>
                             </View>
                         </View>
                     ))}
                 </ScrollView>
             )}
-
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setStaffModalVisible(false)}>
-              <Text style={styles.closeBtnText}>Back to Hub</Text>
-            </TouchableOpacity>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setStaffModalVisible(false)}><Text style={styles.closeBtnText}>Close</Text></TouchableOpacity>
           </View>
         </View>
       </Modal>
 
-      <CalendarView 
-        visible={isCalendarVisible} 
-        onClose={() => setCalendarVisible(false)} 
-        onSelectDate={(d) => {setSelectedDate(new Date(d)); setCalendarVisible(false);}} 
-      />
+      <CalendarView visible={isCalendarVisible} onClose={() => setCalendarVisible(false)} onSelectDate={(d) => {setSelectedDate(new Date(d)); setCalendarVisible(false);}} />
     </SafeAreaView>
   );
 }
@@ -229,37 +273,56 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: { backgroundColor: '#1e40af', padding: 20, paddingTop: 50, flexDirection: 'row', alignItems: 'center' },
   headerTitleContainer: { flex: 1, alignItems: 'center' },
-  headerSubtitle: { color: '#bfdbfe', fontSize: 12, textTransform: 'uppercase' },
-  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold' },
+  headerSubtitle: { color: '#bfdbfe', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
   badge: { backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 10, borderRadius: 5, marginTop: 5 },
   badgeText: { color: 'white', fontSize: 12, fontWeight: 'bold' },
   staffBtn: { padding: 5 },
   notifDot: { position: 'absolute', top: 0, right: 0, width: 10, height: 10, borderRadius: 5, backgroundColor: '#ef4444', borderWidth: 1, borderColor: 'white' },
   content: { padding: 20 },
-  dateBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: 'white', padding: 15, borderRadius: 12 },
+  
+  currencyToggleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  toggleContainer: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 10, padding: 2 },
+  toggleBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  toggleBtnActive: { backgroundColor: 'white', elevation: 2, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2 },
+  toggleBtnText: { fontSize: 12, fontWeight: 'bold', color: '#64748b' },
+  toggleBtnTextActive: { color: '#1e40af' },
+
+  dateBar: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20, backgroundColor: 'white', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
   dateLabel: { color: '#64748b', fontWeight: '600' },
   statsGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   statCard: { width: '48%', padding: 20, borderRadius: 15 },
-  statLabel: { fontSize: 12, color: '#64748b' },
-  statValue: { fontSize: 20, fontWeight: 'bold', marginTop: 5 },
-  mainAction: { backgroundColor: '#1e40af', flexDirection: 'row', padding: 20, borderRadius: 15, justifyContent: 'center', alignItems: 'center' },
+  statLabel: { fontSize: 12, color: '#64748b', fontWeight: '600' },
+  statValue: { fontSize: 18, fontWeight: 'bold', marginTop: 5 },
+
+  rateCard: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 15, gap: 8 },
+  cardTitle: { fontWeight: 'bold', color: '#1e293b', fontSize: 14 },
+  rateInputRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  rateField: { width: '45%' },
+  rateLabel: { fontSize: 11, color: '#64748b', marginBottom: 5, fontWeight: '500' },
+  rateInput: { borderBottomWidth: 2, borderBottomColor: '#1e40af', paddingVertical: 8, fontSize: 18, fontWeight: 'bold', color: '#1e40af' },
+  updateRateBtn: { backgroundColor: '#eff6ff', marginTop: 20, padding: 15, borderRadius: 12, alignItems: 'center' },
+  updateRateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 15 },
+
+  mainAction: { backgroundColor: '#1e40af', flexDirection: 'row', padding: 20, borderRadius: 15, justifyContent: 'center', alignItems: 'center', elevation: 3 },
   mainActionText: { color: 'white', fontWeight: 'bold', marginLeft: 10, fontSize: 16 },
-  // Modal
+
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-  modalBody: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, height: '70%' },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', marginBottom: 20, color: '#1e293b' },
+  modalBody: { backgroundColor: 'white', borderTopLeftRadius: 25, borderTopRightRadius: 25, padding: 25, height: '75%' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 20, color: '#1e293b' },
   shareCodeCard: { backgroundColor: '#f1f5f9', padding: 20, borderRadius: 15, marginBottom: 25 },
-  shareLabel: { fontSize: 14, color: '#64748b', marginBottom: 10 },
+  shareLabel: { fontSize: 12, color: '#64748b', marginBottom: 10, textTransform: 'uppercase' },
   codeRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  codeDisplay: { fontSize: 24, fontWeight: 'bold', color: '#1e40af', letterSpacing: 2 },
-  copyBtn: { backgroundColor: '#16a34a', flexDirection: 'row', padding: 10, borderRadius: 10, alignItems: 'center' },
+  codeDisplay: { fontSize: 26, fontWeight: 'bold', color: '#1e40af', letterSpacing: 3 },
+  copyBtn: { backgroundColor: '#16a34a', flexDirection: 'row', padding: 10, paddingHorizontal: 15, borderRadius: 10, alignItems: 'center' },
   copyBtnText: { color: 'white', fontWeight: 'bold', marginLeft: 5 },
-  sectionHeader: { fontSize: 16, fontWeight: 'bold', color: '#64748b', marginBottom: 15 },
-  requestCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#f8fafc', borderRadius: 12, marginBottom: 10 },
+  sectionHeader: { fontSize: 14, fontWeight: 'bold', color: '#64748b', marginBottom: 15 },
+  requestCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, backgroundColor: '#f8fafc', borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' },
   reqName: { fontWeight: 'bold', color: '#1e293b' },
   reqEmail: { fontSize: 12, color: '#64748b' },
   reqActions: { flexDirection: 'row' },
-  closeBtn: { marginTop: 20, padding: 15, alignItems: 'center', backgroundColor: '#e2e8f0', borderRadius: 12 },
+  closeBtn: { marginTop: 20, padding: 15, alignItems: 'center', backgroundColor: '#f1f5f9', borderRadius: 12 },
   closeBtnText: { fontWeight: 'bold', color: '#475569' },
-  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 20 }
+  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 20, fontSize: 14 }
 });

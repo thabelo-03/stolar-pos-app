@@ -1,7 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Platform, // Added to detect Chrome vs Android
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
 import { API_BASE_URL } from '../(tabs)/api';
 
 export default function Signup() {
@@ -12,32 +22,86 @@ export default function Signup() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  const handleSignup = async () => {
-    if (!name || !email || !password) {
-      Alert.alert("Error", "Please fill in all fields");
-      return;
-    }
+  const validateEmail = (text: string) => {
+    const reg = /^\w+([\.-]?\w+)*@\w+([\.-]?\w+)*(\.\w{2,3})+$/;
+    return reg.test(text);
+  };
 
+  const registerUser = async () => {
+    console.log("🚀 Starting API Call...");
     setLoading(true);
     try {
-     const response = await fetch(`${API_BASE_URL}/auth/signup`, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({ name, email, password, role }),
-});
+      const response = await fetch(`${API_BASE_URL}/auth/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          name: name.trim(), 
+          email: email.trim().toLowerCase(), 
+          password, 
+          role 
+        }),
+      });
 
       const data = await response.json();
 
       if (response.ok) {
-        Alert.alert("Success", "Account created! Please login.");
+        if (Platform.OS === 'web') alert("Success: Account created!");
+        else Alert.alert("Success", "Account created! Please login.");
         router.push('/(auth)/login');
       } else {
-        Alert.alert("Signup Failed", data.message || "Something went wrong");
+        const errorMsg = data.message || "Something went wrong";
+        if (Platform.OS === 'web') alert(errorMsg);
+        else Alert.alert("Signup Failed", errorMsg);
       }
     } catch (error) {
-      Alert.alert("Network Error", "Could not connect to server. Check your IP and connection.");
+      console.error("❌ Network Error:", error);
+      const netError = "Could not connect to server. Check your connection.";
+      if (Platform.OS === 'web') alert(netError);
+      else Alert.alert("Network Error", netError);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleSignup = () => {
+    console.log("🔘 Signup button pressed");
+
+    // 1. Validation
+    if (!name || !email || !password) {
+      console.log("⚠️ Validation failed: Missing fields");
+      if (Platform.OS === 'web') alert("Please fill in all fields");
+      else Alert.alert("Error", "Please fill in all fields");
+      return;
+    }
+
+    if (!validateEmail(email)) {
+      console.log("⚠️ Validation failed: Invalid email");
+      if (Platform.OS === 'web') alert("Please enter a valid email address.");
+      else Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+
+    const confirmMessage = `Create ${role.toUpperCase()} account for ${name}?`;
+
+    // 2. Hybrid Confirmation Logic
+    if (Platform.OS === 'web') {
+      // Logic for Chrome Browser
+      const confirmed = window.confirm(confirmMessage);
+      if (confirmed) {
+        console.log("✅ Web User confirmed.");
+        registerUser();
+      }
+    } else {
+      // Logic for Android / Expo Go
+      console.log("🛡️ Opening native confirmation modal");
+      Alert.alert(
+        "Confirm Registration",
+        confirmMessage,
+        [
+          { text: "Edit Details", style: "cancel" },
+          { text: "Confirm & Create", onPress: () => registerUser() },
+        ]
+      );
     }
   };
 
@@ -83,7 +147,9 @@ export default function Signup() {
               onPress={() => setRole(r)}
               style={[styles.roleButton, role === r && styles.roleButtonActive]}
             >
-              <Text style={[styles.roleText, role === r && styles.roleTextActive]}>{r.toUpperCase()}</Text>
+              <Text style={[styles.roleText, role === r && styles.roleTextActive]}>
+                {r.toUpperCase()}
+              </Text>
             </TouchableOpacity>
           ))}
         </View>
