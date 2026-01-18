@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,11 +26,18 @@ export default function RegisterShop() {
   // Modal for a polished success experience
   const [showSuccess, setShowSuccess] = useState(false);
   const [newBranchCode, setNewBranchCode] = useState('');
+  const [managerId, setManagerId] = useState<string | null>(null);
 
-  // Use Danger's ID passed from login or fallback to the one we verified
-  const managerId = params.id || "6966ad15a4b1e45a20db7042"; 
+  useEffect(() => {
+    AsyncStorage.getItem('userId').then(setManagerId);
+  }, []);
 
   const handleRegisterShop = async () => {
+    if (!managerId) {
+      Alert.alert("Error", "User session not found. Please login again.");
+      return;
+    }
+
     if (!name.trim() || !location.trim()) {
       Alert.alert("Input Required", "Please provide both Shop Name and Location.");
       return;

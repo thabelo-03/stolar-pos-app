@@ -149,10 +149,13 @@ app.post('/api/shops/register', async (req, res) => {
 
 app.put('/api/shops/:id', async (req, res) => {
   try {
-    const { name, location } = req.body;
+    const { name, location, managerId } = req.body;
+    const updateData = { name, location };
+    if (managerId) updateData.manager = managerId;
+
     const shop = await Shop.findByIdAndUpdate(
       req.params.id,
-      { name, location },
+      updateData,
       { new: true } // Return the updated document
     );
 
@@ -201,7 +204,8 @@ app.get('/api/products/:barcode', async (req, res) => {
 app.post('/api/products/add', async (req, res) => {
   const { name, barcode, category, price, costPrice, quantity, shopId } = req.body; 
   try {
-    let product = await Product.findOne({ barcode });
+    // Check for product in THIS specific shop
+    let product = await Product.findOne({ barcode, shopId });
     const addQty = Number(quantity) || 0;
 
     if (product) {
@@ -225,6 +229,23 @@ app.post('/api/products/add', async (req, res) => {
 });
 
 // --- SALES & CHECKOUT ---
+
+app.get('/api/sales/recent', async (req, res) => {
+  try {
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    const sales = await Sale.find()
+      .sort({ date: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    res.json(sales);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
 
 app.post('/api/sales', async (req, res) => {
   try {

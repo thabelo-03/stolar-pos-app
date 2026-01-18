@@ -7,12 +7,13 @@ import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInpu
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
-export default function AddStockScreen() {
+export default function ManagerAddStockScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
+  const shopId = params.shopId;
 
   const [itemName, setItemName] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -22,8 +23,7 @@ export default function AddStockScreen() {
   const [loading, setLoading] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
-  // Add this near your other useState hooks
-const [category, setCategory] = useState('General');
+  const [category, setCategory] = useState('General');
   const itemNameInputRef = useRef<TextInput>(null);
   
   const textColor = useThemeColor({}, 'text');
@@ -38,6 +38,16 @@ const [category, setCategory] = useState('General');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
     }
   }, [params]);
+
+  const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
+    const cleanText = text.replace(/[^0-9]/g, '');
+    if (cleanText === '') {
+      setFunction('');
+      return;
+    }
+    const numberValue = parseFloat(cleanText) / 100;
+    setFunction(numberValue.toFixed(2));
+  };
 
   const handleSave = async () => {
     if (!itemName || !quantity || !price || !costPrice) {
@@ -58,23 +68,6 @@ const [category, setCategory] = useState('General');
     const executeSave = async () => {
       setLoading(true);
 
-      if (barcode) {
-        try {
-          const checkResponse = await fetch(`${API_BASE_URL}/products`);
-          const inventory = await checkResponse.json();
-          if (Array.isArray(inventory)) {
-            const duplicate = inventory.find((item: any) => 
-              item.barcode === barcode && (!isEditMode || (item._id || item.id) !== params.id)
-            );
-            if (duplicate) {
-              Alert.alert('Duplicate Barcode', `This barcode is already assigned to "${duplicate.name}".`);
-              setLoading(false);
-              return;
-            }
-          }
-        } catch (e) {}
-      }
-
       try {
         const url = isEditMode 
           ? `${API_BASE_URL}/products/${params.id}`
@@ -85,7 +78,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice),category: category }),
+          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId }),
         });
 
         const data = await response.json();
@@ -139,31 +132,19 @@ const [category, setCategory] = useState('General');
     setIsScanning(false);
   };
 
-  const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
-    const cleanText = text.replace(/[^0-9]/g, '');
-    if (cleanText === '') {
-      setFunction('');
-      return;
-    }
-    const numberValue = parseFloat(cleanText) / 100;
-    setFunction(numberValue.toFixed(2));
-  };
-
   return (
     <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
-        </TouchableOpacity>
-        <ThemedText type="title" style={styles.title}>{isEditMode ? 'Edit Stock' : 'Add Stock'}</ThemedText>
-      </View>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+        <Ionicons name="arrow-back" size={24} color={textColor} />
+      </TouchableOpacity>
+      <ThemedText type="title">{isEditMode ? 'Edit Stock' : 'Add Stock'}</ThemedText>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
         <ThemedView>
           <ThemedText type="defaultSemiBold">Item Name</ThemedText>
           <TextInput 
             ref={itemNameInputRef}
-            style={[styles.input, { color: textColor }]}
+            style={[styles.input, { color: textColor, borderColor: textColor }]}
             value={itemName}
             onChangeText={setItemName}
             placeholder="e.g. Apple"
@@ -172,21 +153,10 @@ const [category, setCategory] = useState('General');
         </ThemedView>
 
         <ThemedView>
-          <ThemedText type="defaultSemiBold">Category</ThemedText>
-          <TextInput 
-            style={[styles.input, { color: textColor }]}
-            value={category}
-            onChangeText={setCategory}
-            placeholder="e.g. Groceries"
-            placeholderTextColor={placeholderColor}
-          />
-        </ThemedView>
-
-        <ThemedView>
           <ThemedText type="defaultSemiBold">Barcode</ThemedText>
           <View style={styles.barcodeRow}>
             <TextInput 
-              style={[styles.input, { color: textColor, flex: 1 }]}
+              style={[styles.input, { color: textColor, borderColor: textColor, flex: 1 }]}
               value={barcode}
               onChangeText={setBarcode}
               placeholder="Scan or enter barcode"
@@ -200,42 +170,52 @@ const [category, setCategory] = useState('General');
               } else {
                 setIsScanning(true);
               }
-            }} style={styles.scanButton}>
+            }} style={[styles.input, { borderColor: textColor, justifyContent: 'center', alignItems: 'center', width: 50 }]}>
               <Ionicons name="barcode-outline" size={24} color={textColor} />
             </TouchableOpacity>
           </View>
         </ThemedView>
 
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <ThemedText type="defaultSemiBold">Price</ThemedText>
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              value={price}
-              onChangeText={(text) => handleCurrencyChange(text, setPrice)}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
+        <ThemedView>
+          <ThemedText type="defaultSemiBold">Category</ThemedText>
+          <TextInput 
+            style={[styles.input, { color: textColor, borderColor: textColor }]}
+            value={category}
+            onChangeText={setCategory}
+            placeholder="e.g. Groceries"
+            placeholderTextColor={placeholderColor}
+          />
+        </ThemedView>
 
-          <View style={styles.halfInput}>
-            <ThemedText type="defaultSemiBold">Cost Price</ThemedText>
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              value={costPrice}
-              onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
+        <View style={styles.row}>
+            <View style={styles.halfInput}>
+                <ThemedText type="defaultSemiBold">Price</ThemedText>
+                <TextInput 
+                    style={[styles.input, { color: textColor, borderColor: textColor }]}
+                    value={price}
+                    onChangeText={(text) => handleCurrencyChange(text, setPrice)}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                    placeholderTextColor={placeholderColor}
+                />
+            </View>
+            <View style={styles.halfInput}>
+                <ThemedText type="defaultSemiBold">Cost Price</ThemedText>
+                <TextInput 
+                    style={[styles.input, { color: textColor, borderColor: textColor }]}
+                    value={costPrice}
+                    onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
+                    keyboardType="numeric"
+                    placeholder="0.00"
+                    placeholderTextColor={placeholderColor}
+                />
+            </View>
         </View>
 
         <ThemedView>
           <ThemedText type="defaultSemiBold">Quantity</ThemedText>
           <TextInput 
-            style={[styles.input, { color: textColor }]}
+            style={[styles.input, { color: textColor, borderColor: textColor }]}
             value={quantity}
             onChangeText={setQuantity}
             keyboardType="numeric"
@@ -244,13 +224,9 @@ const [category, setCategory] = useState('General');
           />
         </ThemedView>
 
-        {loading ? (
-          <ActivityIndicator size="large" color={textColor} />
-        ) : (
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-            <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>
-          </TouchableOpacity>
-        )}
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
+            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>}
+        </TouchableOpacity>
       </ScrollView>
 
       <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
@@ -269,70 +245,18 @@ const [category, setCategory] = useState('General');
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    paddingTop: 50,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 20,
-  },
-  backButton: {
-    padding: 8,
-    marginRight: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  form: {
-    gap: 20,
-    paddingBottom: 40,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: 'rgba(150, 150, 150, 0.08)',
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 8,
-    fontSize: 16,
-  },
+  container: { flex: 1, padding: 20 },
+  backButton: { marginBottom: 16 },
+  form: { marginTop: 10, gap: 20, paddingBottom: 40 },
+  input: { borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8, opacity: 0.8 },
   barcodeRow: { flexDirection: 'row', gap: 10 },
-  scanButton: {
-    backgroundColor: 'rgba(150, 150, 150, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 54,
-    borderRadius: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-  },
-  row: { flexDirection: 'row', gap: 15 },
-  halfInput: { flex: 1 },
-  saveButton: {
-    backgroundColor: '#1e40af',
-    paddingVertical: 18,
-    borderRadius: 15,
-    alignItems: 'center',
-    marginTop: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  saveButtonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
+  row: { flexDirection: 'row', gap: 15 },
+  halfInput: { flex: 1 },
+  saveButton: { backgroundColor: '#1e40af', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+  saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
 });

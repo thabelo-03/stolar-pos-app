@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -56,10 +57,17 @@ export default function CartScreen() {
   useEffect(() => {
     const fetchAllProducts = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/products`);
-        if (response.ok) {
-          const data = await response.json();
-          setAllProducts(data);
+        const userId = await AsyncStorage.getItem('userId');
+        if (!userId) return;
+
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+
+        if (user.shopId) {
+          const response = await fetch(`${API_BASE_URL}/products?shopId=${user.shopId}`);
+          if (response.ok) {
+            setAllProducts(await response.json());
+          }
         }
       } catch (error) {
         console.log("Working in offline product mode.");

@@ -70,7 +70,7 @@ export default function LastSalesScreen() {
 
       return itemsString.includes(lowerText) ||
       (item.time && item.time.toLowerCase().includes(lowerText)) ||
-      ((item.total || item.amount || 0).toString().includes(lowerText));
+      ((item.total || item.amount || item.totalUSD || 0).toString().includes(lowerText));
     });
   }, [sales, searchQuery]);
 
@@ -143,13 +143,13 @@ export default function LastSalesScreen() {
       ) : (
         <FlatList
           data={filteredSales}
-          keyExtractor={(item) => item.id || Math.random().toString()}
+          keyExtractor={(item) => item.id || item._id || Math.random().toString()}
           renderItem={({ item }) => {
             const isRefunded = item.status === 'refunded';
             return (
             <ThemedView style={[styles.saleItem, isRefunded && styles.refundedItem]}>
               <View>
-                <ThemedText type="defaultSemiBold">${Number(item.total || item.amount || 0).toFixed(2)}</ThemedText>
+                <ThemedText type="defaultSemiBold">${Number(item.total || item.amount || item.totalUSD || 0).toFixed(2)}</ThemedText>
                 <ThemedText style={styles.itemsText}>
                   {Array.isArray(item.items) 
                     ? item.items.map((i: any) => `${i.quantity}x ${i.name}`).join(', ')
@@ -159,9 +159,11 @@ export default function LastSalesScreen() {
                 {isRefunded && <Text style={styles.refundedBadge}>REFUNDED</Text>}
               </View>
               <View style={{ alignItems: 'flex-end', gap: 8 }}>
-                <ThemedText style={styles.timeText}>{item.time || 'Just now'}</ThemedText>
+                <ThemedText style={styles.timeText}>
+                  {item.time || (item.date ? new Date(item.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now')}
+                </ThemedText>
                 {!isRefunded && (
-                  <TouchableOpacity onPress={() => handleRefund(item.id)} style={styles.refundButton}>
+                  <TouchableOpacity onPress={() => handleRefund(item.id || item._id)} style={styles.refundButton}>
                     <Text style={styles.refundButtonText}>Refund</Text>
                   </TouchableOpacity>
                 )}

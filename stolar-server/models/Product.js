@@ -9,7 +9,6 @@ const ProductSchema = new mongoose.Schema({
   barcode: { 
     type: String, 
     required: [true, 'Barcode is required'], 
-    unique: true 
   },
   category: { 
     type: String, 
@@ -54,7 +53,7 @@ const ProductSchema = new mongoose.Schema({
   timestamps: true // Automatically creates createdAt and updatedAt fields
 });
 
-// Middleware to update the 'updatedAt' field is no longer needed with { timestamps: true }
-// but you can add custom logic here if needed.
+// Ensure barcode is unique PER SHOP, not globally
+ProductSchema.index({ barcode: 1, shopId: 1 }, { unique: true });
 
 module.exports = mongoose.model('Product', ProductSchema);

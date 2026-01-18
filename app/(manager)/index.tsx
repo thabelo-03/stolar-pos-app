@@ -12,6 +12,7 @@ interface Shop {
   name: string;
   location: string;
   branchCode: string;
+  manager?: string;
 }
 
 interface User {
@@ -30,6 +31,7 @@ const ManagerIndex = () => {
   const [editingShop, setEditingShop] = useState<Shop | null>(null);
   const [editName, setEditName] = useState('');
   const [editLocation, setEditLocation] = useState('');
+  const [editManagerId, setEditManagerId] = useState('');
   const [saving, setSaving] = useState(false);
   const router = useRouter();
 
@@ -92,6 +94,7 @@ const ManagerIndex = () => {
     setEditingShop(shop);
     setEditName(shop.name);
     setEditLocation(shop.location);
+    setEditManagerId(shop.manager || '');
     setEditModalVisible(true);
   };
 
@@ -107,13 +110,13 @@ const ManagerIndex = () => {
         const response = await fetch(`${API_BASE_URL}/shops/${editingShop._id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name: editName, location: editLocation }),
+            body: JSON.stringify({ name: editName, location: editLocation, managerId: editManagerId }),
         });
 
         const data = await response.json();
 
         if (response.ok) {
-            setShops(prev => prev.map(s => s._id === editingShop._id ? { ...s, name: editName, location: editLocation } : s));
+            setShops(prev => prev.map(s => s._id === editingShop._id ? { ...s, name: editName, location: editLocation, manager: editManagerId } : s));
             setEditModalVisible(false);
             Alert.alert("Success", "Shop updated successfully");
         } else {

@@ -218,7 +218,10 @@ export default function OperationHub() {
             </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.mainAction} onPress={() => router.push('/(manager)/inventory')}>
+        <TouchableOpacity 
+            style={styles.mainAction} 
+            onPress={() => router.push({ pathname: '/(manager)/inventory', params: { shopId: shop._id } })}
+        >
             <MaterialCommunityIcons name="package-variant" size={24} color="white" />
             <Text style={styles.mainActionText}>Manage Inventory</Text>
         </TouchableOpacity>

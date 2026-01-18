@@ -47,6 +47,22 @@ export default function ManagerLayout() {
           title: 'Profit Reports' 
         }} 
       />
+
+      <Stack.Screen 
+        name="inventory" 
+        options={{ 
+          headerShown: false, 
+          title: 'Inventory' 
+        }} 
+      />
+
+      <Stack.Screen 
+        name="add-stock" 
+        options={{ 
+          headerShown: false, 
+          title: 'Add Stock' 
+        }} 
+      />
     </Stack>
   );
 }
