@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
@@ -24,6 +25,7 @@ export default function AddStockScreen() {
   const [isScanning, setIsScanning] = useState(false);
   // Add this near your other useState hooks
 const [category, setCategory] = useState('General');
+  const [shopId, setShopId] = useState<string | null>(null);
   const itemNameInputRef = useRef<TextInput>(null);
   
   const textColor = useThemeColor({}, 'text');
@@ -39,7 +41,26 @@ const [category, setCategory] = useState('General');
     }
   }, [params]);
 
+  useEffect(() => {
+    const fetchUserShop = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const userData = await response.json();
+          if (userData.shopId) setShopId(userData.shopId);
+        }
+      } catch (e) { console.log("Error fetching shop ID", e); }
+    };
+    fetchUserShop();
+  }, []);
+
   const handleSave = async () => {
+    if (!shopId) {
+      Alert.alert('Restricted', 'You must be linked to a shop to manage inventory.');
+      return;
+    }
+
     if (!itemName || !quantity || !price || !costPrice) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -85,7 +106,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice),category: category }),
+          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId }),
         });
 
         const data = await response.json();

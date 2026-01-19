@@ -1,13 +1,32 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { API_BASE_URL } from './api';
 
 export default function CashierHome() {
   const router = useRouter();
   const { name, role } = useLocalSearchParams();
   const cashierName = Array.isArray(name) ? name[0] : name;
   const userRole = Array.isArray(role) ? role[0] : role;
+  const [isLinked, setIsLinked] = useState(false);
+
+  useEffect(() => {
+    const checkShopLink = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const userData = await response.json();
+          if (userData.shopId) setIsLinked(true);
+        }
+      } catch (e) {
+        console.log("Error checking shop link", e);
+      }
+    };
+    checkShopLink();
+  }, []);
 
   const handleLogout = () => {
     Alert.alert(
@@ -118,15 +137,19 @@ export default function CashierHome() {
             </View>
 
             {/* Add Stock Card */}
-            <View style={styles.card}>
+            <View style={[styles.card, !isLinked && { opacity: 0.6 }]}>
               <Text style={styles.sectionLabel}>Add Stock</Text>
-              <TouchableOpacity style={styles.addStockBtn} onPress={() => router.push('/(tabs)/add-stock')}>
+              <TouchableOpacity 
+                style={[styles.addStockBtn, !isLinked && { backgroundColor: '#e2e8f0' }]} 
+                onPress={() => router.push('/(tabs)/add-stock')}
+                disabled={!isLinked}
+              >
                 <View style={styles.addStockIcon}>
-                   <Ionicons name="add-circle" size={24} color="#059669" />
+                   <Ionicons name="add-circle" size={24} color={isLinked ? "#059669" : "#94a3b8"} />
                 </View>
                 <View>
-                  <Text style={styles.actionTitle}>Add Stock</Text>
-                  <Text style={styles.actionSub}>Adjust Inventory</Text>
+                  <Text style={[styles.actionTitle, !isLinked && { color: '#64748b' }]}>Add Stock</Text>
+                  <Text style={styles.actionSub}>{isLinked ? 'Adjust Inventory' : 'Link Shop Required'}</Text>
                 </View>
               </TouchableOpacity>
               <View style={styles.lockRow}>

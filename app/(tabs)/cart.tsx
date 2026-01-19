@@ -32,14 +32,24 @@ export default function CartScreen() {
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
-  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 }); 
+  const [rates, setRates] = useState<{ ZAR: number; ZiG: number; updatedAt?: string }>({ ZAR: 19.2, ZiG: 26.5 }); 
 
   // --- 1. FETCH LIVE RATES FROM DATABASE ---
   useEffect(() => {
     const fetchRates = async () => {
       try {
-        // Fetch rates set by the manager for this specific shop/branch
-        const response = await fetch(`${API_BASE_URL}/shops/rates`); 
+        const userId = await AsyncStorage.getItem('userId');
+        let endpoint = `${API_BASE_URL}/shops/rates`;
+
+        if (userId) {
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const user = await userRes.json();
+          if (user.shopId) {
+            endpoint = `${API_BASE_URL}/shops/rates/${user.shopId}`;
+          }
+        }
+
+        const response = await fetch(endpoint); 
         if (response.ok) {
           const data = await response.json();
           if (data.rates) {
@@ -182,6 +192,11 @@ export default function CartScreen() {
         <Text style={styles.title}>Stolar Cart</Text>
         <View style={styles.rateBadge}>
            <Text style={styles.rateText}>Rate: {currency === 'USD' ? '1.00' : (rates as any)[currency]}</Text>
+           {rates.updatedAt && (
+             <Text style={styles.rateTimeText}>
+               Updated: {new Date(rates.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+             </Text>
+           )}
         </View>
       </View>
 
@@ -270,6 +285,7 @@ const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
   rateBadge: { backgroundColor: '#eff6ff', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#dbeafe' },
   rateText: { fontSize: 12, color: '#1e40af', fontWeight: 'bold' },
+  rateTimeText: { fontSize: 8, color: '#64748b', textAlign: 'center', marginTop: 2 },
   
   currencySelector: { flexDirection: 'row', backgroundColor: 'white', paddingBottom: 15, paddingHorizontal: 20, gap: 10 },
   currBtn: { flex: 1, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },

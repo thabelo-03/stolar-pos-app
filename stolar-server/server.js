@@ -18,6 +18,12 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Logging Middleware
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
+  next();
+});
+
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
   .then(() => console.log("✅ MongoDB Connected: Stolar POS Database"))
@@ -25,8 +31,14 @@ mongoose.connect(process.env.MONGO_URI)
 
 // --- SHOP RATES & CONFIGURATION ROUTES ---
 
+// 0. GET DEFAULT RATES (Fixes 404 when no shopId provided)
+app.get('/api/shops/rates', (req, res) => {
+  res.json({ rates: { ZAR: 19.2, ZiG: 26.5 } });
+});
+
 // 1. GET CURRENT RATES FOR A SHOP (Fixes 404 GET)
 app.get('/api/shops/rates/:shopId', async (req, res) => {
+  console.log(`Fetching rates for shop: ${req.params.shopId}`);
   try {
     const shop = await Shop.findById(req.params.shopId);
     if (!shop) return res.status(404).json({ message: "Shop not found" });
@@ -36,12 +48,14 @@ app.get('/api/shops/rates/:shopId', async (req, res) => {
       rates: shop.rates || { ZAR: 19.2, ZiG: 26.5 } 
     });
   } catch (err) {
+    console.error("Error fetching rates:", err);
     res.status(500).json({ message: "Error fetching rates: " + err.message });
   }
 });
 
 // 2. UPDATE SHOP RATES (Fixes 404 POST)
 app.post('/api/shops/update-rates', async (req, res) => {
+  console.log('Updating rates:', req.body);
   try {
     const { shopId, rates } = req.body;
     const shop = await Shop.findByIdAndUpdate(
@@ -59,6 +73,7 @@ app.post('/api/shops/update-rates', async (req, res) => {
     if (!shop) return res.status(404).json({ message: "Shop not found" });
     res.json({ success: true, rates: shop.rates });
   } catch (err) {
+    console.error("Update rates failed:", err);
     res.status(500).json({ message: "Update failed: " + err.message });
   }
 });
@@ -66,6 +81,7 @@ app.post('/api/shops/update-rates', async (req, res) => {
 // --- AUTH ROUTES ---
 
 app.post('/api/auth/signup', async (req, res) => {
+  console.log('Signup attempt:', req.body.email);
   try {
     const { name, email, password, role } = req.body;
     const userExists = await User.findOne({ email });
@@ -78,11 +94,13 @@ app.post('/api/auth/signup', async (req, res) => {
     await newUser.save();
     res.status(201).json({ success: true, message: "Account created successfully" });
   } catch (err) {
+    console.error("Signup error:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 app.post('/api/auth/login', async (req, res) => {
+  console.log('Login attempt:', req.body.email);
   try {
     const { email, password } = req.body;
     const user = await User.findOne({ email });
@@ -99,17 +117,20 @@ app.post('/api/auth/login', async (req, res) => {
       shopId: user.shopId 
     });
   } catch (err) {
+    console.error("Login error:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 // --- USER ROUTES ---
 app.get('/api/users/:id', async (req, res) => {
+  console.log(`Fetching user: ${req.params.id}`);
   try {
     const user = await User.findById(req.params.id).select('-password');
     if (!user) return res.status(404).json({ message: "User not found" });
     res.json(user);
   } catch (err) {
+    console.error("Error fetching user:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -117,17 +138,20 @@ app.get('/api/users/:id', async (req, res) => {
 // --- SHOP MANAGEMENT ---
 
 app.get('/api/shops', async (req, res) => {
+  console.log('Fetching shops with query:', req.query);
   try {
     const { managerId } = req.query;
     const query = managerId ? { manager: managerId } : {};
     const shops = await Shop.find(query);
     res.json(shops);
   } catch (err) {
+    console.error("Error fetching shops:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 app.post('/api/shops/register', async (req, res) => {
+  console.log('Registering shop:', req.body.name);
   try {
     const { name, location, managerId } = req.body;
     const generatedCode = `STLR-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -143,11 +167,13 @@ app.post('/api/shops/register', async (req, res) => {
     await newShop.save();
     res.status(201).json({ success: true, branchCode: generatedCode, shop: newShop });
   } catch (err) {
+    console.error("Shop registration error:", err);
     res.status(500).json({ success: false, message: err.message });
   }
 });
 
 app.put('/api/shops/:id', async (req, res) => {
+  console.log(`Updating shop ${req.params.id}:`, req.body);
   try {
     const { name, location, managerId } = req.body;
     const updateData = { name, location };
@@ -162,16 +188,19 @@ app.put('/api/shops/:id', async (req, res) => {
     if (!shop) return res.status(404).json({ message: "Shop not found" });
     res.json({ success: true, shop });
   } catch (err) {
+    console.error("Shop update error:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 app.delete('/api/shops/:id', async (req, res) => {
+  console.log(`Deleting shop ${req.params.id}`);
   try {
     const shop = await Shop.findByIdAndDelete(req.params.id);
     if (!shop) return res.status(404).json({ message: "Shop not found" });
     res.json({ success: true, message: "Shop deleted" });
   } catch (err) {
+    console.error("Shop deletion error:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -179,6 +208,7 @@ app.delete('/api/shops/:id', async (req, res) => {
 // --- PRODUCT & STOCK MANAGEMENT ---
 
 app.get('/api/products', async (req, res) => {
+  console.log('Fetching products with query:', req.query);
   try {
     const { shopId } = req.query;
     let query = {};
@@ -187,21 +217,25 @@ app.get('/api/products', async (req, res) => {
     const products = await Product.find(query).sort({ updatedAt: -1 });
     res.json(products);
   } catch (err) {
+    console.error("Error fetching products:", err);
     res.status(500).json({ error: err.message });
   }
 });
 
 app.get('/api/products/:barcode', async (req, res) => {
+  console.log(`Fetching product by barcode: ${req.params.barcode}`);
   try {
     const product = await Product.findOne({ barcode: req.params.barcode });
     if (!product) return res.status(404).json({ message: "Product not found" });
     res.json(product);
   } catch (err) {
+    console.error("Error fetching product:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 app.post('/api/products/add', async (req, res) => {
+  console.log('Adding/Updating product:', req.body.name, req.body.barcode);
   const { name, barcode, category, price, costPrice, quantity, shopId } = req.body; 
   try {
     // Check for product in THIS specific shop
@@ -224,6 +258,7 @@ app.post('/api/products/add', async (req, res) => {
       return res.status(201).json({ success: true, message: "New product registered", product: newProduct });
     }
   } catch (err) {
+    console.error("Product add/update error:", err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -231,6 +266,7 @@ app.post('/api/products/add', async (req, res) => {
 // --- SALES & CHECKOUT ---
 
 app.get('/api/sales/recent', async (req, res) => {
+  console.log('Fetching recent sales:', req.query);
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
@@ -243,11 +279,13 @@ app.get('/api/sales/recent', async (req, res) => {
 
     res.json(sales);
   } catch (err) {
+    console.error("Error fetching recent sales:", err);
     res.status(500).json({ message: err.message });
   }
 });
 
 app.post('/api/sales', async (req, res) => {
+  console.log('Processing sale. Items:', req.body.items?.length);
   try {
     const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId } = req.body;
 
@@ -280,6 +318,7 @@ app.post('/api/sales', async (req, res) => {
 
     res.status(201).json({ success: true, sale: newSale });
   } catch (err) {
+    console.error("Sale processing error:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -287,6 +326,7 @@ app.post('/api/sales', async (req, res) => {
 // --- STAFF LINKING ---
 
 app.get('/api/shops/requests/:id', async (req, res) => {
+  console.log(`Fetching requests for: ${req.params.id}`);
   try {
     const identifier = req.params.id;
     const requests = await LinkRequest.find({
@@ -297,6 +337,7 @@ app.get('/api/shops/requests/:id', async (req, res) => {
     .populate('shop', 'name location');
     res.json(requests || []);
   } catch (err) {
+    console.error("Error fetching requests:", err);
     res.status(500).json([]); 
   }
 });
