@@ -4,8 +4,10 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { LineChart, PieChart } from 'react-native-chart-kit';
 import { API_BASE_URL } from '../config';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Shop {
   _id: string;
@@ -33,6 +35,16 @@ const ManagerIndex = () => {
   const [editLocation, setEditLocation] = useState('');
   const [editManagerId, setEditManagerId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [chartData, setChartData] = useState({
+    labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+    datasets: [{ data: [0, 0, 0, 0, 0, 0, 0] }]
+  });
+  const [pieChartData, setPieChartData] = useState<any[]>([]);
+  const [topProducts, setTopProducts] = useState<any[]>([]);
+  const [lowStockItems, setLowStockItems] = useState<any[]>([]);
+  const [date, setDate] = useState(new Date());
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [allSales, setAllSales] = useState<any[]>([]);
   const router = useRouter();
 
   useEffect(() => {
@@ -53,9 +65,11 @@ const ManagerIndex = () => {
 
         // Fetch all shops data
         const shopResponse = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
+        let currentShops: Shop[] = [];
         if (shopResponse.ok) {
           const shopData = await shopResponse.json();
           setShops(shopData);
+          currentShops = shopData;
         } else if (shopResponse.status === 404) {
           setShops([]);
         } else {
@@ -68,6 +82,25 @@ const ManagerIndex = () => {
           const notifs = await notifResponse.json();
           const count = notifs.filter((n: any) => !n.isRead).length;
           setUnreadCount(count);
+        }
+
+        // Fetch sales for chart
+        const salesRes = await fetch(`${API_BASE_URL}/sales`);
+        if (salesRes.ok) {
+          const salesData = await salesRes.json();
+          if (Array.isArray(salesData)) {
+            setAllSales(salesData);
+          }
+        }
+
+        // Fetch products for low stock alerts
+        const productsRes = await fetch(`${API_BASE_URL}/products`);
+        if (productsRes.ok) {
+          const productsData = await productsRes.json();
+          if (Array.isArray(productsData)) {
+            const low = productsData.filter((p: any) => Number(p.quantity) < 5);
+            setLowStockItems(low.slice(0, 5));
+          }
         }
       } catch (e) {
         if (e instanceof Error) {
@@ -82,6 +115,87 @@ const ManagerIndex = () => {
 
     fetchData();
   }, []);
+
+  useEffect(() => {
+    if (allSales.length === 0) return;
+
+    const last7Days = new Array(7).fill(0);
+    const labels = [];
+    const endDate = new Date(date);
+    
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(endDate);
+      d.setDate(endDate.getDate() - i);
+      labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+      
+      const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+      const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+      
+      const dailyTotal = allSales
+        .filter((s: any) => {
+          const saleDate = new Date(s.date);
+          return saleDate >= dayStart && saleDate <= dayEnd;
+        })
+        .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
+        
+      last7Days[6 - i] = dailyTotal;
+    }
+    setChartData({ labels, datasets: [{ data: last7Days }] });
+
+    // Filter for Pie Chart (same 7 day window)
+    const windowStart = new Date(endDate);
+    windowStart.setDate(endDate.getDate() - 6);
+    windowStart.setHours(0,0,0,0);
+    const windowEnd = new Date(endDate);
+    windowEnd.setHours(23,59,59,999);
+
+    const filteredSales = allSales.filter((s: any) => {
+        const d = new Date(s.date);
+        return d >= windowStart && d <= windowEnd;
+    });
+
+    const salesByShop: Record<string, number> = {};
+    filteredSales.forEach((sale: any) => {
+      const sId = sale.shopId || (sale.items && sale.items[0]?.shopId) || 'unknown';
+      salesByShop[sId] = (salesByShop[sId] || 0) + (sale.totalUSD || sale.total || sale.amount || 0);
+    });
+
+    const colors = ['#fca5a5', '#fcd34d', '#86efac', '#93c5fd', '#c4b5fd', '#f9a8d4'];
+    const pieData = shops.map((shop, index) => ({
+      name: shop.name,
+      population: salesByShop[shop._id] || 0,
+      color: colors[index % colors.length],
+      legendFontColor: "#7F7F7F",
+      legendFontSize: 12
+    })).filter(item => item.population > 0);
+
+    setPieChartData(pieData);
+
+    // Process Top Selling Products
+    const productMap = new Map<string, number>();
+    filteredSales.forEach((sale: any) => {
+      if (Array.isArray(sale.items)) {
+        sale.items.forEach((item: any) => {
+          const currentQty = productMap.get(item.name) || 0;
+          productMap.set(item.name, currentQty + (Number(item.quantity) || 1));
+        });
+      }
+    });
+
+    const sortedProducts = Array.from(productMap.entries())
+      .map(([name, qty]) => ({ name, qty }))
+      .sort((a, b) => b.qty - a.qty)
+      .slice(0, 5);
+
+    setTopProducts(sortedProducts);
+  }, [allSales, date, shops]);
+
+  const onChangeDate = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setDate(selectedDate);
+    }
+  };
 
   const handleShopPress = (shop: Shop) => {
     router.push({
@@ -183,6 +297,130 @@ const ManagerIndex = () => {
     );
   }
 
+  const renderHeader = () => (
+    <View>
+      <View style={styles.header}>
+        <View>
+          <Text style={styles.userName}>{user?.name}</Text>
+          <Text style={styles.userEmail}>{user?.email}</Text>
+        </View>
+        <View style={styles.headerIcons}>
+          <TouchableOpacity>
+            <Ionicons name="notifications-outline" size={24} color="#fff" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setMenuVisible(true)}>
+            <Ionicons name="menu" size={24} color="#fff" style={{ marginLeft: 15 }} />
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      {/* Sales Chart */}
+      <View style={styles.chartContainer}>
+        <View style={styles.chartHeader}>
+          <Text style={styles.chartTitle}>Sales Performance</Text>
+          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
+            <Ionicons name="calendar-outline" size={16} color="#1e40af" />
+            <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
+          </TouchableOpacity>
+        </View>
+        <LineChart
+          data={chartData}
+          width={Dimensions.get("window").width - 40}
+          height={220}
+          yAxisLabel="$"
+          yAxisSuffix=""
+          yAxisInterval={1}
+          chartConfig={{
+            backgroundColor: "#ffffff",
+            backgroundGradientFrom: "#ffffff",
+            backgroundGradientTo: "#ffffff",
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+            style: { borderRadius: 16 },
+            propsForDots: { r: "4", strokeWidth: "2", stroke: "#f59e0b" }
+          }}
+          bezier
+          style={{ marginVertical: 8, borderRadius: 16 }}
+        />
+      </View>
+
+      {showDatePicker && (
+        <DateTimePicker
+          value={date}
+          mode="date"
+          display="default"
+          onChange={onChangeDate}
+        />
+      )}
+
+      {/* Sales Distribution Pie Chart */}
+      {pieChartData.length > 0 && (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Sales by Shop</Text>
+          <PieChart
+            data={pieChartData}
+            width={Dimensions.get("window").width - 40}
+            height={220}
+            chartConfig={{
+              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+            }}
+            accessor={"population"}
+            backgroundColor={"transparent"}
+            paddingLeft={"15"}
+            center={[10, 0]}
+            absolute
+          />
+        </View>
+      )}
+
+      {/* Top Selling Products List */}
+      {topProducts.length > 0 && (
+        <View style={styles.chartContainer}>
+          <Text style={styles.chartTitle}>Top Selling Products</Text>
+          {topProducts.map((item, index) => (
+            <View key={index} style={styles.topItemRow}>
+              <View style={styles.rankBadge}>
+                <Text style={styles.rankText}>{index + 1}</Text>
+              </View>
+              <Text style={styles.topItemName}>{item.name}</Text>
+              <Text style={styles.topItemQty}>{item.qty} sold</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      {/* Low Stock Alerts */}
+      {lowStockItems.length > 0 && (
+        <View style={styles.chartContainer}>
+          <Text style={[styles.chartTitle, { color: '#ef4444' }]}>Low Stock Alerts ⚠️</Text>
+          {lowStockItems.map((item, index) => (
+            <View key={index} style={styles.topItemRow}>
+              <View style={[styles.rankBadge, { backgroundColor: '#fee2e2' }]}>
+                <Ionicons name="alert-circle" size={16} color="#ef4444" />
+              </View>
+              <Text style={styles.topItemName}>{item.name}</Text>
+              <Text style={[styles.topItemQty, { color: '#ef4444', fontWeight: 'bold' }]}>{item.quantity} left</Text>
+            </View>
+          ))}
+        </View>
+      )}
+
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.title}>Shops</ThemedText>
+        <TouchableOpacity style={styles.addShopButton} onPress={() => router.push('/(manager)/register-shop')}>
+          <Ionicons name="add" size={20} color="white" />
+          <Text style={styles.addShopButtonText}>Add Shop</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+
   return (
     <SafeAreaView style={styles.container}>
       <Modal
@@ -252,37 +490,9 @@ const ManagerIndex = () => {
         </View>
       </Modal>
 
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.userName}>{user?.name}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
-        </View>
-        <View style={styles.headerIcons}>
-          <TouchableOpacity>
-            <Ionicons name="notifications-outline" size={24} color="#fff" />
-            {unreadCount > 0 && (
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <TouchableOpacity onPress={() => setMenuVisible(true)}>
-            <Ionicons name="menu" size={24} color="#fff" style={{ marginLeft: 15 }} />
-          </TouchableOpacity>
-        </View>
-      </View>
-      <View style={styles.sectionHeader}>
-        <ThemedText style={styles.title}>Shops</ThemedText>
-        <TouchableOpacity 
-          style={styles.addShopButton} 
-          onPress={() => router.push('/(manager)/register-shop')}
-        >
-          <Ionicons name="add" size={20} color="white" />
-          <Text style={styles.addShopButtonText}>Add Shop</Text>
-        </TouchableOpacity>
-      </View>
       <FlatList
         data={shops}
+        ListHeaderComponent={renderHeader}
         keyExtractor={(item) => item._id}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.shopItem} onPress={() => handleShopPress(item)}>
@@ -524,6 +734,60 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
     },
+    chartContainer: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 15,
+        marginBottom: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    chartHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    chartTitle: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#1e293b',
+    },
+    dateButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#f1f5f9',
+        padding: 6,
+        borderRadius: 8,
+    },
+    dateButtonText: {
+        marginLeft: 5,
+        color: '#1e40af',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    topItemRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    rankBadge: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    rankText: { color: '#1e40af', fontWeight: 'bold', fontSize: 12 },
+    topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '500' },
+    topItemQty: { fontSize: 12, color: '#64748b' },
 });
 
 export default ManagerIndex;
