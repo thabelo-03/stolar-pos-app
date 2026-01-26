@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -26,6 +26,7 @@ export default function ManagerInventoryScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
@@ -55,11 +56,16 @@ export default function ManagerInventoryScreen() {
   };
 
   const filteredInventory = useMemo(() => {
-    return inventory.filter((item) => 
-      (item.name && item.name.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      (item.barcode && item.barcode.toString().includes(searchQuery))
-    );
-  }, [inventory, searchQuery]);
+    let data = inventory;
+    if (filter === 'low') data = data.filter(i => Number(i.quantity) > 0 && Number(i.quantity) < 5);
+    if (filter === 'out') data = data.filter(i => Number(i.quantity) === 0);
+
+    if (searchQuery) {
+      const lower = searchQuery.toLowerCase();
+      data = data.filter(item => (item.name && item.name.toLowerCase().includes(lower)) || (item.barcode && item.barcode.toString().includes(lower)));
+    }
+    return data;
+  }, [inventory, filter, searchQuery]);
 
   const deleteItem = async (id: string) => {
     try {
@@ -75,6 +81,19 @@ export default function ManagerInventoryScreen() {
     } catch (error) {
       Alert.alert('Error', 'Could not connect to server');
     }
+  };
+
+  const stats = useMemo(() => {
+    const totalItems = inventory.length;
+    const totalValue = inventory.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+    const lowStock = inventory.filter(i => Number(i.quantity) < 5).length;
+    return { totalItems, totalValue, lowStock };
+  }, [inventory]);
+
+  const getStockStatus = (qty: number) => {
+    if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
+    if (qty < 5) return { label: 'Low Stock', color: '#f59e0b', bg: '#fef3c7' };
+    return { label: 'In Stock', color: '#10b981', bg: '#d1fae5' };
   };
 
   const handleItemPress = (item: InventoryItem) => {
@@ -112,36 +131,78 @@ export default function ManagerInventoryScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 10 }}>
-            <Ionicons name="arrow-back" size={28} color={textColor} />
-        </TouchableOpacity>
-        <ThemedText type="title">Manager Inventory</ThemedText>
-        <View style={{ flexDirection: 'row', gap: 15, marginLeft: 'auto' }}>
-          <TouchableOpacity onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
-            <Ionicons name="add-circle" size={28} color="#1e40af" />
+        <View style={styles.topRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Manager Inventory</Text>
+          <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
+            <Ionicons name="add" size={24} color="#1e40af" />
+          </TouchableOpacity>
+        </View>
+
+        {/* Stats Row */}
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>{stats.totalItems}</Text>
+            <Text style={styles.statLabel}>Items</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={styles.statValue}>${stats.totalValue.toFixed(0)}</Text>
+            <Text style={styles.statLabel}>Value</Text>
+          </View>
+          <View style={styles.statDivider} />
+          <View style={styles.statItem}>
+            <Text style={[styles.statValue, { color: stats.lowStock > 0 ? '#fca5a5' : 'white' }]}>{stats.lowStock}</Text>
+            <Text style={styles.statLabel}>Low Stock</Text>
+          </View>
+        </View>
+
+        {/* Search Bar */}
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#64748b" style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search by name or barcode"
+            placeholderTextColor="#94a3b8"
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          <TouchableOpacity onPress={async () => {
+            if (!permission?.granted) {
+              const { granted } = await requestPermission();
+              if (granted) setIsScanning(true);
+            } else {
+              setIsScanning(true);
+            }
+          }}>
+            <MaterialCommunityIcons name="barcode-scan" size={24} color="#64748b" />
           </TouchableOpacity>
         </View>
       </View>
 
-      <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#888" style={styles.searchIcon} />
-        <TextInput
-          style={[styles.searchInput, { color: textColor }]}
-          placeholder="Search by name or barcode"
-          placeholderTextColor="#888"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <TouchableOpacity onPress={async () => {
-          if (!permission?.granted) {
-            const { granted } = await requestPermission();
-            if (granted) setIsScanning(true);
-          } else {
-            setIsScanning(true);
-          }
-        }}>
-          <Ionicons name="barcode-outline" size={24} color={textColor} />
+      {/* Filters */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity 
+          style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
+          onPress={() => setFilter('all')}
+        >
+          <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>All Items</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.filterChip, filter === 'low' && styles.activeFilterChip]} 
+          onPress={() => setFilter('low')}
+        >
+          <Text style={[styles.filterText, filter === 'low' && styles.activeFilterText]}>Low Stock</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.filterChip, filter === 'out' && styles.activeFilterChip]} 
+          onPress={() => setFilter('out')}
+        >
+          <Text style={[styles.filterText, filter === 'out' && styles.activeFilterText]}>Out of Stock</Text>
         </TouchableOpacity>
       </View>
 
@@ -164,36 +225,50 @@ export default function ManagerInventoryScreen() {
           data={filteredInventory}
           keyExtractor={(item) => item._id || item.id || Math.random().toString()}
           renderItem={({ item }) => {
-            const isLowStock = Number(item.quantity) < 5;
+            const qty = Number(item.quantity);
+            const status = getStockStatus(qty);
             const price = Number(item.price || 0);
             const cost = Number(item.costPrice || 0);
             const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
 
             return (
-              <TouchableOpacity onPress={() => handleItemPress(item)}>
-                <ThemedView style={styles.itemCard}>
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <View style={styles.iconBox}>
+                    <MaterialCommunityIcons name="cube-outline" size={24} color="#1e40af" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+                    <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.cardDivider} />
+
+                <View style={styles.cardFooter}>
                   <View>
-                    <ThemedText type="defaultSemiBold">{item.name}</ThemedText>
-                    <ThemedText style={styles.barcodeText}>
-                      {item.barcode ? `Barcode: ${item.barcode}` : 'No Barcode'} • ${price.toFixed(2)}
-                    </ThemedText>
-                    <Text style={[styles.marginText, { color: margin >= 0 ? '#10b981' : '#ef4444' }]}>
-                      Margin: {margin.toFixed(1)}%
-                    </Text>
-                    {isLowStock && (
-                      <Text style={styles.lowStockText}>⚠️ Low Stock</Text>
-                    )}
+                    <Text style={styles.priceLabel}>Price / Cost</Text>
+                    <Text style={styles.priceValue}>${price.toFixed(2)} <Text style={styles.costText}>(${cost.toFixed(2)})</Text></Text>
                   </View>
-                  <View style={styles.qtyContainer}>
-                    <ThemedText type="title" style={{ fontSize: 18, color: isLowStock ? '#ef4444' : undefined }}>{item.quantity}</ThemedText>
-                    <ThemedText style={styles.qtyLabel}>Qty</ThemedText>
+                  <View>
+                    <Text style={styles.priceLabel}>Margin</Text>
+                    <Text style={[styles.priceValue, { color: margin >= 0 ? '#10b981' : '#ef4444' }]}>{margin.toFixed(1)}%</Text>
                   </View>
-                </ThemedView>
-              </TouchableOpacity>
+                  
+                  <View style={styles.actions}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => handleItemPress(item)}>
+                      <MaterialCommunityIcons name="dots-horizontal" size={20} color="#64748b" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
             );
           }}
-          contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
           ListEmptyComponent={
             <ThemedText style={styles.emptyText}>No inventory items found.</ThemedText>
           }
@@ -204,36 +279,71 @@ export default function ManagerInventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, paddingTop: 20 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
-  list: { gap: 12, paddingBottom: 20 },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: {
+    backgroundColor: '#1e40af',
+    paddingTop: 50,
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  addButton: { padding: 8, backgroundColor: 'white', borderRadius: 12 },
+
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 15, marginBottom: 20 },
+  statItem: { alignItems: 'center', flex: 1 },
+  statValue: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+  statLabel: { color: '#bfdbfe', fontSize: 12, marginTop: 2 },
+  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(150, 150, 150, 0.1)',
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    marginBottom: 20,
-  },
-  searchIcon: { marginRight: 8 },
-  searchInput: { flex: 1, paddingVertical: 12, fontSize: 16 },
-  itemCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16,
+    backgroundColor: 'white',
     borderRadius: 12,
-    backgroundColor: 'rgba(150, 150, 150, 0.1)',
+    paddingHorizontal: 12,
+    height: 50,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
   },
-  barcodeText: { fontSize: 12, opacity: 0.6, marginTop: 4 },
-  qtyContainer: { alignItems: 'center', minWidth: 50 },
-  qtyLabel: { fontSize: 10, opacity: 0.6 },
-  emptyText: { textAlign: 'center', marginTop: 50, opacity: 0.5 },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+
+  filterContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 15, gap: 10 },
+  filterChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'white', borderWidth: 1, borderColor: '#e2e8f0' },
+  activeFilterChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
+  filterText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
+  activeFilterText: { color: 'white' },
+
+  listContent: { padding: 20, gap: 15, paddingBottom: 40 },
+  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
+  itemName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  itemBarcode: { fontSize: 12, color: '#94a3b8' },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
+  statusText: { fontSize: 10, fontWeight: 'bold' },
+  
+  cardDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
+  
+  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  priceLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 2 },
+  priceValue: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  costText: { fontSize: 12, color: '#94a3b8', fontWeight: 'normal' },
+  
+  actions: { flexDirection: 'row', gap: 10 },
+  actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8' },
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
-  lowStockText: { color: '#ef4444', fontSize: 12, fontWeight: 'bold', marginTop: 4 },
-  marginText: { fontSize: 12, marginTop: 2, fontWeight: '600' },
 });

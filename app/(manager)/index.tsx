@@ -271,7 +271,16 @@ const ManagerIndex = () => {
           </TouchableOpacity>
         </View>
       </View>
-      <ThemedText style={styles.title}>Shops</ThemedText>
+      <View style={styles.sectionHeader}>
+        <ThemedText style={styles.title}>Shops</ThemedText>
+        <TouchableOpacity 
+          style={styles.addShopButton} 
+          onPress={() => router.push('/(manager)/register-shop')}
+        >
+          <Ionicons name="add" size={20} color="white" />
+          <Text style={styles.addShopButtonText}>Add Shop</Text>
+        </TouchableOpacity>
+      </View>
       <FlatList
         data={shops}
         keyExtractor={(item) => item._id}
@@ -337,12 +346,31 @@ const styles = StyleSheet.create({
     headerIcons: {
         flexDirection: 'row',
     },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginTop: 20,
+        marginBottom: 20,
+    },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        marginBottom: 20,
         color: '#1e40af',
-        marginTop: 20,
+    },
+    addShopButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1e40af',
+        paddingHorizontal: 12,
+        paddingVertical: 8,
+        borderRadius: 20,
+    },
+    addShopButtonText: {
+        color: 'white',
+        fontWeight: 'bold',
+        marginLeft: 4,
+        fontSize: 14,
     },
     shopItem: {
         flexDirection: 'row',
