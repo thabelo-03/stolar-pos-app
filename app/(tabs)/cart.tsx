@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Modal,
   SafeAreaView,
   StyleSheet,
   Text,
@@ -13,6 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { ProductDetails } from '../../ProductDetails';
 import { API_BASE_URL } from './api';
 
 // IMPORT OFFLINE TOOLS
@@ -29,6 +31,7 @@ export default function CartScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
+  const [selectedProduct, setSelectedProduct] = useState<any>(null);
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
@@ -227,7 +230,7 @@ export default function CartScreen() {
         {searchResults.length > 0 && (
           <View style={styles.dropdown}>
             {searchResults.map(p => (
-              <TouchableOpacity key={p._id} style={styles.dropItem} onPress={() => addItemToCart(p)}>
+              <TouchableOpacity key={p._id} style={styles.dropItem} onPress={() => setSelectedProduct(p)}>
                 <View>
                   <Text style={styles.dropName}>{p.name}</Text>
                   <Text style={styles.dropSub}>{p.barcode}</Text>
@@ -238,6 +241,38 @@ export default function CartScreen() {
           </View>
         )}
       </View>
+
+      <Modal
+        visible={!!selectedProduct}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSelectedProduct(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {selectedProduct && (
+              <>
+                <ProductDetails product={{
+                  ...selectedProduct,
+                  stockQuantity: selectedProduct.quantity || 0,
+                  category: selectedProduct.category || 'General'
+                }} />
+                <View style={styles.modalActions}>
+                  <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setSelectedProduct(null)}>
+                    <Text style={[styles.btnText, { color: '#64748b' }]}>Close</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={() => {
+                    addItemToCart(selectedProduct);
+                    setSelectedProduct(null);
+                  }}>
+                    <Text style={[styles.btnText, { color: 'white' }]}>Add to Cart</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       <FlatList
         data={cartItems}
@@ -314,5 +349,13 @@ const styles = StyleSheet.create({
   payBtn: { backgroundColor: '#1e40af', padding: 18, borderRadius: 15, alignItems: 'center' },
   payBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   payText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8', fontSize: 15 }
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8', fontSize: 15 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: 'white', borderRadius: 16, padding: 20, maxHeight: '80%' },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  cancelBtn: { backgroundColor: '#f1f5f9' },
+  confirmBtn: { backgroundColor: '#1e40af' },
+  btnText: { fontWeight: 'bold', fontSize: 16 },
 });
