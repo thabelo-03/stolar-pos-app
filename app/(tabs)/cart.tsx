@@ -14,6 +14,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { ProductDetails } from '../../ProductDetails';
 import { API_BASE_URL } from './api';
 
@@ -146,6 +147,29 @@ export default function CartScreen() {
     setCartItems(curr => curr.map(i => i.id === itemId ? { ...i, quantity: i.quantity + amount } : i).filter(i => i.quantity > 0));
   };
 
+  const removeItem = (id: string) => {
+    Alert.alert(
+      'Remove Item',
+      'Are you sure you want to remove this item from the cart?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Remove', 
+          style: 'destructive', 
+          onPress: () => setCartItems(curr => curr.filter(item => item.id !== id)) 
+        }
+      ]
+    );
+  };
+
+  const renderRightActions = (id: string) => {
+    return (
+      <TouchableOpacity style={styles.deleteAction} onPress={() => removeItem(id)}>
+        <Ionicons name="trash" size={24} color="white" />
+      </TouchableOpacity>
+    );
+  };
+
   // --- 5. CHECKOUT WITH OFFLINE + CURRENCY LOGIC ---
   const handleCheckout = async () => {
     if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
@@ -164,6 +188,45 @@ export default function CartScreen() {
     try {
       const network = await Network.getNetworkStateAsync();
       if (network.isInternetReachable) {
+        // VALIDATE STOCK BEFORE PROCESSING
+        for (const item of cartItems) {
+          try {
+            const checkRes = await fetch(`${API_BASE_URL}/products/${item.id}`);
+            if (checkRes.ok) {
+              const product = await checkRes.json();
+              if ((product.quantity || 0) < item.quantity) {
+                Alert.alert('Insufficient Stock', `Only ${product.quantity} units of "${item.name}" available.`);
+                setLoading(false);
+                return;
+              }
+            }
+          } catch (e) {
+            console.log("Error checking stock for", item.name);
+          }
+        }
+
+        // DECREMENT INVENTORY
+        await Promise.all(cartItems.map(async (item) => {
+          try {
+            const productRes = await fetch(`${API_BASE_URL}/products/${item.id}`);
+            if (productRes.ok) {
+              const product = await productRes.json();
+              const newQuantity = (product.quantity || 0) - item.quantity;
+              
+              await fetch(`${API_BASE_URL}/products/${item.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  ...product,
+                  quantity: newQuantity < 0 ? 0 : newQuantity
+                }),
+              });
+            }
+          } catch (err) {
+            console.error("Failed to update stock for", item.name, err);
+          }
+        }));
+
         const response = await fetch(`${API_BASE_URL}/sales`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -188,6 +251,7 @@ export default function CartScreen() {
   };
 
   return (
+    <GestureHandlerRootView style={{ flex: 1 }}>
     <SafeAreaView style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
@@ -215,6 +279,15 @@ export default function CartScreen() {
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* SEARCH BACKDROP */}
+      {searchResults.length > 0 && (
+        <TouchableOpacity
+          style={styles.backdrop}
+          activeOpacity={1}
+          onPress={() => setSearchResults([])}
+        />
+      )}
 
       {/* SEARCH */}
       <View style={{ zIndex: 2000 }}>
@@ -250,6 +323,9 @@ export default function CartScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.closeModalButton} onPress={() => setSelectedProduct(null)}>
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
             {selectedProduct && (
               <>
                 <ProductDetails product={{
@@ -260,6 +336,24 @@ export default function CartScreen() {
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setSelectedProduct(null)}>
                     <Text style={[styles.btnText, { color: '#64748b' }]}>Close</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={[styles.modalBtn, styles.editBtn]} onPress={() => {
+                    const productToEdit = selectedProduct;
+                    setSelectedProduct(null);
+                    router.push({
+                      pathname: '/(tabs)/add-stock',
+                      params: {
+                        mode: 'edit',
+                        id: productToEdit._id,
+                        name: productToEdit.name,
+                        quantity: productToEdit.quantity,
+                        barcode: productToEdit.barcode,
+                        price: productToEdit.price,
+                        costPrice: productToEdit.costPrice
+                      }
+                    });
+                  }}>
+                    <Text style={[styles.btnText, { color: 'white' }]}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={() => {
                     addItemToCart(selectedProduct);
@@ -279,17 +373,19 @@ export default function CartScreen() {
         keyExtractor={item => item.id}
         contentContainerStyle={{ paddingHorizontal: 20 }}
         renderItem={({ item }) => (
-          <View style={styles.cartItem}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.itemName}>{item.name}</Text>
-              <Text style={styles.itemPrice}>{symbol()} {convert(item.price).toFixed(2)} each</Text>
+          <Swipeable renderRightActions={() => renderRightActions(item.id)} containerStyle={{ marginBottom: 12 }}>
+            <View style={[styles.cartItem, { marginBottom: 0 }]}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemPrice}>{symbol()} {convert(item.price).toFixed(2)} each</Text>
+              </View>
+              <View style={styles.qtyBox}>
+                <TouchableOpacity onPress={() => updateQuantity(item.id, -1)}><Ionicons name="remove-circle" size={32} color="#cbd5e1" /></TouchableOpacity>
+                <Text style={styles.qtyText}>{item.quantity}</Text>
+                <TouchableOpacity onPress={() => updateQuantity(item.id, 1)}><Ionicons name="add-circle" size={32} color="#1e40af" /></TouchableOpacity>
+              </View>
             </View>
-            <View style={styles.qtyBox}>
-              <TouchableOpacity onPress={() => updateQuantity(item.id, -1)}><Ionicons name="remove-circle" size={32} color="#cbd5e1" /></TouchableOpacity>
-              <Text style={styles.qtyText}>{item.quantity}</Text>
-              <TouchableOpacity onPress={() => updateQuantity(item.id, 1)}><Ionicons name="add-circle" size={32} color="#1e40af" /></TouchableOpacity>
-            </View>
-          </View>
+          </Swipeable>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>Scan or search to add items.</Text>}
       />
@@ -311,6 +407,7 @@ export default function CartScreen() {
         </TouchableOpacity>
       </View>
     </SafeAreaView>
+    </GestureHandlerRootView>
   );
 }
 
@@ -351,11 +448,47 @@ const styles = StyleSheet.create({
   payText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
   emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8', fontSize: 15 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-  modalContent: { backgroundColor: 'white', borderRadius: 16, padding: 20, maxHeight: '80%' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { 
+    backgroundColor: 'white', 
+    borderRadius: 16, 
+    padding: 20, 
+    maxHeight: '80%', 
+    width: '100%', 
+    maxWidth: 500,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  closeModalButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    zIndex: 10,
+    padding: 5,
+  },
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
   confirmBtn: { backgroundColor: '#1e40af' },
+  editBtn: { backgroundColor: '#f59e0b' },
   btnText: { fontWeight: 'bold', fontSize: 16 },
+  deleteAction: {
+    backgroundColor: '#ef4444',
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 80,
+    borderRadius: 15,
+    marginLeft: 10,
+  },
+  backdrop: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1500,
+  },
 });
