@@ -1,12 +1,27 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React from 'react';
-import { SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function CashierHome() {
   const router = useRouter();
   const { name } = useLocalSearchParams();
   const cashierName = Array.isArray(name) ? name[0] : name;
+
+  const handleLogout = () => {
+    Alert.alert(
+      "Logout",
+      "Are you sure you want to log out?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Logout", 
+          style: "destructive",
+          onPress: () => router.replace('/(auth)/login') 
+        }
+      ]
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -19,10 +34,15 @@ export default function CashierHome() {
             <Text style={styles.brandTitle}>Stolarr POS</Text>
             <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
           </View>
-          <TouchableOpacity style={styles.notificationBtn}>
-            <Ionicons name="notifications" size={26} color="white" />
-            <View style={styles.notificationBadge}><Text style={styles.badgeText}>1</Text></View>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>
+              <Ionicons name="log-out-outline" size={26} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.notificationBtn}>
+              <Ionicons name="notifications" size={26} color="white" />
+              <View style={styles.notificationBadge}><Text style={styles.badgeText}>1</Text></View>
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -124,7 +144,9 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 40, 
     borderBottomRightRadius: 40,
     paddingHorizontal: 25,
-    paddingTop: 40
+    paddingTop: 40,
+    zIndex: 10,
+    elevation: 5,
   },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandTitle: { color: 'white', fontSize: 32, fontWeight: 'bold' },
