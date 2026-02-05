@@ -1,7 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import {
   ActivityIndicator,
   Alert,
@@ -33,6 +36,11 @@ export default function CartScreen() {
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [allProducts, setAllProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [activeScanField, setActiveScanField] = useState<'search-barcode' | 'search-ocr' | null>(null);
+  const cameraRef = useRef<CameraView>(null);
+  const [parkedSales, setParkedSales] = useState<any[]>([]);
+  const [showParkedModal, setShowParkedModal] = useState(false);
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
@@ -92,7 +100,7 @@ export default function CartScreen() {
 
   // Update total whenever cart changes
   useEffect(() => {
-    const newTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const newTotal = cartItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
     setTotalUSD(newTotal);
   }, [cartItems]);
 
@@ -123,6 +131,48 @@ export default function CartScreen() {
     }
   };
 
+  const startScan = async (mode: 'search-barcode' | 'search-ocr') => {
+    if (!permission?.granted) {
+      const { granted } = await requestPermission();
+      if (granted) setActiveScanField(mode);
+    } else {
+      setActiveScanField(mode);
+    }
+  };
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (activeScanField === 'search-barcode') {
+      handleSearch(data);
+      setActiveScanField(null);
+    }
+  };
+
+  const handleTakePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo?.uri) {
+          let uriToRecognize = photo.uri;
+          if (photo.width && photo.height) {
+            const cropWidth = photo.width * 0.8;
+            const cropHeight = photo.height * 0.20;
+            const originX = (photo.width - cropWidth) / 2;
+            const originY = (photo.height - cropHeight) / 2;
+            const manipResult = await manipulateAsync(photo.uri, [{ crop: { originX, originY, width: cropWidth, height: cropHeight } }], { compress: 1, format: SaveFormat.JPEG });
+            uriToRecognize = manipResult.uri;
+          }
+          const result = await TextRecognition.recognize(uriToRecognize);
+          if (result.text) {
+            handleSearch(result.text.trim());
+          } else {
+            Alert.alert("No Text", "Could not detect text.");
+          }
+          setActiveScanField(null);
+        }
+      } catch (e) { console.log(e); }
+    }
+  };
+
   const addItemToCart = (product: any) => {
     setCartItems(prevItems => {
       const existing = prevItems.find(item => item.barcode === product.barcode);
@@ -134,7 +184,7 @@ export default function CartScreen() {
       return [...prevItems, {
         id: product._id || Date.now().toString(),
         name: product.name,
-        price: Number(product.price),
+        price: Number(product.price) || 0,
         quantity: 1,
         barcode: product.barcode,
       }];
@@ -170,15 +220,89 @@ export default function CartScreen() {
     );
   };
 
+  const parkSale = async () => {
+    if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Nothing to park.');
+    
+    try {
+      const draft = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        items: cartItems,
+        total: totalUSD
+      };
+      
+      const existing = await AsyncStorage.getItem('parked_sales');
+      const parked = existing ? JSON.parse(existing) : [];
+      parked.push(draft);
+      
+      await AsyncStorage.setItem('parked_sales', JSON.stringify(parked));
+      setCartItems([]);
+      Alert.alert('Success', 'Sale parked successfully.');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to park sale.');
+    }
+  };
+
+  const fetchParkedSales = async () => {
+    try {
+      const existing = await AsyncStorage.getItem('parked_sales');
+      if (existing) {
+        setParkedSales(JSON.parse(existing));
+      } else {
+        setParkedSales([]);
+      }
+      setShowParkedModal(true);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const restoreSale = async (sale: any) => {
+    const confirmRestore = async () => {
+      setCartItems(sale.items);
+      const newParked = parkedSales.filter(s => s.id !== sale.id);
+      setParkedSales(newParked);
+      await AsyncStorage.setItem('parked_sales', JSON.stringify(newParked));
+      setShowParkedModal(false);
+    };
+
+    if (cartItems.length > 0) {
+      Alert.alert('Cart not empty', 'Restoring will overwrite current cart. Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Overwrite', onPress: confirmRestore }]);
+    } else {
+      confirmRestore();
+    }
+  };
+
+  const deleteParkedSale = async (id: string) => {
+    const newParked = parkedSales.filter(s => s.id !== id);
+    setParkedSales(newParked);
+    await AsyncStorage.setItem('parked_sales', JSON.stringify(newParked));
+  };
+
   // --- 5. CHECKOUT WITH OFFLINE + CURRENCY LOGIC ---
   const handleCheckout = async () => {
     if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
 
     setLoading(true);
+
+    let shopId = null;
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        if (user.shopId) shopId = user.shopId;
+      }
+    } catch(e) {
+      console.log("Could not get shopId for sale record");
+    }
+
     const saleData = {
       items: cartItems,
-      totalUSD: totalUSD,
-      totalPaidLocal: convert(totalUSD),
+      total: totalUSD || 0,
+      shopId: shopId,
+      totalUSD: totalUSD || 0,
+      totalPaidLocal: convert(totalUSD || 0),
       currencyUsed: currency,
       rateUsed: currency === 'USD' ? 1 : (rates as any)[currency],
       date: new Date().toISOString(),
@@ -236,6 +360,14 @@ export default function CartScreen() {
           Alert.alert('Success', 'Transaction synced!');
           router.replace('/(tabs)/home');
           return;
+        } else {
+          let errorMessage = 'Transaction failed';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {}
+          Alert.alert('Error', errorMessage);
+          return;
         }
       }
       throw new Error('Offline');
@@ -244,6 +376,8 @@ export default function CartScreen() {
       if (saved) {
         Alert.alert('Saved Offline', 'Connection lost. Sale stored locally and will sync later.');
         router.replace('/(tabs)/home');
+      } else {
+        Alert.alert('Error', 'Transaction failed and could not be saved offline.');
       }
     } finally {
       setLoading(false);
@@ -257,13 +391,21 @@ export default function CartScreen() {
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#1e293b" /></TouchableOpacity>
         <Text style={styles.title}>Stolar Cart</Text>
-        <View style={styles.rateBadge}>
-           <Text style={styles.rateText}>Rate: {currency === 'USD' ? '1.00' : (rates as any)[currency]}</Text>
-           {rates.updatedAt && (
-             <Text style={styles.rateTimeText}>
-               Updated: {new Date(rates.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-             </Text>
-           )}
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={fetchParkedSales} style={styles.headerIconBtn}>
+              <Ionicons name="time-outline" size={20} color="#1e40af" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={parkSale} style={styles.headerIconBtn}>
+              <Ionicons name="save-outline" size={20} color="#1e40af" />
+          </TouchableOpacity>
+          <View style={styles.rateBadge}>
+            <Text style={styles.rateText}>Rate: {currency === 'USD' ? '1.00' : (rates as any)[currency]}</Text>
+            {rates.updatedAt && (
+              <Text style={styles.rateTimeText}>
+                Updated: {new Date(rates.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
 
@@ -299,6 +441,12 @@ export default function CartScreen() {
             value={searchQuery}
             onChangeText={handleSearch}
           />
+          <TouchableOpacity onPress={() => startScan('search-ocr')} style={{ marginLeft: 8 }}>
+             <Ionicons name="scan-outline" size={20} color="#64748b" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => startScan('search-barcode')} style={{ marginLeft: 8 }}>
+             <Ionicons name="barcode-outline" size={20} color="#64748b" />
+          </TouchableOpacity>
         </View>
         {searchResults.length > 0 && (
           <View style={styles.dropdown}>
@@ -389,6 +537,62 @@ export default function CartScreen() {
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>Scan or search to add items.</Text>}
       />
+
+      <Modal visible={!!activeScanField} animationType="slide" onRequestClose={() => setActiveScanField(null)}>
+        <CameraView 
+          ref={cameraRef}
+          style={styles.camera} 
+          facing="back" 
+          onBarcodeScanned={activeScanField === 'search-barcode' ? handleBarcodeScanned : undefined}
+        >
+          <View style={styles.cameraOverlay}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setActiveScanField(null)}>
+              <Ionicons name="close" size={30} color="white" />
+            </TouchableOpacity>
+            <View style={[styles.scanFrame, activeScanField === 'search-ocr' && styles.textScanFrame]} />
+            <Text style={styles.scanText}>{activeScanField === 'search-ocr' ? 'Align text & take photo' : 'Scanning Barcode...'}</Text>
+            {activeScanField === 'search-ocr' && (
+              <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+                <View style={styles.shutterInner} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </CameraView>
+      </Modal>
+
+      <Modal visible={showParkedModal} animationType="slide" transparent onRequestClose={() => setShowParkedModal(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Parked Sales</Text>
+                    <TouchableOpacity onPress={() => setShowParkedModal(false)}>
+                        <Ionicons name="close" size={24} color="#64748b" />
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    data={parkedSales}
+                    keyExtractor={item => item.id}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No parked sales.</Text>}
+                    renderItem={({ item }) => (
+                        <View style={styles.parkedItem}>
+                            <View style={{flex: 1}}>
+                                <Text style={styles.parkedDate}>{new Date(item.date).toLocaleString()}</Text>
+                                <Text style={styles.parkedDetails}>{item.items.length} items • ${item.total.toFixed(2)}</Text>
+                            </View>
+                            <View style={{flexDirection: 'row', gap: 10}}>
+                                <TouchableOpacity onPress={() => restoreSale(item)} style={styles.restoreBtn}>
+                                    <Ionicons name="refresh" size={20} color="white" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => deleteParkedSale(item.id)} style={styles.deleteBtn}>
+                                    <Ionicons name="trash" size={20} color="white" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+                />
+            </View>
+        </View>
+      </Modal>
 
       {/* FOOTER */}
       <View style={styles.footer}>
@@ -491,4 +695,20 @@ const styles = StyleSheet.create({
     bottom: 0,
     zIndex: 1500,
   },
+  camera: { flex: 1 },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent', marginBottom: 20 },
+  textScanFrame: { width: '80%', height: 120, borderColor: '#10b981', borderStyle: 'dashed' },
+  scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 30 },
+  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'black' },
+  headerIconBtn: { padding: 8, backgroundColor: '#f1f5f9', borderRadius: 8 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  parkedItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  parkedDate: { fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },
+  parkedDetails: { color: '#64748b', fontSize: 12 },
+  restoreBtn: { backgroundColor: '#10b981', padding: 8, borderRadius: 8 },
+  deleteBtn: { backgroundColor: '#ef4444', padding: 8, borderRadius: 8 },
 });

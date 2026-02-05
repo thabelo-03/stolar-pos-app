@@ -1,8 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
@@ -22,11 +24,12 @@ export default function AddStockScreen() {
   const [costPrice, setCostPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  const [isScanning, setIsScanning] = useState(false);
+  const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   // Add this near your other useState hooks
 const [category, setCategory] = useState('General');
   const [shopId, setShopId] = useState<string | null>(null);
   const itemNameInputRef = useRef<TextInput>(null);
+  const cameraRef = useRef<CameraView>(null);
   
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = '#888';
@@ -156,8 +159,40 @@ const [category, setCategory] = useState('General');
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
-    setBarcode(data);
-    setIsScanning(false);
+    if (activeScanField === 'barcode') {
+      setBarcode(data);
+      setActiveScanField(null);
+    }
+  };
+
+  const handleTakePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo?.uri) {
+          let uriToRecognize = photo.uri;
+
+          // Crop image to the center "text box" area to improve accuracy
+          if (photo.width && photo.height) {
+            const cropWidth = photo.width * 0.8;
+            const cropHeight = photo.height * 0.20; // Approx 20% of screen height for text
+            const originX = (photo.width - cropWidth) / 2;
+            const originY = (photo.height - cropHeight) / 2;
+
+            const manipResult = await manipulateAsync(photo.uri, [{ crop: { originX, originY, width: cropWidth, height: cropHeight } }], { compress: 1, format: SaveFormat.JPEG });
+            uriToRecognize = manipResult.uri;
+          }
+
+          const result = await TextRecognition.recognize(uriToRecognize);
+          if (result.text) {
+            setItemName(result.text.trim());
+          } else {
+            Alert.alert("No Text", "Could not detect text in the image.");
+          }
+          setActiveScanField(null);
+        }
+      } catch (e) { console.log(e); }
+    }
   };
 
   const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
@@ -182,14 +217,26 @@ const [category, setCategory] = useState('General');
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
         <ThemedView>
           <ThemedText type="defaultSemiBold">Item Name</ThemedText>
-          <TextInput 
-            ref={itemNameInputRef}
-            style={[styles.input, { color: textColor }]}
-            value={itemName}
-            onChangeText={setItemName}
-            placeholder="e.g. Apple"
-            placeholderTextColor={placeholderColor}
-          />
+          <View style={styles.barcodeRow}>
+            <TextInput 
+              ref={itemNameInputRef}
+              style={[styles.input, { color: textColor, flex: 1 }]}
+              value={itemName}
+              onChangeText={setItemName}
+              placeholder="e.g. Apple"
+              placeholderTextColor={placeholderColor}
+            />
+            <TouchableOpacity onPress={async () => {
+              if (!permission?.granted) {
+                const { granted } = await requestPermission();
+                if (granted) setActiveScanField('name');
+              } else {
+                setActiveScanField('name');
+              }
+            }} style={styles.scanButton}>
+              <Ionicons name="scan-outline" size={24} color={textColor} />
+            </TouchableOpacity>
+          </View>
         </ThemedView>
 
         <ThemedView>
@@ -217,9 +264,9 @@ const [category, setCategory] = useState('General');
             <TouchableOpacity onPress={async () => {
               if (!permission?.granted) {
                 const { granted } = await requestPermission();
-                if (granted) setIsScanning(true);
+                if (granted) setActiveScanField('barcode');
               } else {
-                setIsScanning(true);
+                setActiveScanField('barcode');
               }
             }} style={styles.scanButton}>
               <Ionicons name="barcode-outline" size={24} color={textColor} />
@@ -274,14 +321,26 @@ const [category, setCategory] = useState('General');
         )}
       </ScrollView>
 
-      <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
-        <CameraView style={styles.camera} facing="back" onBarcodeScanned={handleBarcodeScanned}>
+      <Modal visible={!!activeScanField} animationType="slide" onRequestClose={() => setActiveScanField(null)}>
+        <CameraView 
+          ref={cameraRef}
+          style={styles.camera} 
+          facing="back" 
+          onBarcodeScanned={activeScanField === 'barcode' ? handleBarcodeScanned : undefined}
+        >
           <View style={styles.cameraOverlay}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setIsScanning(false)}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setActiveScanField(null)}>
               <Ionicons name="close" size={30} color="white" />
             </TouchableOpacity>
-            <View style={styles.scanFrame} />
-            <Text style={styles.scanText}>Scanning...</Text>
+            
+            <View style={[styles.scanFrame, activeScanField === 'name' && styles.textScanFrame]} />
+            <Text style={styles.scanText}>{activeScanField === 'name' ? 'Align text & take photo' : 'Scanning Barcode...'}</Text>
+            
+            {activeScanField === 'name' && (
+              <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+                <View style={styles.shutterInner} />
+              </TouchableOpacity>
+            )}
           </View>
         </CameraView>
       </Modal>
@@ -354,6 +413,9 @@ const styles = StyleSheet.create({
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
-  scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
+  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent', marginBottom: 20 },
+  textScanFrame: { width: '80%', height: 120, borderColor: '#10b981', borderStyle: 'dashed' },
+  scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 30 },
+  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'black' },
 });

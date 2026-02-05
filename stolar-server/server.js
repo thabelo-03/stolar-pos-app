@@ -297,6 +297,8 @@ app.post('/api/sales', async (req, res) => {
 
     const newSale = new Sale({
       items,
+      // Map totalUSD from req.body to the "total" field your schema requires
+      total: totalUSD, 
       totalUSD,
       totalPaidLocal,
       currencyUsed,
