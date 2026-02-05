@@ -271,8 +271,15 @@ app.get('/api/sales/recent', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
+    const { refunded, startDate, endDate } = req.query;
 
-    const sales = await Sale.find()
+    let query = {};
+    if (refunded === 'true') query.refunded = true;
+    if (startDate && endDate) {
+      query.date = { $gte: startDate, $lte: endDate };
+    }
+
+    const sales = await Sale.find(query)
       .sort({ date: -1 })
       .skip(skip)
       .limit(limit);
@@ -321,6 +328,31 @@ app.post('/api/sales', async (req, res) => {
     res.status(201).json({ success: true, sale: newSale });
   } catch (err) {
     console.error("Sale processing error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.post('/api/sales/:id/refund', async (req, res) => { 
+  console.log(`Processing refund for sale: ${req.params.id}`);
+  try {
+    const sale = await Sale.findById(req.params.id);
+    if (!sale) return res.status(404).json({ message: "Sale not found" });
+    if (sale.refunded) return res.status(400).json({ message: "Sale already refunded" });
+
+    // Restore Stock
+    for (const item of sale.items) {
+      await Product.findOneAndUpdate(
+        { barcode: item.barcode },
+        { $inc: { stockQuantity: item.quantity } }
+      );
+    }
+
+    sale.refunded = true;
+    await sale.save();
+
+    res.json({ success: true, message: "Refund processed successfully" });
+  } catch (err) {
+    console.error("Refund error:", err);
     res.status(500).json({ message: err.message });
   }
 });

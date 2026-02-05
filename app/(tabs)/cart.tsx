@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
 import {
   ActivityIndicator,
   Alert,
@@ -41,6 +41,8 @@ export default function CartScreen() {
   const cameraRef = useRef<CameraView>(null);
   const [parkedSales, setParkedSales] = useState<any[]>([]);
   const [showParkedModal, setShowParkedModal] = useState(false);
+  const [recentSales, setRecentSales] = useState<any[]>([]);
+  const [showRecentModal, setShowRecentModal] = useState(false);
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
@@ -279,6 +281,35 @@ export default function CartScreen() {
     await AsyncStorage.setItem('parked_sales', JSON.stringify(newParked));
   };
 
+  const fetchRecentSales = async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/sales/recent`);
+      const data = await res.json();
+      setRecentSales(data);
+      setShowRecentModal(true);
+    } catch (e) {
+      Alert.alert("Error", "Could not fetch sales history");
+    }
+  };
+
+  const handleRefund = async (saleId: string) => {
+    Alert.alert("Confirm Refund", "Are you sure you want to refund this sale? Stock will be restored.", [
+      { text: "Cancel", style: "cancel" },
+      { text: "Refund", style: 'destructive', onPress: async () => {
+        try {
+          const res = await fetch(`${API_BASE_URL}/sales/refund/${saleId}`, { method: 'POST' });
+          const data = await res.json();
+          if (res.ok) {
+            Alert.alert("Success", "Refund processed");
+            fetchRecentSales(); // Refresh list
+          } else {
+            Alert.alert("Error", data.message || "Refund failed");
+          }
+        } catch (e) { Alert.alert("Error", "Network error"); }
+      }}
+    ]);
+  };
+
   // --- 5. CHECKOUT WITH OFFLINE + CURRENCY LOGIC ---
   const handleCheckout = async () => {
     if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
@@ -318,8 +349,9 @@ export default function CartScreen() {
             const checkRes = await fetch(`${API_BASE_URL}/products/${item.id}`);
             if (checkRes.ok) {
               const product = await checkRes.json();
-              if ((product.quantity || 0) < item.quantity) {
-                Alert.alert('Insufficient Stock', `Only ${product.quantity} units of "${item.name}" available.`);
+              const availableStock = product.stockQuantity !== undefined ? product.stockQuantity : (product.quantity || 0);
+              if (availableStock < item.quantity) {
+                Alert.alert('Insufficient Stock', `Only ${availableStock} units of "${item.name}" available.`);
                 setLoading(false);
                 return;
               }
@@ -392,6 +424,9 @@ export default function CartScreen() {
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#1e293b" /></TouchableOpacity>
         <Text style={styles.title}>Stolar Cart</Text>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={fetchRecentSales} style={styles.headerIconBtn}>
+              <Ionicons name="receipt-outline" size={20} color="#1e40af" />
+          </TouchableOpacity>
           <TouchableOpacity onPress={fetchParkedSales} style={styles.headerIconBtn}>
               <Ionicons name="time-outline" size={20} color="#1e40af" />
           </TouchableOpacity>
@@ -587,6 +622,40 @@ export default function CartScreen() {
                                     <Ionicons name="trash" size={20} color="white" />
                                 </TouchableOpacity>
                             </View>
+                        </View>
+                    )}
+                />
+            </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showRecentModal} animationType="slide" transparent onRequestClose={() => setShowRecentModal(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Recent Sales</Text>
+                    <TouchableOpacity onPress={() => setShowRecentModal(false)}>
+                        <Ionicons name="close" size={24} color="#64748b" />
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    data={recentSales}
+                    keyExtractor={item => item._id}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No recent sales found.</Text>}
+                    renderItem={({ item }) => (
+                        <View style={styles.parkedItem}>
+                            <View style={{flex: 1}}>
+                                <Text style={styles.parkedDate}>
+                                  {new Date(item.date).toLocaleString()} 
+                                  {item.refunded && <Text style={{color: '#ef4444'}}> (Refunded)</Text>}
+                                </Text>
+                                <Text style={styles.parkedDetails}>{item.items?.length || 0} items • ${item.totalUSD?.toFixed(2)}</Text>
+                            </View>
+                            {!item.refunded && (
+                              <TouchableOpacity onPress={() => handleRefund(item._id)} style={[styles.deleteBtn, { backgroundColor: '#f59e0b' }]}>
+                                  <Text style={{color: 'white', fontWeight: 'bold', fontSize: 12}}>Refund</Text>
+                              </TouchableOpacity>
+                            )}
                         </View>
                     )}
                 />

@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -15,6 +15,7 @@ interface InventoryItem {
   name: string;
   barcode?: string;
   quantity: number | string;
+  stockQuantity?: number;
   price?: number | string;
   costPrice?: number | string;
 }
@@ -27,6 +28,8 @@ export default function ManagerInventoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
@@ -36,7 +39,11 @@ export default function ManagerInventoryScreen() {
       const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
       const data = await response.json();
       if (response.ok) {
-        setInventory(data);
+        const mappedData = data.map((item: any) => ({
+          ...item,
+          quantity: item.stockQuantity !== undefined ? item.stockQuantity : (item.quantity || 0)
+        }));
+        setInventory(mappedData);
       }
     } catch (error) {
       console.log('Error fetching inventory:', error);
@@ -56,7 +63,7 @@ export default function ManagerInventoryScreen() {
   };
 
   const filteredInventory = useMemo(() => {
-    let data = inventory;
+    let data = [...inventory];
     if (filter === 'low') data = data.filter(i => Number(i.quantity) > 0 && Number(i.quantity) < 5);
     if (filter === 'out') data = data.filter(i => Number(i.quantity) === 0);
 
@@ -64,8 +71,26 @@ export default function ManagerInventoryScreen() {
       const lower = searchQuery.toLowerCase();
       data = data.filter(item => (item.name && item.name.toLowerCase().includes(lower)) || (item.barcode !== undefined && item.barcode !== null && item.barcode.toString().includes(lower)));
     }
+
+    data.sort((a, b) => {
+      let valA: any = a[sortBy];
+      let valB: any = b[sortBy];
+
+      if (sortBy === 'price' || sortBy === 'quantity') {
+        valA = Number(valA) || 0;
+        valB = Number(valB) || 0;
+      } else {
+        valA = (valA || '').toString().toLowerCase();
+        valB = (valB || '').toString().toLowerCase();
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return data;
-  }, [inventory, filter, searchQuery]);
+  }, [inventory, filter, searchQuery, sortBy, sortOrder]);
 
   const deleteItem = async (id: string) => {
     try {
@@ -200,24 +225,42 @@ export default function ManagerInventoryScreen() {
 
       {/* Filters */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
-          onPress={() => setFilter('all')}
-        >
-          <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>All Items</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'low' && styles.activeFilterChip]} 
-          onPress={() => setFilter('low')}
-        >
-          <Text style={[styles.filterText, filter === 'low' && styles.activeFilterText]}>Low Stock</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'out' && styles.activeFilterChip]} 
-          onPress={() => setFilter('out')}
-        >
-          <Text style={[styles.filterText, filter === 'out' && styles.activeFilterText]}>Out of Stock</Text>
-        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
+          <TouchableOpacity 
+            style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
+            onPress={() => setFilter('all')}
+          >
+            <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterChip, filter === 'low' && styles.activeFilterChip]} 
+            onPress={() => setFilter('low')}
+          >
+            <Text style={[styles.filterText, filter === 'low' && styles.activeFilterText]}>Low Stock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterChip, filter === 'out' && styles.activeFilterChip]} 
+            onPress={() => setFilter('out')}
+          >
+            <Text style={[styles.filterText, filter === 'out' && styles.activeFilterText]}>Out</Text>
+          </TouchableOpacity>
+
+          <View style={styles.verticalDivider} />
+
+          <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setSortBy(prev => prev === 'name' ? 'price' : prev === 'price' ? 'quantity' : 'name')}
+          >
+            <Text style={styles.filterText}>By: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+          >
+            <Ionicons name={sortOrder === 'asc' ? "arrow-up" : "arrow-down"} size={16} color="#64748b" />
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
@@ -239,7 +282,7 @@ export default function ManagerInventoryScreen() {
           data={filteredInventory}
           keyExtractor={(item) => item._id || item.id || Math.random().toString()}
           renderItem={({ item }) => {
-            const qty = Number(item.quantity);
+            const qty = Number(item.quantity) || 0;
             const status = getStockStatus(qty);
             const price = Number(item.price || 0);
             const cost = Number(item.costPrice || 0);
@@ -266,6 +309,10 @@ export default function ManagerInventoryScreen() {
                   <View>
                     <Text style={styles.priceLabel}>Price / Cost</Text>
                     <Text style={styles.priceValue}>${price.toFixed(2)} <Text style={styles.costText}>(${cost.toFixed(2)})</Text></Text>
+                  </View>
+                  <View>
+                    <Text style={styles.priceLabel}>Stock</Text>
+                    <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Margin</Text>
@@ -334,6 +381,7 @@ const styles = StyleSheet.create({
   activeFilterChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
   filterText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
   activeFilterText: { color: 'white' },
+  verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
 
   listContent: { padding: 20, gap: 15, paddingBottom: 40 },
   card: { backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },

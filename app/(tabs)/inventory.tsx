@@ -3,7 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -17,6 +17,7 @@ interface InventoryItem {
   price: number;
   costPrice?: number;
   category?: string;
+  stockQuantity?: number;
 }
 
 export default function CashierInventoryScreen() {
@@ -26,6 +27,8 @@ export default function CashierInventoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity'>('name');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
@@ -42,7 +45,11 @@ export default function CashierInventoryScreen() {
         const response = await fetch(`${API_BASE_URL}/products?shopId=${user.shopId}`);
         const data = await response.json();
         if (response.ok) {
-          setInventory(data);
+          const mappedData = data.map((item: any) => ({
+            ...item,
+            quantity: item.stockQuantity !== undefined ? item.stockQuantity : (item.quantity || 0)
+          }));
+          setInventory(mappedData);
         }
       } else {
         setInventory([]);
@@ -110,10 +117,10 @@ export default function CashierInventoryScreen() {
   };
 
   const filteredInventory = useMemo(() => {
-    let data = inventory;
+    let data = [...inventory];
 
-    if (filter === 'low') data = data.filter(i => i.quantity > 0 && i.quantity < 5);
-    if (filter === 'out') data = data.filter(i => i.quantity === 0);
+    if (filter === 'low') data = data.filter(i => (Number(i.quantity) || 0) > 0 && (Number(i.quantity) || 0) < 5);
+    if (filter === 'out') data = data.filter(i => (Number(i.quantity) || 0) === 0);
 
     if (searchQuery) {
       const lower = searchQuery.toLowerCase();
@@ -122,13 +129,31 @@ export default function CashierInventoryScreen() {
         (item.barcode && String(item.barcode).toLowerCase().includes(lower))
       );
     }
+
+    data.sort((a, b) => {
+      let valA: any = a[sortBy];
+      let valB: any = b[sortBy];
+
+      if (sortBy === 'price' || sortBy === 'quantity') {
+        valA = Number(valA) || 0;
+        valB = Number(valB) || 0;
+      } else {
+        valA = (valA || '').toString().toLowerCase();
+        valB = (valB || '').toString().toLowerCase();
+      }
+
+      if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
+      if (valA > valB) return sortOrder === 'asc' ? 1 : -1;
+      return 0;
+    });
+
     return data;
-  }, [inventory, filter, searchQuery]);
+  }, [inventory, filter, searchQuery, sortBy, sortOrder]);
 
   const stats = useMemo(() => {
     const totalItems = inventory.length;
-    const totalValue = inventory.reduce((acc, item) => acc + (item.price * item.quantity), 0);
-    const lowStock = inventory.filter(i => i.quantity < 5).length;
+    const totalValue = inventory.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0);
+    const lowStock = inventory.filter(i => (Number(i.quantity) || 0) < 5).length;
     return { totalItems, totalValue, lowStock };
   }, [inventory]);
 
@@ -196,24 +221,42 @@ export default function CashierInventoryScreen() {
 
       {/* Filters */}
       <View style={styles.filterContainer}>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
-          onPress={() => setFilter('all')}
-        >
-          <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>All Items</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'low' && styles.activeFilterChip]} 
-          onPress={() => setFilter('low')}
-        >
-          <Text style={[styles.filterText, filter === 'low' && styles.activeFilterText]}>Low Stock</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, filter === 'out' && styles.activeFilterChip]} 
-          onPress={() => setFilter('out')}
-        >
-          <Text style={[styles.filterText, filter === 'out' && styles.activeFilterText]}>Out of Stock</Text>
-        </TouchableOpacity>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
+          <TouchableOpacity 
+            style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
+            onPress={() => setFilter('all')}
+          >
+            <Text style={[styles.filterText, filter === 'all' && styles.activeFilterText]}>All</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterChip, filter === 'low' && styles.activeFilterChip]} 
+            onPress={() => setFilter('low')}
+          >
+            <Text style={[styles.filterText, filter === 'low' && styles.activeFilterText]}>Low Stock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.filterChip, filter === 'out' && styles.activeFilterChip]} 
+            onPress={() => setFilter('out')}
+          >
+            <Text style={[styles.filterText, filter === 'out' && styles.activeFilterText]}>Out</Text>
+          </TouchableOpacity>
+
+          <View style={styles.verticalDivider} />
+
+          <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setSortBy(prev => prev === 'name' ? 'price' : prev === 'price' ? 'quantity' : 'name')}
+          >
+            <Text style={styles.filterText}>By: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
+          >
+            <Ionicons name={sortOrder === 'asc' ? "arrow-up" : "arrow-down"} size={16} color="#64748b" />
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {loading ? (
@@ -225,7 +268,8 @@ export default function CashierInventoryScreen() {
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
           contentContainerStyle={styles.listContent}
           renderItem={({ item }) => {
-            const status = getStockStatus(item.quantity);
+            const qty = Number(item.quantity) || 0;
+            const status = getStockStatus(qty);
             return (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -246,11 +290,11 @@ export default function CashierInventoryScreen() {
                 <View style={styles.cardFooter}>
                   <View>
                     <Text style={styles.priceLabel}>Price</Text>
-                    <Text style={styles.priceValue}>${item.price.toFixed(2)}</Text>
+                    <Text style={styles.priceValue}>${(Number(item.price) || 0).toFixed(2)}</Text>
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Stock</Text>
-                    <Text style={[styles.priceValue, { color: status.color }]}>{item.quantity}</Text>
+                    <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
                   </View>
                   
                   <View style={styles.actions}>
@@ -322,6 +366,7 @@ const styles = StyleSheet.create({
   activeFilterChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
   filterText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
   activeFilterText: { color: 'white' },
+  verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
 
   listContent: { padding: 20, gap: 15, paddingBottom: 40 },
   card: { backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },

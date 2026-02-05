@@ -20,14 +20,25 @@ export default function LastSalesScreen() {
   const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showRefundedOnly, setShowRefundedOnly] = useState(false);
-  const [date, setDate] = useState(new Date());
-  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [startDate, setStartDate] = useState(new Date());
+  const [endDate, setEndDate] = useState(new Date());
+  const [showPicker, setShowPicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
   const [filterByDate, setFilterByDate] = useState(false);
 
   const fetchSales = async (pageNumber = 1) => {
     try {
       // Attempt to fetch from API
-      const response = await fetch(`${API_BASE_URL}/sales/recent?limit=10&page=${pageNumber}`);
+      let url = `${API_BASE_URL}/sales/recent?limit=10&page=${pageNumber}`;
+      
+      if (showRefundedOnly) url += `&refunded=true`;
+      if (filterByDate) {
+        const start = new Date(startDate); start.setHours(0,0,0,0);
+        const end = new Date(endDate); end.setHours(23,59,59,999);
+        url += `&startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
+      }
+
+      const response = await fetch(url);
       const data = await response.json();
       
       if (response.ok && Array.isArray(data)) {
@@ -64,7 +75,7 @@ export default function LastSalesScreen() {
 
   useEffect(() => {
     fetchSales(1);
-  }, []);
+  }, [showRefundedOnly, filterByDate, startDate, endDate]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -72,23 +83,40 @@ export default function LastSalesScreen() {
   };
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(Platform.OS === 'ios');
+    setShowPicker(Platform.OS === 'ios');
     if (selectedDate) {
-      setDate(selectedDate);
+      if (pickerMode === 'start') {
+        setStartDate(selectedDate);
+        if (selectedDate > endDate) setEndDate(selectedDate);
+      } else {
+        setEndDate(selectedDate);
+        if (selectedDate < startDate) setStartDate(selectedDate);
+      }
       setFilterByDate(true);
     }
+  };
+
+  const openPicker = (mode: 'start' | 'end') => {
+    setPickerMode(mode);
+    setShowPicker(true);
   };
 
   const filteredSales = useMemo(() => {
     let data = sales;
 
     if (showRefundedOnly) {
-      data = data.filter(item => item.status === 'refunded');
+      data = data.filter(item => item.refunded);
     }
 
     if (filterByDate) {
-      const target = date.toDateString();
-      data = data.filter(item => item.date && new Date(item.date).toDateString() === target);
+      const start = new Date(startDate); start.setHours(0,0,0,0);
+      const end = new Date(endDate); end.setHours(23,59,59,999);
+      // Server handles main filtering, but we keep this for consistency with loaded data
+      data = data.filter(item => {
+        if (!item.date) return false;
+        const d = new Date(item.date);
+        return d >= start && d <= end;
+      });
     }
 
     if (!searchQuery) return data;
@@ -103,7 +131,7 @@ export default function LastSalesScreen() {
       (item.time && item.time.toLowerCase().includes(lowerText)) ||
       ((item.total || item.amount || item.totalUSD || 0).toString().includes(lowerText));
     });
-  }, [sales, searchQuery, showRefundedOnly, filterByDate, date]);
+  }, [sales, searchQuery, showRefundedOnly, filterByDate, startDate, endDate]);
 
   const stats = useMemo(() => {
     const total = filteredSales.reduce((acc, curr) => acc + (curr.total || curr.amount || curr.totalUSD || 0), 0);
@@ -231,20 +259,39 @@ export default function LastSalesScreen() {
           >
             <Text style={[styles.filterText, showRefundedOnly && styles.activeFilterText]}>Refunded Only</Text>
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.filterChip, filterByDate && styles.activeFilterChip, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} 
-            onPress={() => setShowDatePicker(true)}
-          >
-            <Ionicons name="calendar-outline" size={16} color={filterByDate ? "#1e40af" : "#bfdbfe"} />
-            <Text style={[styles.filterText, filterByDate && styles.activeFilterText]}>
-              {filterByDate ? date.toLocaleDateString() : 'Date'}
-            </Text>
-          </TouchableOpacity>
+          
+          {!filterByDate ? (
+            <TouchableOpacity 
+              style={[styles.filterChip, { flexDirection: 'row', alignItems: 'center', gap: 6 }]} 
+              onPress={() => {
+                setFilterByDate(true);
+                setStartDate(new Date());
+                setEndDate(new Date());
+              }}
+            >
+              <Ionicons name="calendar-outline" size={16} color="#bfdbfe" />
+              <Text style={styles.filterText}>Date Range</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity style={[styles.filterChip, styles.activeFilterChip]} onPress={() => openPicker('start')}>
+                <Text style={[styles.filterText, styles.activeFilterText]}>
+                  {startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}
+                </Text>
+              </TouchableOpacity>
+              <Text style={{color: '#bfdbfe', alignSelf: 'center'}}>-</Text>
+              <TouchableOpacity style={[styles.filterChip, styles.activeFilterChip]} onPress={() => openPicker('end')}>
+                <Text style={[styles.filterText, styles.activeFilterText]}>
+                  {endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}
+                </Text>
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
-        {showDatePicker && (
+        {showPicker && (
           <DateTimePicker
-            value={date}
+            value={pickerMode === 'start' ? startDate : endDate}
             mode="date"
             display="default"
             onChange={onChangeDate}
@@ -260,7 +307,7 @@ export default function LastSalesScreen() {
           keyExtractor={(item) => item.id || item._id || Math.random().toString()}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
           renderItem={({ item }) => {
-            const isRefunded = item.status === 'refunded';
+            const isRefunded = item.refunded;
             const itemCount = Array.isArray(item.items) ? item.items.length : 1;
             
             return (
