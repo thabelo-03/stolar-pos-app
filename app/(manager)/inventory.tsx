@@ -62,7 +62,7 @@ export default function ManagerInventoryScreen() {
 
     if (searchQuery) {
       const lower = searchQuery.toLowerCase();
-      data = data.filter(item => (item.name && item.name.toLowerCase().includes(lower)) || (item.barcode && item.barcode.toString().includes(lower)));
+      data = data.filter(item => (item.name && item.name.toLowerCase().includes(lower)) || (item.barcode !== undefined && item.barcode !== null && item.barcode.toString().includes(lower)));
     }
     return data;
   }, [inventory, filter, searchQuery]);
@@ -96,6 +96,23 @@ export default function ManagerInventoryScreen() {
     return { label: 'In Stock', color: '#10b981', bg: '#d1fae5' };
   };
 
+  const handleEdit = (item: InventoryItem) => {
+    const itemId = item._id || item.id;
+    router.push({
+      pathname: '/(manager)/add-stock',
+      params: { 
+        id: itemId, 
+        name: item.name, 
+        quantity: item.quantity, 
+        barcode: (item.barcode !== undefined && item.barcode !== null) ? String(item.barcode) : '', 
+        price: item.price, 
+        costPrice: item.costPrice, 
+        mode: 'edit', 
+        shopId 
+      }
+    });
+  };
+
   const handleItemPress = (item: InventoryItem) => {
     const itemId = item._id || item.id;
     if (!itemId) {
@@ -110,10 +127,7 @@ export default function ManagerInventoryScreen() {
         { text: 'Cancel', style: 'cancel' },
         { 
           text: 'Edit', 
-          onPress: () => router.push({
-            pathname: '/(manager)/add-stock',
-            params: { id: itemId, name: item.name, quantity: item.quantity, barcode: item.barcode, price: item.price, costPrice: item.costPrice, mode: 'edit', shopId }
-          }) 
+          onPress: () => handleEdit(item)
         },
         { 
           text: 'Delete', 

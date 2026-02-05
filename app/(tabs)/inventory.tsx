@@ -100,9 +100,9 @@ export default function CashierInventoryScreen() {
         mode: 'edit',
         id: item._id,
         name: item.name,
-        quantity: item.quantity.toString(),
-        barcode: item.barcode,
-        price: item.price.toString(),
+        quantity: item.quantity !== undefined ? item.quantity.toString() : '',
+        barcode: item.barcode || '',
+        price: item.price !== undefined ? item.price.toString() : '',
         costPrice: item.costPrice?.toString() || '',
         category: item.category || ''
       }
@@ -118,8 +118,8 @@ export default function CashierInventoryScreen() {
     if (searchQuery) {
       const lower = searchQuery.toLowerCase();
       data = data.filter(item => 
-        item.name.toLowerCase().includes(lower) ||
-        (item.barcode && item.barcode.includes(lower))
+        (item.name && item.name.toLowerCase().includes(lower)) ||
+        (item.barcode && String(item.barcode).toLowerCase().includes(lower))
       );
     }
     return data;
