@@ -63,6 +63,13 @@ export default function ManagerLayout() {
           title: 'Add Stock' 
         }} 
       />
+      <Stack.Screen 
+        name="subscription" 
+        options={{ 
+          headerShown: false, 
+          title: 'Subscription Required' 
+        }} 
+      />
     </Stack>
   );
 }

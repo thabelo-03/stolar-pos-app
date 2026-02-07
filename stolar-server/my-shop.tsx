@@ -13,7 +13,8 @@ import {
   Alert,
   TextInput
 } from 'react-native';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL } from '../app/config';
+import SubscriptionModal from '../components/SubscriptionModal';
 
 interface Shop {
   _id: string;
@@ -38,6 +39,8 @@ export default function MyShopScreen() {
   const [processing, setProcessing] = useState(false);
   const [branchCode, setBranchCode] = useState('');
   const router = useRouter();
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{id: string, name: string, email: string} | null>(null);
 
   useEffect(() => {
     fetchShopDetails();
@@ -50,24 +53,37 @@ export default function MyShopScreen() {
 
       // 1. Get User to find their shopId
       const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-      const user = await userRes.json();
+      if (userRes.ok) {
+        const user = await userRes.json();
+        setCurrentUser({ ...user, id: user._id });
 
-      if (user.shopId) {
-        // 2. Get Shop details
-        const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
-        if (shopRes.ok) {
-          const shopData = await shopRes.json();
-          setShop(shopData);
-          setPendingRequest(null);
+        // Check Subscription Status
+        if (user.subscriptionExpiry) {
+          const expiryDate = new Date(user.subscriptionExpiry);
+          const now = new Date();
+          if (expiryDate < now) {
+            console.log("Subscription expired:", expiryDate);
+            setSubscriptionExpired(true);
+          }
         }
-      } else {
-        setShop(null);
-        // 3. Check if they have a pending request
-        const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
-        if (reqRes.ok) {
-          const reqData = await reqRes.json();
-          // reqData will be null if no request exists
-          setPendingRequest(reqData);
+
+        if (user.shopId) {
+          // 2. Get Shop details
+          const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
+          if (shopRes.ok) {
+            const shopData = await shopRes.json();
+            setShop(shopData);
+            setPendingRequest(null);
+          }
+        } else {
+          setShop(null);
+          // 3. Check if they have a pending request
+          const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
+          if (reqRes.ok) {
+            const reqData = await reqRes.json();
+            // reqData will be null if no request exists
+            setPendingRequest(reqData);
+          }
         }
       }
     } catch (error) {
@@ -156,6 +172,17 @@ export default function MyShopScreen() {
     }
   };
 
+  const handleSubscriptionSuccess = (newExpiry: string) => {
+    setSubscriptionExpired(false);
+    Alert.alert("Success", "Subscription extended!");
+    fetchShopDetails();
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/'); 
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -166,6 +193,13 @@ export default function MyShopScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <SubscriptionModal 
+        visible={subscriptionExpired}
+        user={currentUser}
+        onSuccess={handleSubscriptionSuccess}
+        onLogout={handleLogout}
+      />
+
       <View style={styles.header}>
         <Text style={styles.title}>My Shop</Text>
       </View>

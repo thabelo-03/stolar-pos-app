@@ -20,6 +20,7 @@ interface Shop {
 interface User {
   name: string;
   email: string;
+  subscriptionStatus?: string; 
 }
 
 const ManagerIndex = () => {
@@ -61,6 +62,21 @@ const ManagerIndex = () => {
           throw new Error('Failed to fetch user data');
         }
         const userData = await userResponse.json();
+        console.log("Fetched User Data:", userData);
+        console.log("User Role:", userData.role);
+        // Force subscription status to 'expired' for testing purposes, as requested
+        if (userData.role === 'manager') {
+          userData.subscriptionStatus = 'expired';
+          console.log("FORCED Subscription Status for testing:", userData.subscriptionStatus);
+        }
+        console.log("Subscription Status:", userData.subscriptionStatus);
+        // Simulate expired subscription for testing as requested
+        if (userData.role === 'manager' && userData.subscriptionStatus === 'expired') {
+          console.log("Redirecting to subscription page...");
+          router.replace('/(manager)/subscription');
+          setLoading(false); // Stop loading and prevent further data fetching
+          return; 
+        }
         setUser(userData);
 
         // Fetch all shops data

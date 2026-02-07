@@ -15,6 +15,8 @@ const UserSchema = new mongoose.Schema({
     ref: 'Shop',
     default: null // New users start unlinked
   },
+  subscriptionStatus: { type: String, default: 'active' }, // 'active', 'expired'
+  subscriptionExpiry: { type: Date },
   isActive: { type: Boolean, default: true },
   createdAt: { type: Date, default: Date.now }
 });
