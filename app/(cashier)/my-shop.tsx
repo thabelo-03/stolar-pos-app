@@ -81,14 +81,26 @@ export default function MyShopScreen() {
     setProcessing(true);
     try {
       const userId = await AsyncStorage.getItem('userId');
+      if (!userId) {
+        Alert.alert("Error", "Session expired. Please login again.");
+        return;
+      }
+
       const response = await fetch(`${API_BASE_URL}/shops/leave`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId }),
       });
 
-      const data = await response.json();
-      
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.log("Leave Shop Response Error:", text);
+        data = { message: "Invalid server response" };
+      }
+
       if (response.ok) {
         setModalVisible(false);
         setShop(null);
@@ -98,6 +110,7 @@ export default function MyShopScreen() {
         Alert.alert("Error", data.message || "Failed to leave shop");
       }
     } catch (error) {
+      console.log("Leave Shop Error:", error);
       Alert.alert("Error", "Network error occurred.");
     } finally {
       setProcessing(false);
@@ -113,22 +126,39 @@ export default function MyShopScreen() {
     setProcessing(true);
     try {
       const userId = await AsyncStorage.getItem('userId');
-      const response = await fetch(`${API_BASE_URL}/shops/request-link`, {
+      if (!userId) {
+        Alert.alert("Error", "Session expired. Please login again.");
+        return;
+      }
+
+      const response = await fetch(`${API_BASE_URL}/shops/requests`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ branchCode, userId }),
+        body: JSON.stringify({ 
+          branchCode: branchCode.trim().toUpperCase(), 
+          cashierId: userId 
+        }),
       });
 
-      const data = await response.json();
+      const text = await response.text();
+      let data;
+      try {
+        data = JSON.parse(text);
+      } catch (e) {
+        console.log("Join Shop Response Error:", text);
+        data = { message: "Invalid server response" };
+      }
       
       if (response.ok) {
-        Alert.alert("Success", "Request sent! Waiting for manager approval.");
+        Alert.alert("Success", "Request sent! Waiting for manager approval.", [
+          { text: "OK", onPress: () => router.replace('/') }
+        ]);
         setBranchCode('');
-        fetchShopDetails(); // Refresh to show pending state
       } else {
         Alert.alert("Error", data.message || "Failed to send request");
       }
     } catch (error) {
+      console.log("Join Shop Error:", error);
       Alert.alert("Error", "Network error occurred.");
     } finally {
       setProcessing(false);
