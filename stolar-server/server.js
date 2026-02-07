@@ -512,6 +512,45 @@ app.get('/api/shops/requests/:id', async (req, res) => {
   }
 });
 
+// Add this to your server code
+app.post('/api/shops/requests', async (req, res) => {
+  console.log('New join request:', req.body);
+  try {
+    const { branchCode, cashierId } = req.body;
+
+    // 1. Find the shop by branch code
+    const shop = await Shop.findOne({ branchCode });
+    if (!shop) {
+      return res.status(404).json({ message: "Invalid branch code. Shop not found." });
+    }
+
+    // 2. Check if a pending request already exists
+    const existingRequest = await LinkRequest.findOne({ 
+      cashier: cashierId, 
+      status: 'pending' 
+    });
+    
+    if (existingRequest) {
+      return res.status(400).json({ message: "You already have a pending request." });
+    }
+
+    // 3. Create the request
+    const newRequest = new LinkRequest({
+      shop: shop._id,
+      cashier: cashierId,
+      manager: shop.manager, // The manager associated with that shop
+      status: 'pending'
+    });
+
+    await newRequest.save();
+    res.status(201).json({ success: true, message: "Request sent to manager." });
+
+  } catch (err) {
+    console.error("Join request error:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+});
+
 // (Keep your other existing link request routes below...)
 
 const PORT = process.env.PORT || 5000;
