@@ -1,8 +1,14 @@
+const dns = require('node:dns');
+dns.setServers(['8.8.8.8', '8.8.4.4']); //
+const { Paynow } = require('paynow');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
+
+console.log('Paynow INTEGRATION_ID from .env:', process.env.PAYNOW_INTEGRATION_ID);
+console.log('Paynow INTEGRATION_KEY from .env:', process.env.PAYNOW_INTEGRATION_KEY);
 
 // Models
 const Shop = require('./models/Shop');
@@ -13,6 +19,12 @@ const LinkRequest = require('./models/LinkRequest');
 const Notification = require('./models/Notification');
 
 const app = express();
+
+// Paynow Configuration
+const paynow = new Paynow(process.env.PAYNOW_INTEGRATION_ID, process.env.PAYNOW_INTEGRATION_KEY);
+// Set result and return URLs (Replace with your actual frontend/backend URLs)
+paynow.resultUrl = 'http://localhost:5000/api/subscription/callback';
+paynow.returnUrl = 'http://localhost:5000/payment-success';
 
 // Middleware
 app.use(express.json());
@@ -90,7 +102,15 @@ app.post('/api/auth/signup', async (req, res) => {
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    const newUser = new User({ name, email, password: hashedPassword, role });
+    // Set 1 Month Free Trial
+    const expiryDate = new Date();
+    expiryDate.setMonth(expiryDate.getMonth() + 1);
+
+    const newUser = new User({ 
+      name, email, password: hashedPassword, role,
+      subscriptionStatus: 'active',
+      subscriptionExpiry: expiryDate
+    });
     await newUser.save();
     res.status(201).json({ success: true, message: "Account created successfully" });
   } catch (err) {
@@ -109,12 +129,20 @@ app.post('/api/auth/login', async (req, res) => {
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
+    // Check Subscription Status
+    const now = new Date();
+    const expiry = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) : new Date();
+    // If expiry is in the past, they are expired
+    const isExpired = expiry < now;
+
     res.json({ 
       success: true, 
       role: user.role, 
       name: user.name, 
       id: user._id,
-      shopId: user.shopId 
+      shopId: user.shopId,
+      subscriptionExpired: isExpired,
+      subscriptionExpiry: user.subscriptionExpiry
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -353,6 +381,114 @@ app.post('/api/sales/:id/refund', async (req, res) => {
     res.json({ success: true, message: "Refund processed successfully" });
   } catch (err) {
     console.error("Refund error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// --- SUBSCRIPTION & PAYMENTS ---
+
+// 1. Initiate Payment (Paynow)
+app.post('/api/subscription/pay', async (req, res) => {
+  const { email, amount, userId } = req.body; // Amount usually in USD
+  console.log(`Initiating payment for ${email}`);
+  console.log('Using Paynow INTEGRATION_ID:', process.env.PAYNOW_INTEGRATION_ID);
+  console.log('Using Paynow INTEGRATION_KEY:', process.env.PAYNOW_INTEGRATION_KEY);
+
+  try {
+    const payment = paynow.createPayment(`Subscription-${userId}-${Date.now()}`, email);
+    payment.add('Monthly Subscription', amount || 10); // Default $10 if not sent
+
+    const response = await paynow.send(payment);
+
+    if (response.success) {
+      res.json({ 
+        success: true, 
+        redirectUrl: response.redirectUrl, 
+        pollUrl: response.pollUrl 
+      });
+    } else {
+      res.status(400).json({ success: false, message: "Paynow failed to initiate" });
+    }
+  } catch (err) {
+    console.error("Payment init error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 2. Check Payment Status (Frontend polls this)
+app.post('/api/subscription/check-status', async (req, res) => {
+  const { pollUrl, userId } = req.body;
+  try {
+    const status = await paynow.pollTransaction(pollUrl);
+    console.log("Payment Status:", status.status);
+
+    if (status.status === 'paid' || status.status === 'awaiting delivery') {
+      // Extend Subscription by 1 Month
+      const user = await User.findById(userId);
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 
+        ? new Date(user.subscriptionExpiry) 
+        : new Date();
+      
+      currentExpiry.setMonth(currentExpiry.getMonth() + 1);
+      
+      user.subscriptionExpiry = currentExpiry;
+      user.subscriptionStatus = 'active';
+      await user.save();
+
+      return res.json({ success: true, status: 'paid', newExpiry: currentExpiry });
+    }
+
+    res.json({ success: true, status: status.status });
+  } catch (err) {
+    console.error("Poll error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// 3. Admin Manual Activation (Cash Payment)
+app.post('/api/admin/activate-user', async (req, res) => {
+  const { userId, months } = req.body; // months to add
+  console.log(`Admin activating user ${userId} for ${months} months`);
+  
+  try {
+    const user = await User.findById(userId);
+    if (!user) return res.status(404).json({ message: "User not found" });
+
+    // If currently valid, add to existing expiry. If expired, start from now.
+    const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 
+        ? new Date(user.subscriptionExpiry) 
+        : new Date();
+
+    currentExpiry.setMonth(currentExpiry.getMonth() + (parseInt(months) || 1));
+    
+    user.subscriptionExpiry = currentExpiry;
+    user.subscriptionStatus = 'active';
+    await user.save();
+
+    res.json({ success: true, message: "User activated successfully", newExpiry: currentExpiry });
+  } catch (err) {
+    console.error("Admin activation error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// --- TEST ROUTES (FOR DEVELOPMENT) ---
+
+app.post('/api/test/expire-managers', async (req, res) => {
+  console.log("TEST: Expiring all managers...");
+  try {
+    const yesterday = new Date();
+    yesterday.setDate(yesterday.getDate() - 1);
+    
+    const result = await User.updateMany(
+      { role: 'manager' },
+      { $set: { subscriptionStatus: 'expired', subscriptionExpiry: yesterday } }
+    );
+    
+    res.json({ success: true, message: `Updated ${result.modifiedCount} managers to expired status.` });
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
