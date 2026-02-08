@@ -1,8 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 import { ThemedView } from '../../components/themed-view';
@@ -19,6 +22,7 @@ export default function DailySummaryScreen() {
   
   const [transactions, setTransactions] = useState<any[]>([]);
   const [totalSales, setTotalSales] = useState(0);
+  const [totalRefunds, setTotalRefunds] = useState(0);
   const [transactionCount, setTransactionCount] = useState(0);
   const [avgTransaction, setAvgTransaction] = useState(0);
   const [paymentStats, setPaymentStats] = useState({ cash: 0, card: 0, other: 0 });
@@ -38,11 +42,22 @@ export default function DailySummaryScreen() {
   const fetchDailySales = async () => {
     setRefreshing(true);
     try {
-      // Fetch all sales (in a real app, you'd filter by date on the backend: ?date=YYYY-MM-DD)
-      const response = await fetch(`${API_BASE_URL}/sales`);
+      const userId = await AsyncStorage.getItem('userId');
+      let queryParams = '';
+      
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        if (user.shopId && user.role !== 'admin') {
+          queryParams = `?shopId=${user.shopId}`;
+        }
+      }
+
+      const response = await fetch(`${API_BASE_URL}/sales${queryParams}`);
       const data = await response.json();
 
       if (response.ok && Array.isArray(data)) {
+        console.log(`Daily Summary: Fetched ${data.length} sales`);
         let daysSales = [];
         let chartLabels = [];
         let chartDataPoints = [];
@@ -55,6 +70,7 @@ export default function DailySummaryScreen() {
           // Hourly chart logic
           const hourlyTotals = new Array(24).fill(0);
           daysSales.forEach((sale: any) => {
+            if (sale.refunded) return;
             const hour = new Date(sale.date).getHours();
             hourlyTotals[hour] += (sale.total || sale.amount || 0);
           });
@@ -85,7 +101,7 @@ export default function DailySummaryScreen() {
             const daySum = daysSales
               .filter((s: any) => {
                 const sd = new Date(s.date);
-                return sd >= dayStart && sd <= dayEnd;
+                return sd >= dayStart && sd <= dayEnd && !s.refunded;
               })
               .reduce((acc: number, curr: any) => acc + (curr.total || curr.amount || 0), 0);
             chartDataPoints.push(daySum);
@@ -93,14 +109,19 @@ export default function DailySummaryScreen() {
         }
 
         // 2. Calculate Totals
-        const total = daysSales.reduce((sum: number, item: any) => sum + (item.total || item.amount || 0), 0);
+        const validSales = daysSales.filter((s: any) => !s.refunded);
+        const refundedSales = daysSales.filter((s: any) => s.refunded);
+        const total = validSales.reduce((sum: number, item: any) => sum + (item.total || item.amount || 0), 0);
+        const refunds = refundedSales.reduce((sum: number, item: any) => sum + (item.total || item.amount || 0), 0);
+        
         setTotalSales(total);
-        setTransactionCount(daysSales.length);
-        setAvgTransaction(daysSales.length ? total / daysSales.length : 0);
+        setTotalRefunds(refunds);
+        setTransactionCount(validSales.length);
+        setAvgTransaction(validSales.length ? total / validSales.length : 0);
         
         // 3. Payment Stats
         const pStats = { cash: 0, card: 0, other: 0 };
-        daysSales.forEach((s: any) => {
+        validSales.forEach((s: any) => {
             const method = (s.paymentMethod || 'cash').toLowerCase();
             const amt = s.total || s.amount || 0;
             if (method.includes('card')) pStats.card += amt;
@@ -111,7 +132,7 @@ export default function DailySummaryScreen() {
 
         // 4. Top Items
         const itemMap = new Map();
-        daysSales.forEach((s: any) => {
+        validSales.forEach((s: any) => {
             if (Array.isArray(s.items)) {
                 s.items.forEach((i: any) => {
                     const current = itemMap.get(i.name) || 0;
@@ -148,6 +169,123 @@ export default function DailySummaryScreen() {
     fetchDailySales();
   };
 
+  const generatePDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
+            h1 { color: #1e40af; text-align: center; margin-bottom: 5px; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
+            .stats-container { display: flex; justify-content: space-between; margin-bottom: 30px; background-color: #f8fafc; padding: 15px; border-radius: 8px; }
+            .stat-box { text-align: center; }
+            .stat-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+            .stat-value { font-size: 20px; font-weight: bold; color: #1e293b; margin-top: 5px; }
+            .section-title { font-size: 16px; font-weight: bold; color: #1e40af; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-top: 20px; margin-bottom: 15px; }
+            table { width: 100%; border-collapse: collapse; font-size: 14px; }
+            th { text-align: left; padding: 10px; background-color: #f1f5f9; color: #475569; }
+            td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
+            .refund-row { color: #94a3b8; }
+            .refund-text { text-decoration: line-through; }
+            .amount { font-weight: bold; }
+            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <h1>${viewMode === 'daily' ? 'Daily' : 'Weekly'} Sales Report</h1>
+          <div class="subtitle">Generated on ${new Date().toLocaleString()} for ${date.toLocaleDateString()}</div>
+
+          <div class="stats-container">
+            <div class="stat-box">
+              <div class="stat-label">Total Revenue</div>
+              <div class="stat-value">$${totalSales.toFixed(2)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Transactions</div>
+              <div class="stat-value">${transactionCount}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Avg Ticket</div>
+              <div class="stat-value">$${avgTransaction.toFixed(2)}</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label" style="color: #ef4444;">Refunds</div>
+              <div class="stat-value" style="color: #ef4444;">$${totalRefunds.toFixed(2)}</div>
+            </div>
+          </div>
+
+          <div class="section-title">Payment Breakdown</div>
+          <table>
+            <tr>
+              <td>Cash</td>
+              <td class="amount">$${paymentStats.cash.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>Card</td>
+              <td class="amount">$${paymentStats.card.toFixed(2)}</td>
+            </tr>
+            <tr>
+              <td>Other</td>
+              <td class="amount">$${paymentStats.other.toFixed(2)}</td>
+            </tr>
+          </table>
+
+          <div class="section-title">Top Selling Items</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th style="text-align: right;">Quantity Sold</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${topItems.map(item => `
+                <tr>
+                  <td>${item.name}</td>
+                  <td style="text-align: right;">${item.qty}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="section-title">Transaction History</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th>Details</th>
+                <th>Method</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${transactions.map(t => `
+                <tr class="${t.refunded ? 'refund-row' : ''}">
+                  <td>${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                  <td>${Array.isArray(t.items) ? t.items.length + ' items' : t.items} ${t.refunded ? '(Refunded)' : ''}</td>
+                  <td>${t.paymentMethod || 'Cash'}</td>
+                  <td style="text-align: right;" class="${t.refunded ? 'refund-text' : 'amount'}">$${(t.total || t.amount || 0).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+
+          <div class="footer">
+            Stolar POS System
+          </div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate or share PDF');
+    }
+  };
+
   const renderHeader = () => (
     <View>
       {/* Header */}
@@ -157,7 +295,9 @@ export default function DailySummaryScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{viewMode === 'daily' ? 'Daily Summary' : 'Weekly Summary'}</Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity onPress={generatePDF} style={styles.backButton}>
+            <Ionicons name="share-outline" size={24} color="white" />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.controlsRow}>
@@ -206,6 +346,10 @@ export default function DailySummaryScreen() {
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Avg Value</Text>
           <Text style={styles.statValue}>${avgTransaction.toFixed(2)}</Text>
+        </View>
+        <View style={styles.statCard}>
+          <Text style={[styles.statLabel, { color: '#ef4444' }]}>Refunds</Text>
+          <Text style={[styles.statValue, { color: '#ef4444' }]}>${totalRefunds.toFixed(2)}</Text>
         </View>
       </View>
 
@@ -278,15 +422,18 @@ export default function DailySummaryScreen() {
         keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) => (
-          <View style={styles.transactionCard}>
+          <View style={[styles.transactionCard, item.refunded && { opacity: 0.7 }]}>
             <View style={styles.transLeft}>
               <View style={styles.iconBox}>
-                <MaterialCommunityIcons name="receipt" size={20} color="#64748b" />
+                <MaterialCommunityIcons name={item.refunded ? "refresh" : "receipt"} size={20} color={item.refunded ? "#ef4444" : "#64748b"} />
               </View>
               <View>
-                <Text style={styles.transAmount}>${(item.total || item.amount || 0).toFixed(2)}</Text>
+                <Text style={[styles.transAmount, item.refunded && { textDecorationLine: 'line-through', color: '#94a3b8' }]}>
+                  ${(item.total || item.amount || 0).toFixed(2)}
+                </Text>
                 <Text style={styles.transItems}>
                   {Array.isArray(item.items) ? `${item.items.length} items` : (item.items || 'Sale')}
+                  {item.refunded && <Text style={{ color: '#ef4444', fontWeight: 'bold' }}> • Refunded</Text>}
                 </Text>
               </View>
             </View>
@@ -337,8 +484,8 @@ const styles = StyleSheet.create({
   toggleText: { color: '#bfdbfe', fontWeight: '600', fontSize: 12 },
   toggleTextActive: { color: '#1e40af', fontWeight: 'bold' },
 
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 20, gap: 10 },
-  statCard: { flex: 1, backgroundColor: 'white', padding: 15, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 3 },
+  statsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 10, gap: 10 },
+  statCard: { width: '48%', backgroundColor: 'white', padding: 15, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 3, marginBottom: 10 },
   statLabel: { fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: '600' },
   statValue: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
 

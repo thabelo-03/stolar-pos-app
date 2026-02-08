@@ -150,6 +150,37 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+app.post('/api/auth/verify-manager', async (req, res) => {
+  console.log('Verifying manager password for cashier:', req.body.cashierId);
+  try {
+    const { cashierId, password } = req.body;
+    const cashier = await User.findById(cashierId);
+    if (!cashier) return res.status(404).json({ message: "User not found" });
+
+    let manager;
+    // If the user is already a manager or admin, verify their own password
+    if (cashier.role === 'manager' || cashier.role === 'admin') {
+      manager = cashier;
+    } else {
+      // If cashier, find their shop's manager
+      if (!cashier.shopId) return res.status(400).json({ message: "You are not linked to a shop." });
+      const shop = await Shop.findById(cashier.shopId);
+      if (!shop) return res.status(404).json({ message: "Shop not found" });
+      manager = await User.findById(shop.manager);
+    }
+
+    if (!manager) return res.status(404).json({ message: "Manager account not found" });
+
+    const isMatch = await bcrypt.compare(password, manager.password);
+    if (!isMatch) return res.status(400).json({ message: "Incorrect Password" });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Password verification error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // --- USER ROUTES ---
 
 app.get('/api/users', async (req, res) => {
@@ -325,15 +356,32 @@ app.post('/api/products/add', async (req, res) => {
 
 // --- SALES & CHECKOUT ---
 
+app.get('/api/sales', async (req, res) => {
+  console.log('Fetching sales history with filters:', req.query);
+  try {
+    const { shopId, cashierId } = req.query;
+    let query = {};
+    if (shopId) query.shopId = shopId;
+    if (cashierId) query.cashierId = cashierId;
+
+    const sales = await Sale.find(query).sort({ date: -1 });
+    res.json(sales);
+  } catch (err) {
+    console.error("Error fetching all sales:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/api/sales/recent', async (req, res) => {
   console.log('Fetching recent sales:', req.query);
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const { refunded, startDate, endDate } = req.query;
+    const { refunded, startDate, endDate, shopId } = req.query;
 
     let query = {};
+    if (shopId) query.shopId = shopId;
     if (refunded === 'true') query.refunded = true;
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
@@ -342,9 +390,21 @@ app.get('/api/sales/recent', async (req, res) => {
     const sales = await Sale.find(query)
       .sort({ date: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
-    res.json(sales);
+    // Attach cashier names
+    const salesWithNames = await Promise.all(sales.map(async (sale) => {
+      if (sale.cashierId) {
+        try {
+          const cashier = await User.findById(sale.cashierId).select('name');
+          sale.cashierName = cashier ? cashier.name : 'Unknown';
+        } catch (e) { sale.cashierName = 'Unknown'; }
+      }
+      return sale;
+    }));
+
+    res.json(salesWithNames);
   } catch (err) {
     console.error("Error fetching recent sales:", err);
     res.status(500).json({ message: err.message });
@@ -353,8 +413,9 @@ app.get('/api/sales/recent', async (req, res) => {
 
 app.post('/api/sales', async (req, res) => {
   console.log('Processing sale. Items:', req.body.items?.length);
+ 
   try {
-    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, userId, shopId } = req.body;
+    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, shopId, cashierId } = req.body;
 
     // Duplicate check for offline syncs
     if (offlineId) {
@@ -362,20 +423,19 @@ app.post('/api/sales', async (req, res) => {
       if (existing) return res.json({ success: true, message: "Sale already synced" });
     }
 
-        const newSale = new Sale({
-          items,
-          // Map totalUSD from req.body to the "total" field your schema requires
-          total: totalUSD,
-          totalUSD,
-          totalPaidLocal,
-          currencyUsed,
-          rateUsed,
-          paymentMethod,
-          date,
-          offlineId,
-          userId, // Added userId
-          shopId // Added shopId
-        });
+    const newSale = new Sale({
+      items,
+      // Map totalUSD from req.body to the "total" field your schema requires
+      total: totalUSD, 
+      totalUSD,
+      totalPaidLocal,
+      currencyUsed,
+      rateUsed,
+      paymentMethod,
+      date,
+      offlineId
+    });
+
     await newSale.save();
 
     // Deduct Stock
@@ -396,6 +456,7 @@ app.post('/api/sales', async (req, res) => {
 app.post('/api/sales/:id/refund', async (req, res) => { 
   console.log(`Processing refund for sale: ${req.params.id}`);
   try {
+    const { reason } = req.body;
     const sale = await Sale.findById(req.params.id);
     if (!sale) return res.status(404).json({ message: "Sale not found" });
     if (sale.refunded) return res.status(400).json({ message: "Sale already refunded" });
@@ -409,6 +470,7 @@ app.post('/api/sales/:id/refund', async (req, res) => {
     }
 
     sale.refunded = true;
+    if (reason) sale.refundReason = reason;
     await sale.save();
 
     res.json({ success: true, message: "Refund processed successfully" });
@@ -523,6 +585,71 @@ app.post('/api/test/expire-managers', async (req, res) => {
     res.json({ success: true, message: `Updated ${result.modifiedCount} managers to expired status.` });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+app.post('/api/test/migrate-sales-shopid', async (req, res) => {
+  console.log("MIGRATION: Force linking orphaned sales...");
+  try {
+    const { userId } = req.body;
+    
+    // If a specific user triggered this, we link orphaned sales to THEIR shop
+    if (userId) {
+      const user = await User.findById(userId);
+      if (!user || !user.shopId) {
+        return res.status(400).json({ message: "User not found or not linked to a shop." });
+      }
+
+      console.log(`Linking orphaned sales to User: ${user.name}, Shop: ${user.shopId}`);
+
+      // Update ALL sales that have NO shopId
+      const result = await Sale.updateMany(
+        { 
+          $or: [{ shopId: { $exists: false } }, { shopId: null }, { shopId: "" }] 
+        },
+        { 
+          $set: { 
+            shopId: user.shopId.toString(),
+            cashierId: user._id.toString() // Ensure stored as String to match Schema
+          } 
+        }
+      );
+
+      // Backfill totalUSD for old sales (using 'total' value)
+      try {
+        await Sale.updateMany(
+          { totalUSD: { $exists: false } },
+          [{ $set: { totalUSD: "$total" } }]
+        );
+      } catch (e) { console.log("Backfill totalUSD skipped:", e.message); }
+
+      const count = result.modifiedCount || result.nModified || 0;
+      console.log(`MIGRATION DONE: Claimed ${count} sales.`);
+      return res.json({ success: true, message: `Success! Claimed ${count} old sales.` });
+    } 
+    
+    res.status(400).json({ message: "No userId provided for migration." });
+  } catch (err) {
+    console.error("Migration error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/test/verify-migration', async (req, res) => {
+  try {
+    const total = await Sale.countDocuments();
+    const withShopId = await Sale.countDocuments({ shopId: { $exists: true, $ne: null } });
+    const withoutShopId = await Sale.countDocuments({ $or: [{ shopId: { $exists: false } }, { shopId: null }] });
+    
+    res.json({
+      message: "Migration Verification Status",
+      totalSales: total,
+      migrated: withShopId,
+      pending: withoutShopId,
+      success: withoutShopId === 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

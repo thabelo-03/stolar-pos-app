@@ -1,8 +1,9 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Alert, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from './api';
 
 export default function CashierHome() {
@@ -11,6 +12,60 @@ export default function CashierHome() {
   const cashierName = Array.isArray(name) ? name[0] : name;
   const userRole = Array.isArray(role) ? role[0] : role;
   const [isLinked, setIsLinked] = useState(false);
+  const [shopName, setShopName] = useState('Loading...');
+
+  // Password Protection
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [password, setPassword] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const pendingAction = useRef<(() => void) | null>(null);
+
+  const requestPassword = async (action: () => void) => {
+    pendingAction.current = action;
+    setPassword('');
+    setVerifying(false);
+
+    // Try Biometrics First
+    const bioEnabled = await AsyncStorage.getItem('biometricEnabled');
+    if (bioEnabled === 'true') {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (hasHardware && isEnrolled) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Manager Approval Required',
+          fallbackLabel: 'Use Password',
+        });
+        if (result.success) return action();
+      }
+    }
+
+    setPasswordVisible(true);
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!password) return;
+    setVerifying(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const response = await fetch(`${API_BASE_URL}/auth/verify-manager`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cashierId: userId, password }),
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setPasswordVisible(false);
+        pendingAction.current?.();
+      } else {
+        Alert.alert("Error", data.message || "Incorrect Password");
+      }
+    } catch (e) {
+      Alert.alert("Error", "Network error");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   useEffect(() => {
     const checkShopLink = async () => {
@@ -18,11 +73,29 @@ export default function CashierHome() {
         const userId = await AsyncStorage.getItem('userId');
         if (userId) {
           const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const userData = await response.json();
-          if (userData.shopId) setIsLinked(true);
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.shopId) {
+              setIsLinked(true);
+              const shopRes = await fetch(`${API_BASE_URL}/shops/${userData.shopId}`);
+              if (shopRes.ok) {
+                const shopData = await shopRes.json();
+                setShopName(shopData.name || 'Unknown Shop');
+              } else {
+                setShopName('Shop Not Found');
+              }
+            } else {
+              setShopName('No Shop Linked');
+            }
+          } else {
+            setShopName('User Error');
+          }
+        } else {
+          setShopName('Not Logged In');
         }
       } catch (e) {
         console.log("Error checking shop link", e);
+        setShopName('Offline');
       }
     };
     checkShopLink();
@@ -52,7 +125,7 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolarr POS</Text>
-            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/profile-settings')}>
@@ -113,13 +186,16 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(cashier)/link-shop')}>
-                <View style={[styles.iconBox, { backgroundColor: '#eef2ff' }]}>
-                  <Ionicons name="link" size={20} color="#6366f1" />
+              <TouchableOpacity style={styles.actionRow} onPress={() => requestPassword(() => router.push('/(tabs)/profit-report'))}>
+                <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="trending-up" size={20} color="#16a34a" />
                 </View>
                 <View>
-                  <Text style={styles.actionTitle}>Link Shop</Text>
-                  <Text style={styles.actionSub}>Connect to a shop</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.actionTitle}>Profit Report</Text>
+                    <Ionicons name="lock-closed" size={12} color="#f59e0b" style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.actionSub}>Margins & Revenue</Text>
                 </View>
               </TouchableOpacity>
 
@@ -141,7 +217,7 @@ export default function CashierHome() {
               <Text style={styles.sectionLabel}>Add Stock</Text>
               <TouchableOpacity 
                 style={[styles.addStockBtn, !isLinked && { backgroundColor: '#e2e8f0' }]} 
-                onPress={() => router.push('/(tabs)/add-stock')}
+                onPress={() => requestPassword(() => router.push('/(tabs)/add-stock'))}
                 disabled={!isLinked}
               >
                 <View style={styles.addStockIcon}>
@@ -161,6 +237,33 @@ export default function CashierHome() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Password Modal */}
+      <Modal visible={passwordVisible} transparent animationType="fade" onRequestClose={() => setPasswordVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.passwordContainer}>
+            <Text style={styles.passwordTitle}>Manager Password</Text>
+            <TextInput 
+              style={styles.passwordInput} 
+              secureTextEntry 
+              placeholder="Enter Password"
+              value={password}
+              onChangeText={setPassword}
+              autoFocus
+              keyboardType="numeric"
+            />
+            <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 15 }} onPress={() => requestPassword(pendingAction.current!)}>
+               <Ionicons name="finger-print" size={32} color="#1e40af" />
+            </TouchableOpacity>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setPasswordVisible(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handlePasswordSubmit} disabled={verifying}>
+                {verifying ? <ActivityIndicator color="white" size="small" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -215,4 +318,13 @@ const styles = StyleSheet.create({
   addStockIcon: { marginRight: 10 },
   lockRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingLeft: 5 },
   lockText: { fontSize: 11, color: '#64748b', marginLeft: 5 },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  passwordContainer: { backgroundColor: 'white', padding: 20, borderRadius: 12, width: '80%', maxWidth: 300 },
+  passwordTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#1e293b' },
+  passwordInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, marginBottom: 20, fontSize: 16, textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', gap: 10 },
+  cancelBtn: { flex: 1, padding: 12, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center' },
+  confirmBtn: { flex: 1, padding: 12, backgroundColor: '#1e40af', borderRadius: 8, alignItems: 'center' },
+  btnText: { fontWeight: 'bold' },
 });

@@ -14,6 +14,10 @@ const SaleSchema = new mongoose.Schema({
     type: Number,
     required: true
   },
+  totalUSD: Number,
+  totalPaidLocal: Number,
+  currencyUsed: String,
+  rateUsed: Number,
   paymentMethod: {
     type: String,
     default: 'Cash'
@@ -22,6 +26,11 @@ const SaleSchema = new mongoose.Schema({
     type: Date,
     default: Date.now
   },
+  shopId: { type: String, index: true },
+  cashierId: { type: String, index: true },
+  offlineId: { type: String, index: true },
+  refunded: { type: Boolean, default: false },
+  refundReason: String,
   status: {
     type: String,
     enum: ['completed', 'refunded'],

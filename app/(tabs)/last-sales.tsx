@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -25,12 +26,24 @@ export default function LastSalesScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
   const [filterByDate, setFilterByDate] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundTargetId, setRefundTargetId] = useState<string | null>(null);
 
   const fetchSales = async (pageNumber = 1) => {
     try {
       // Attempt to fetch from API
+      const userId = await AsyncStorage.getItem('userId');
       let url = `${API_BASE_URL}/sales/recent?limit=10&page=${pageNumber}`;
       
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        if (user.shopId && user.role !== 'admin') {
+          url += `&shopId=${user.shopId}`;
+        }
+      }
+
       if (showRefundedOnly) url += `&refunded=true`;
       if (filterByDate) {
         const start = new Date(startDate); start.setHours(0,0,0,0);
@@ -159,33 +172,28 @@ export default function LastSalesScreen() {
   };
 
   const handleRefund = (saleId: string) => {
-    Alert.alert(
-      'Confirm Refund',
-      'Are you sure you want to refund this sale? Stock will be restored.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Refund',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const response = await fetch(`${API_BASE_URL}/sales/${saleId}/refund`, {
-                method: 'POST',
-              });
-              const data = await response.json();
-              if (response.ok) {
-                Alert.alert('Success', 'Sale refunded successfully');
-                fetchSales(1); // Refresh list
-              } else {
-                Alert.alert('Error', data.message || 'Failed to refund sale');
-              }
-            } catch (error) {
-              Alert.alert('Error', 'Could not connect to server');
-            }
-          }
-        }
-      ]
-    );
+    setRefundTargetId(saleId);
+    setRefundReason('');
+    setShowRefundModal(true);
+  };
+
+  const confirmRefund = async () => {
+    if (!refundTargetId) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/sales/${refundTargetId}/refund`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: refundReason })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert('Success', 'Sale refunded successfully');
+        fetchSales(1); 
+        setShowRefundModal(false);
+      } else {
+        Alert.alert('Error', data.message || 'Failed to refund sale');
+      }
+    } catch (error) { Alert.alert('Error', 'Could not connect to server'); }
   };
 
   const getPaymentIcon = (method: string) => {
@@ -324,7 +332,11 @@ export default function LastSalesScreen() {
                     </Text>
                     <Text style={styles.cardSub}>
                       {itemCount} item{itemCount !== 1 ? 's' : ''} • {item.time || (item.date ? new Date(item.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now')}
+                      {item.cashierName ? ` • ${item.cashierName}` : ''}
                     </Text>
+                    {isRefunded && item.refundReason && (
+                      <Text style={styles.refundReason}>Reason: {item.refundReason}</Text>
+                    )}
                   </View>
                 </View>
 
@@ -350,6 +362,29 @@ export default function LastSalesScreen() {
           ListFooterComponent={renderFooter}
         />
       )}
+
+      <Modal visible={showRefundModal} animationType="fade" transparent onRequestClose={() => setShowRefundModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Process Refund</Text>
+            <Text style={{marginBottom: 15, color: '#64748b'}}>Stock will be restored automatically.</Text>
+            
+            <Text style={{fontWeight: '600', marginBottom: 5, color: '#1e293b'}}>Reason for Refund</Text>
+            <TextInput
+              style={styles.refundInput}
+              placeholder="e.g. Defective item, Customer changed mind"
+              value={refundReason}
+              onChangeText={setRefundReason}
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#ef4444' }]} onPress={confirmRefund}><Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text></TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -414,6 +449,7 @@ const styles = StyleSheet.create({
   cardInfo: { flex: 1 },
   cardTitle: { fontSize: 15, fontWeight: 'bold', color: '#1e293b', marginBottom: 2 },
   cardSub: { fontSize: 12, color: '#64748b' },
+  refundReason: { fontSize: 11, color: '#ef4444', marginTop: 4, fontStyle: 'italic' },
   cardRight: { alignItems: 'flex-end' },
   amountText: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },
   refundedText: { color: '#ef4444', textDecorationLine: 'line-through', opacity: 0.6 },
@@ -428,4 +464,13 @@ const styles = StyleSheet.create({
   activeFilterChip: { backgroundColor: 'white' },
   filterText: { color: '#bfdbfe', fontSize: 13, fontWeight: '600' },
   activeFilterText: { color: '#1e40af' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 400 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 5 },
+  refundInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top', fontSize: 16, marginBottom: 20 },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
+  cancelBtn: { backgroundColor: '#f1f5f9' },
+  btnText: { fontWeight: 'bold', fontSize: 16, color: '#64748b' },
 });
