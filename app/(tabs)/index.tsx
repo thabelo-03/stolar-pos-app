@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useRef, useState } from 'react';
@@ -16,10 +17,25 @@ export default function CashierHome() {
   const [verifying, setVerifying] = useState(false);
   const pendingAction = useRef<(() => void) | null>(null);
 
-  const requestPassword = (action: () => void) => {
+  const requestPassword = async (action: () => void) => {
     pendingAction.current = action;
     setPassword('');
     setVerifying(false);
+
+    // Try Biometrics First
+    const bioEnabled = await AsyncStorage.getItem('biometricEnabled');
+    if (bioEnabled === 'true') {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
+      if (hasHardware && isEnrolled) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: 'Manager Approval Required',
+          fallbackLabel: 'Use Password',
+        });
+        if (result.success) return action();
+      }
+    }
+
     setPasswordVisible(true);
   };
 
@@ -190,6 +206,9 @@ export default function CashierHome() {
               autoFocus
               keyboardType="numeric"
             />
+            <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 15 }} onPress={() => requestPassword(pendingAction.current!)}>
+               <Ionicons name="finger-print" size={32} color="#1e40af" />
+            </TouchableOpacity>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setPasswordVisible(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity style={styles.confirmBtn} onPress={handlePasswordSubmit} disabled={verifying}>

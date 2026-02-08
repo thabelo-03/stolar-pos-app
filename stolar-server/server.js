@@ -324,15 +324,32 @@ app.post('/api/products/add', async (req, res) => {
 
 // --- SALES & CHECKOUT ---
 
+app.get('/api/sales', async (req, res) => {
+  console.log('Fetching sales history with filters:', req.query);
+  try {
+    const { shopId, cashierId } = req.query;
+    let query = {};
+    if (shopId) query.shopId = shopId;
+    if (cashierId) query.cashierId = cashierId;
+
+    const sales = await Sale.find(query).sort({ date: -1 });
+    res.json(sales);
+  } catch (err) {
+    console.error("Error fetching all sales:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/api/sales/recent', async (req, res) => {
   console.log('Fetching recent sales:', req.query);
   try {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const { refunded, startDate, endDate } = req.query;
+    const { refunded, startDate, endDate, shopId } = req.query;
 
     let query = {};
+    if (shopId) query.shopId = shopId;
     if (refunded === 'true') query.refunded = true;
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };
@@ -353,7 +370,7 @@ app.get('/api/sales/recent', async (req, res) => {
 app.post('/api/sales', async (req, res) => {
   console.log('Processing sale. Items:', req.body.items?.length);
   try {
-    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId } = req.body;
+    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, shopId, cashierId } = req.body;
 
     // Duplicate check for offline syncs
     if (offlineId) {
@@ -371,7 +388,9 @@ app.post('/api/sales', async (req, res) => {
       rateUsed,
       paymentMethod,
       date,
-      offlineId
+      offlineId,
+      shopId,
+      cashierId
     });
 
     await newSale.save();
