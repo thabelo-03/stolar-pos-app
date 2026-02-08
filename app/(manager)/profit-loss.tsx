@@ -1,9 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 export default function ProfitLoss() {
+  const router = useRouter();
   const [date, setDate] = useState(new Date());
   const [show, setShow] = useState(false);
 
@@ -15,6 +17,9 @@ export default function ProfitLoss() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
         <Text style={styles.headerTitle}>Profit & Loss Analysis</Text>
       </View>
 
@@ -56,7 +61,16 @@ export default function ProfitLoss() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { backgroundColor: '#1e40af', padding: 25, paddingTop: 60 },
+  header: {
+    backgroundColor: '#1e3a8a',
+    padding: 25,
+    paddingTop: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: { marginRight: 15 },
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
   filterSection: { padding: 20, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
   label: { color: '#64748b', marginBottom: 10, fontWeight: 'bold' },

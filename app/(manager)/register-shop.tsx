@@ -83,50 +83,50 @@ export default function RegisterShop() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
-        <View style={styles.iconCircle}>
-            <Ionicons name="business" size={50} color="#1e40af" />
-        </View>
-        <Text style={styles.title}>Branch Establishment</Text>
-        <Text style={styles.subtitle}>Adding a new branch for Danger Dumani</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Shop Name</Text>
-        <View style={styles.inputContainer}>
-            <Ionicons name="storefront" size={20} color="#64748b" style={styles.icon} />
-            <TextInput 
-              placeholder="e.g. Zondo General Dealer" 
-              style={styles.input} 
-              value={name} 
-              onChangeText={setName} 
-            />
-        </View>
-
-        <Text style={styles.label}>Shop Location</Text>
-        <View style={styles.inputContainer}>
-            <Ionicons name="location" size={20} color="#64748b" style={styles.icon} />
-            <TextInput 
-              placeholder="e.g. Khalanyoni" 
-              style={styles.input} 
-              value={location} 
-              onChangeText={setLocation} 
-            />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.btn, loading && { backgroundColor: '#94a3b8' }]} 
-          onPress={handleRegisterShop}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.btnText}>Launch Shop Branch</Text>
-          )}
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
+        <Text style={styles.title}>Branch Establishment</Text>
       </View>
+      <ScrollView contentContainerStyle={styles.formContainer}>
+        <View style={styles.form}>
+          <Text style={styles.label}>Shop Name</Text>
+          <View style={styles.inputContainer}>
+              <Ionicons name="storefront" size={20} color="#64748b" style={styles.icon} />
+              <TextInput 
+                placeholder="e.g. Zondo General Dealer" 
+                style={styles.input} 
+                value={name} 
+                onChangeText={setName} 
+              />
+          </View>
+
+          <Text style={styles.label}>Shop Location</Text>
+          <View style={styles.inputContainer}>
+              <Ionicons name="location" size={20} color="#64748b" style={styles.icon} />
+              <TextInput 
+                placeholder="e.g. Khalanyoni" 
+                style={styles.input} 
+                value={location} 
+                onChangeText={setLocation} 
+              />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.btn, loading && { backgroundColor: '#94a3b8' }]} 
+            onPress={handleRegisterShop}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.btnText}>Launch Shop Branch</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
 
       {/* --- SUCCESS MODAL --- */}
       <Modal visible={showSuccess} transparent animationType="slide">
@@ -146,19 +146,40 @@ export default function RegisterShop() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#f8fafc', padding: 25 },
-  header: { alignItems: 'center', marginTop: 40, marginBottom: 30 },
-  iconCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1e3a8a', marginTop: 15 },
-  subtitle: { color: '#64748b', fontSize: 14 },
-  form: { width: '100%' },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: {
+    backgroundColor: '#1e3a8a',
+    padding: 25,
+    paddingTop: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: { marginRight: 15 },
+  title: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  formContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  form: { 
+    padding: 20,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    margin: 20,
+    elevation: 4,
+  },
   label: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
   icon: { marginRight: 10 },
   input: { flex: 1, paddingVertical: 15, fontSize: 16 },
   btn: { backgroundColor: '#1e40af', paddingVertical: 18, borderRadius: 15, alignItems: 'center', marginTop: 10 },

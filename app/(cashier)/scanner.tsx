@@ -136,15 +136,23 @@ const styles = StyleSheet.create({
   guideText: { color: 'white', marginTop: 20, fontSize: 16, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 10 },
   
   // Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', padding: 20 },
-  modalContainer: { backgroundColor: 'white', borderRadius: 20, padding: 25, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e3a8a', marginBottom: 10 },
-  barcodeLabel: { color: '#64748b', marginBottom: 20 },
-  input: { width: '100%', borderBottomWidth: 2, borderBottomColor: '#1e40af', fontSize: 24, textAlign: 'center', marginBottom: 25, padding: 10 },
-  buttonRow: { flexDirection: 'row', justifyContent: 'space-between', width: '100%' },
-  modalBtn: { flex: 1, padding: 15, borderRadius: 12, alignItems: 'center', marginHorizontal: 5 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginTop: 12, marginBottom: 8 },
+  barcodeLabel: { fontSize: 14, color: '#64748b', marginBottom: 24, },
+  input: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 15,
+    padding: 15,
+    fontSize: 18,
+    width: '100%',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  buttonRow: { flexDirection: 'row', width: '100%', gap: 12 },
+  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
-  saveBtn: { backgroundColor: '#1e40af' },
-  cancelText: { color: '#64748b', fontWeight: 'bold' },
+  saveBtn: { backgroundColor: '#10b981' },
+  cancelText: { color: '#64748b', fontWeight: '600' },
   saveText: { color: 'white', fontWeight: 'bold' }
 });

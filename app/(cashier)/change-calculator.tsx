@@ -40,53 +40,139 @@ export default function ChangeCalculator() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ThemedText type="title" style={styles.title}>Change Calculator</ThemedText>
-
-      <ThemedText style={styles.label}>Amount due</ThemedText>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        placeholder="0.00"
-        value={due}
-        onChangeText={setDue}
-      />
-
-      <ThemedText style={styles.label}>Cash given</ThemedText>
-      <TextInput
-        style={styles.input}
-        keyboardType="numeric"
-        placeholder="0.00"
-        value={paid}
-        onChangeText={setPaid}
-      />
-
-      <TouchableOpacity style={styles.button} onPress={computeChange}>
-        <ThemedText type="link" style={{ color: 'white', textAlign: 'center' }}>Calculate Change</ThemedText>
-      </TouchableOpacity>
-
-      <View style={styles.result}>
-        {breakdown.length === 0 ? (
-          <ThemedText type="subtitle">No change or invalid amounts</ThemedText>
-        ) : (
-          <>
-            <ThemedText type="subtitle">Change breakdown</ThemedText>
-            {breakdown.map(([label, cnt]) => (
-              <ThemedText key={label} style={styles.line}>{label}: {cnt}</ThemedText>
-            ))}
-          </>
-        )}
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.title}>Change Calculator</Text>
+        <Text style={styles.subtitle}>Utilities</Text>
       </View>
-    </ThemedView>
+      <View style={styles.content}>
+        <Text style={styles.label}>Amount due</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          placeholder="0.00"
+          placeholderTextColor="#94a3b8"
+          value={due}
+          onChangeText={setDue}
+        />
+
+        <Text style={styles.label}>Cash given</Text>
+        <TextInput
+          style={styles.input}
+          keyboardType="numeric"
+          placeholder="0.00"
+          placeholderTextColor="#94a3b8"
+          value={paid}
+          onChangeText={setPaid}
+        />
+
+        <TouchableOpacity style={styles.button} onPress={computeChange}>
+          <Text style={styles.buttonText}>Calculate Change</Text>
+        </TouchableOpacity>
+
+        <View style={styles.result}>
+          {breakdown.length === 0 ? (
+            <Text style={styles.resultText}>No change or invalid amounts</Text>
+          ) : (
+            <>
+              <Text style={styles.resultTitle}>Change breakdown</Text>
+              {breakdown.map(([label, cnt]) => (
+                <View style={styles.line} key={label}>
+                  <Text style={styles.lineLabel}>{label}:</Text>
+                  <Text style={styles.lineCount}>{cnt}</Text>
+                </View>
+              ))}
+            </>
+          )}
+        </View>
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  title: { marginTop: 20, marginBottom: 20 },
-  label: { marginTop: 12, marginBottom: 6 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, fontSize: 16 },
-  button: { backgroundColor: '#0a7ea4', padding: 12, borderRadius: 8, marginTop: 16 },
-  result: { marginTop: 20 },
-  line: { marginTop: 6 },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: {
+    backgroundColor: '#1e3a8a',
+    padding: 25,
+    paddingTop: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  title: {
+    color: 'white',
+    fontSize: 26,
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    color: '#93c5fd',
+    fontSize: 14,
+  },
+  content: {
+    padding: 20,
+  },
+  label: {
+    fontSize: 16,
+    color: '#1e3a8a',
+    marginBottom: 10,
+    marginTop: 20,
+  },
+  input: {
+    backgroundColor: 'white',
+    borderRadius: 15,
+    padding: 15,
+    fontSize: 18,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  button: {
+    backgroundColor: '#10b981',
+    padding: 20,
+    borderRadius: 15,
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  result: {
+    marginTop: 30,
+    padding: 20,
+    backgroundColor: 'white',
+    borderRadius: 15,
+    elevation: 3,
+  },
+  resultText: {
+    textAlign: 'center',
+    fontSize: 16,
+    color: '#64748b',
+  },
+  resultTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e3a8a',
+    marginBottom: 15,
+    textAlign: 'center',
+  },
+  line: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  lineLabel: {
+    fontSize: 16,
+    color: '#475569',
+  },
+  lineCount: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
 });

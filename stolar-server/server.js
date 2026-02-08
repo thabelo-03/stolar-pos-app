@@ -151,6 +151,18 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // --- USER ROUTES ---
+
+app.get('/api/users', async (req, res) => {
+  console.log('Fetching all users for admin');
+  try {
+    const users = await User.find().select('-password').sort({ createdAt: -1 });
+    res.json(users);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/api/users/:id', async (req, res) => {
   console.log(`Fetching user: ${req.params.id}`);
   try {
@@ -159,6 +171,26 @@ app.get('/api/users/:id', async (req, res) => {
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// New endpoint to fetch users who made cash payments
+app.get('/api/users/cash-payers', async (req, res) => {
+  console.log('Fetching users who made cash payments');
+  try {
+    // 1. Find all sales with paymentMethod: 'Cash'
+    const cashSales = await Sale.find({ paymentMethod: 'Cash' });
+
+    // 2. Extract unique userId's from these sales
+    const userIds = [...new Set(cashSales.map(sale => sale.userId))];
+
+    // 3. Fetch the corresponding User documents
+    const cashPayers = await User.find({ _id: { $in: userIds } }).select('-password');
+
+    res.json(cashPayers);
+  } catch (err) {
+    console.error("Error fetching cash payers:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -322,7 +354,7 @@ app.get('/api/sales/recent', async (req, res) => {
 app.post('/api/sales', async (req, res) => {
   console.log('Processing sale. Items:', req.body.items?.length);
   try {
-    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId } = req.body;
+    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, userId, shopId } = req.body;
 
     // Duplicate check for offline syncs
     if (offlineId) {
@@ -330,19 +362,20 @@ app.post('/api/sales', async (req, res) => {
       if (existing) return res.json({ success: true, message: "Sale already synced" });
     }
 
-    const newSale = new Sale({
-      items,
-      // Map totalUSD from req.body to the "total" field your schema requires
-      total: totalUSD, 
-      totalUSD,
-      totalPaidLocal,
-      currencyUsed,
-      rateUsed,
-      paymentMethod,
-      date,
-      offlineId
-    });
-
+        const newSale = new Sale({
+          items,
+          // Map totalUSD from req.body to the "total" field your schema requires
+          total: totalUSD,
+          totalUSD,
+          totalPaidLocal,
+          currencyUsed,
+          rateUsed,
+          paymentMethod,
+          date,
+          offlineId,
+          userId, // Added userId
+          shopId // Added shopId
+        });
     await newSale.save();
 
     // Deduct Stock

@@ -133,6 +133,11 @@ export default function SubscriptionPage() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerContainer}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="black" />
+        </TouchableOpacity>
+      </View>
       <View style={styles.contentContainer}>
         
         <View style={styles.header}>
@@ -214,6 +219,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center', 
     alignItems: 'center', 
     padding: 20 
+  },
+  headerContainer: {
+    position: 'absolute',
+    top: 40,
+    left: 20,
+    zIndex: 1,
+  },
+  backButton: {
+    padding: 10,
   },
   contentContainer: { // Renamed from modalContainer for clarity
     backgroundColor: 'white', 

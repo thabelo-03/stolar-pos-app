@@ -168,19 +168,21 @@ export default function ManagerAddStockScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={textColor} />
-      </TouchableOpacity>
-      <ThemedText type="title">{isEditMode ? 'Edit Stock' : 'Add Stock'}</ThemedText>
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="white" />
+        </TouchableOpacity>
+        <Text style={styles.title}>{isEditMode ? 'Edit Stock' : 'Add Stock'}</Text>
+      </View>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Item Name</ThemedText>
-          <View style={styles.barcodeRow}>
+        <View>
+          <Text style={styles.label}>Item Name</Text>
+          <View style={styles.inputContainer}>
             <TextInput 
               ref={itemNameInputRef}
-              style={[styles.input, { color: textColor, borderColor: textColor, flex: 1 }]}
+              style={styles.input}
               value={itemName}
               onChangeText={setItemName}
               placeholder="e.g. Apple"
@@ -193,17 +195,17 @@ export default function ManagerAddStockScreen() {
               } else {
                 setActiveScanField('name');
               }
-            }} style={[styles.input, { borderColor: textColor, justifyContent: 'center', alignItems: 'center', width: 50 }]}>
-              <Ionicons name="scan-outline" size={24} color={textColor} />
+            }} style={styles.iconButton}>
+              <Ionicons name="scan-outline" size={24} color="#1e40af" />
             </TouchableOpacity>
           </View>
-        </ThemedView>
+        </View>
 
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Barcode</ThemedText>
-          <View style={styles.barcodeRow}>
+        <View>
+          <Text style={styles.label}>Barcode</Text>
+          <View style={styles.inputContainer}>
             <TextInput 
-              style={[styles.input, { color: textColor, borderColor: textColor, flex: 1 }]}
+              style={styles.input}
               value={barcode}
               onChangeText={setBarcode}
               placeholder="Scan or enter barcode"
@@ -217,28 +219,28 @@ export default function ManagerAddStockScreen() {
               } else {
                 setActiveScanField('barcode');
               }
-            }} style={[styles.input, { borderColor: textColor, justifyContent: 'center', alignItems: 'center', width: 50 }]}>
-              <Ionicons name="barcode-outline" size={24} color={textColor} />
+            }} style={styles.iconButton}>
+              <Ionicons name="barcode-outline" size={24} color="#1e40af" />
             </TouchableOpacity>
           </View>
-        </ThemedView>
+        </View>
 
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Category</ThemedText>
+        <View>
+          <Text style={styles.label}>Category</Text>
           <TextInput 
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
+            style={styles.input}
             value={category}
             onChangeText={setCategory}
             placeholder="e.g. Groceries"
             placeholderTextColor={placeholderColor}
           />
-        </ThemedView>
+        </View>
 
         <View style={styles.row}>
             <View style={styles.halfInput}>
-                <ThemedText type="defaultSemiBold">Price</ThemedText>
+                <Text style={styles.label}>Price</Text>
                 <TextInput 
-                    style={[styles.input, { color: textColor, borderColor: textColor }]}
+                    style={styles.input}
                     value={price}
                     onChangeText={(text) => handleCurrencyChange(text, setPrice)}
                     keyboardType="numeric"
@@ -247,9 +249,9 @@ export default function ManagerAddStockScreen() {
                 />
             </View>
             <View style={styles.halfInput}>
-                <ThemedText type="defaultSemiBold">Cost Price</ThemedText>
+                <Text style={styles.label}>Cost Price</Text>
                 <TextInput 
-                    style={[styles.input, { color: textColor, borderColor: textColor }]}
+                    style={styles.input}
                     value={costPrice}
                     onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
                     keyboardType="numeric"
@@ -259,17 +261,17 @@ export default function ManagerAddStockScreen() {
             </View>
         </View>
 
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Quantity</ThemedText>
+        <View>
+          <Text style={styles.label}>Quantity</Text>
           <TextInput 
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
+            style={styles.input}
             value={quantity}
             onChangeText={setQuantity}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor={placeholderColor}
           />
-        </ThemedView>
+        </View>
 
         <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
             {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>}
@@ -299,26 +301,64 @@ export default function ManagerAddStockScreen() {
           </View>
         </CameraView>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  backButton: { marginBottom: 16 },
-  form: { marginTop: 10, gap: 20, paddingBottom: 40 },
-  input: { borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8, opacity: 0.8 },
-  barcodeRow: { flexDirection: 'row', gap: 10 },
-  camera: { flex: 1 },
-  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent', marginBottom: 20 },
-  textScanFrame: { width: '80%', height: 120, borderColor: '#10b981', borderStyle: 'dashed' },
-  scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 30 },
-  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
-  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'black' },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
+  header: {
+    backgroundColor: '#1e3a8a',
+    padding: 25,
+    paddingTop: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: { marginRight: 15 },
+  title: {
+    color: 'white',
+    fontSize: 22,
+    fontWeight: 'bold',
+  },
+  form: { padding: 20, gap: 20, paddingBottom: 40 },
+  label: {
+    fontSize: 16,
+    color: '#1e3a8a',
+    marginBottom: 10,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 15,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  input: {
+    flex: 1,
+    padding: 15,
+    fontSize: 16,
+  },
+  iconButton: {
+    padding: 15,
+  },
   row: { flexDirection: 'row', gap: 15 },
   halfInput: { flex: 1 },
-  saveButton: { backgroundColor: '#1e40af', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
+  saveButton: { backgroundColor: '#10b981', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 20 },
   saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  
+  // Camera Modal Styles
+  camera: { flex: 1 },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  scanFrame: { width: 280, height: 180, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent', borderRadius: 15, marginBottom: 20 },
+  textScanFrame: { height: 100, borderStyle: 'dashed' },
+  scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
+  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#1e3a8a' },
 });

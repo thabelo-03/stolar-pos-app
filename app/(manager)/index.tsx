@@ -317,8 +317,8 @@ const ManagerIndex = () => {
     <View>
       <View style={styles.header}>
         <View>
-          <Text style={styles.userName}>{user?.name}</Text>
-          <Text style={styles.userEmail}>{user?.email}</Text>
+          <Text style={styles.headerTitle}>Welcome, {user?.name}</Text>
+          <Text style={styles.headerSubtitle}>{user?.email}</Text>
         </View>
         <View style={styles.headerIcons}>
           <TouchableOpacity>
@@ -428,7 +428,7 @@ const ManagerIndex = () => {
       )}
 
       <View style={styles.sectionHeader}>
-        <ThemedText style={styles.title}>Shops</ThemedText>
+        <Text style={styles.title}>My Shops</Text>
         <TouchableOpacity style={styles.addShopButton} onPress={() => router.push('/(manager)/register-shop')}>
           <Ionicons name="add" size={20} color="white" />
           <Text style={styles.addShopButtonText}>Add Shop</Text>
@@ -547,27 +547,26 @@ const ManagerIndex = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 20,
-        backgroundColor: '#f1f5f9',
+        backgroundColor: '#f8fafc',
     },
     header: {
+        backgroundColor: '#1e3a8a',
+        padding: 25,
+        paddingTop: 60,
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20,
-        backgroundColor: '#1e40af', // Blue background for header
-        paddingHorizontal: 20,
-        paddingVertical: 15,
-        borderRadius: 10,
     },
-    userName: {
-        fontSize: 20,
+    headerTitle: {
+        color: 'white',
+        fontSize: 22,
         fontWeight: 'bold',
-        color: '#fff', // White text for user name
     },
-    userEmail: {
+    headerSubtitle: {
+        color: '#93c5fd',
         fontSize: 14,
-        color: '#bfdbfe', // Lighter blue for user email
     },
     headerIcons: {
         flexDirection: 'row',
@@ -576,13 +575,14 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingHorizontal: 20,
         marginTop: 20,
-        marginBottom: 20,
+        marginBottom: 10,
     },
     title: {
-        fontSize: 24,
+        fontSize: 20,
         fontWeight: 'bold',
-        color: '#1e40af',
+        color: '#1e3a8a',
     },
     addShopButton: {
         flexDirection: 'row',
@@ -601,15 +601,12 @@ const styles = StyleSheet.create({
     shopItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between', // To push the arrow to the end
+        justifyContent: 'space-between',
         backgroundColor: '#fff',
         padding: 15,
-        borderRadius: 10,
+        borderRadius: 15,
         marginBottom: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
+        marginHorizontal: 20,
         elevation: 2,
     },
     shopItemContent: {
@@ -639,7 +636,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#e0f2fe',
         padding: 15,
         borderRadius: 10,
-        marginTop: 20,
+        margin: 20,
         borderWidth: 1,
         borderColor: '#1e40af',
     },
@@ -652,15 +649,14 @@ const styles = StyleSheet.create({
     menuOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-start',
-        alignItems: 'flex-end',
     },
     menuContainer: {
         backgroundColor: '#fff',
         padding: 20,
         borderRadius: 10,
-        marginTop: 60,
-        marginRight: 20,
+        position: 'absolute',
+        top: 110,
+        right: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
@@ -743,7 +739,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingHorizontal: 4,
         borderWidth: 1.5,
-        borderColor: '#1e40af',
+        borderColor: '#1e3a8a',
     },
     notificationBadgeText: {
         color: 'white',
@@ -754,11 +750,8 @@ const styles = StyleSheet.create({
         backgroundColor: 'white',
         borderRadius: 16,
         padding: 15,
+        margin: 20,
         marginBottom: 10,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
         elevation: 2,
     },
     chartHeader: {

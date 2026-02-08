@@ -274,7 +274,7 @@ const MetricBox = ({label, value, color, text}: any) => (
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { backgroundColor: '#1e40af', padding: 20, paddingTop: 50, flexDirection: 'row', alignItems: 'center' },
+  header: { backgroundColor: '#1e3a8a', padding: 20, paddingTop: 50, flexDirection: 'row', alignItems: 'center' },
   headerTitleContainer: { flex: 1, alignItems: 'center' },
   headerSubtitle: { color: '#bfdbfe', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1 },
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },

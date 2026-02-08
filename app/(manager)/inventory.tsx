@@ -342,7 +342,7 @@ export default function ManagerInventoryScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
-    backgroundColor: '#1e40af',
+    backgroundColor: '#1e3a8a',
     paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,

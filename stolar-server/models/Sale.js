@@ -26,6 +26,16 @@ const SaleSchema = new mongoose.Schema({
     type: String,
     enum: ['completed', 'refunded'],
     default: 'completed'
+  },
+  userId: { // Added userId
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true // A sale must be associated with a user
+  },
+  shopId: { // Added shopId
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Shop',
+    required: true // A sale must be associated with a shop
   }
 });
 

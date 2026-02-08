@@ -14,7 +14,7 @@ import {
   TextInput
 } from 'react-native';
 import { API_BASE_URL } from '../app/config';
-import SubscriptionModal from '../components/SubscriptionModal';
+
 
 interface Shop {
   _id: string;

@@ -195,9 +195,10 @@ export default function MyShopScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>My Shop</Text>
+        <Text style={styles.subtitle}>Branch Information</Text>
       </View>
 
       <View style={styles.content}>
@@ -297,16 +298,30 @@ export default function MyShopScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f1f5f9' },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: { padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1e293b' },
-  content: { flex: 1, padding: 20 },
+  header: {
+    backgroundColor: '#1e3a8a',
+    padding: 25,
+    paddingTop: 60,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+  },
+  title: {
+    color: 'white',
+    fontSize: 26,
+    fontWeight: 'bold',
+  },
+  subtitle: {
+    color: '#93c5fd',
+    fontSize: 14,
+  },
+  content: { flex: 1, padding: 20, justifyContent: 'center' },
   card: { backgroundColor: '#fff', padding: 24, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2, marginBottom: 30 },
   icon: { marginBottom: 16 },
   shopName: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 8 },
@@ -315,10 +330,10 @@ const styles = StyleSheet.create({
   leaveButton: { backgroundColor: '#fee2e2', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
   leaveButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 16, color: '#64748b', marginTop: 16, marginBottom: 24 },
-  linkButton: { backgroundColor: '#1e40af', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },
-  linkButtonText: { color: '#fff', fontWeight: 'bold' },
-  input: { backgroundColor: '#fff', width: '80%', padding: 15, borderRadius: 8, marginBottom: 15, borderWidth: 1, borderColor: '#cbd5e1' },
+  emptyText: { fontSize: 18, color: '#64748b', marginTop: 16, marginBottom: 24, textAlign: 'center' },
+  linkButton: { backgroundColor: '#1e40af', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 15, width: '100%', alignItems: 'center' },
+  linkButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+  input: { backgroundColor: '#fff', width: '100%', padding: 20, borderRadius: 15, marginBottom: 15, borderWidth: 1, borderColor: '#cbd5e1', fontSize: 16, textAlign: 'center' },
   
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
