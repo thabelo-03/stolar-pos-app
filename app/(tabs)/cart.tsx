@@ -510,15 +510,18 @@ export default function CartScreen() {
         </View>
         {searchResults.length > 0 && (
           <View style={styles.dropdown}>
-            {searchResults.map(p => (
-              <TouchableOpacity key={p._id} style={styles.dropItem} onPress={() => setSelectedProduct(p)}>
-                <View>
-                  <Text style={styles.dropName}>{p.name}</Text>
-                  <Text style={styles.dropSub}>{p.barcode}</Text>
-                </View>
-                <Text style={styles.dropPrice}>{symbol()} {convert(p.price).toFixed(2)}</Text>
-              </TouchableOpacity>
-            ))}
+            {searchResults.map(p => {
+              const stock = p.stockQuantity !== undefined ? p.stockQuantity : (p.quantity || 0);
+              return (
+                <TouchableOpacity key={p._id} style={styles.dropItem} onPress={() => setSelectedProduct(p)}>
+                  <View>
+                    <Text style={styles.dropName}>{p.name}</Text>
+                    <Text style={styles.dropSub}>{p.barcode} • {stock} units</Text>
+                  </View>
+                  <Text style={styles.dropPrice}>{symbol()} {convert(p.price).toFixed(2)}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </View>
@@ -538,9 +541,12 @@ export default function CartScreen() {
               <>
                 <ProductDetails product={{
                   ...selectedProduct,
-                  stockQuantity: selectedProduct.quantity || 0,
+                  stockQuantity: selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : (selectedProduct.quantity || 0),
                   category: selectedProduct.category || 'General'
                 }} />
+                <View style={{ alignItems: 'center', marginVertical: 10 }}>
+                  <Text style={{ fontSize: 16, color: '#64748b' }}>Stock Available: <Text style={{ fontWeight: 'bold', color: '#1e293b' }}>{selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : (selectedProduct.quantity || 0)}</Text></Text>
+                </View>
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setSelectedProduct(null)}>
                     <Text style={[styles.btnText, { color: '#64748b' }]}>Close</Text>
@@ -561,13 +567,15 @@ export default function CartScreen() {
                       }
                     });
                   }}>
+                    <Ionicons name="pencil" size={18} color="white" style={{ marginRight: 6 }} />
                     <Text style={[styles.btnText, { color: 'white' }]}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={() => {
                     addItemToCart(selectedProduct);
                     setSelectedProduct(null);
                   }}>
-                    <Text style={[styles.btnText, { color: 'white' }]}>Add to Cart</Text>
+                    <Ionicons name="cart" size={18} color="white" style={{ marginRight: 6 }} />
+                    <Text style={[styles.btnText, { color: 'white' }]}>Add</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -712,8 +720,13 @@ export default function CartScreen() {
             />
 
             <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#ef4444' }]} onPress={confirmRefund}><Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}>
+                <Text style={[styles.btnText, { color: '#64748b' }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.refundBtn]} onPress={confirmRefund}>
+                <Ionicons name="return-up-back" size={18} color="white" style={{ marginRight: 6 }} />
+                <Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -798,12 +811,25 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 5,
   },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  cancelBtn: { backgroundColor: '#f1f5f9' },
-  confirmBtn: { backgroundColor: '#1e40af' },
-  editBtn: { backgroundColor: '#f59e0b' },
-  btnText: { fontWeight: 'bold', fontSize: 16 },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  modalBtn: { 
+    flex: 1, 
+    paddingVertical: 14, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cancelBtn: { backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0', shadowOpacity: 0, elevation: 0 },
+  confirmBtn: { backgroundColor: '#1e40af', shadowColor: '#1e40af', shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  editBtn: { backgroundColor: '#f59e0b', shadowColor: '#f59e0b', shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  refundBtn: { backgroundColor: '#ef4444', shadowColor: '#ef4444', shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  btnText: { fontWeight: '700', fontSize: 15 },
   deleteAction: {
     backgroundColor: '#ef4444',
     justifyContent: 'center',

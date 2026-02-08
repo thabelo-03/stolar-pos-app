@@ -233,18 +233,6 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
               )}
-
-              {isLinked && (
-                <TouchableOpacity style={styles.actionRow} onPress={handleLeaveShop}>
-                  <View style={[styles.iconBox, { backgroundColor: '#fee2e2' }]}>
-                    <Ionicons name="log-out" size={20} color="#ef4444" />
-                  </View>
-                  <View>
-                    <Text style={styles.actionTitle}>Leave Shop</Text>
-                    <Text style={styles.actionSub}>Disconnect from branch</Text>
-                  </View>
-                </TouchableOpacity>
-              )}
             </View>
 
             {/* Add Stock Card */}
