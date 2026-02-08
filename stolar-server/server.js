@@ -413,6 +413,7 @@ app.post('/api/sales', async (req, res) => {
 app.post('/api/sales/:id/refund', async (req, res) => { 
   console.log(`Processing refund for sale: ${req.params.id}`);
   try {
+    const { reason } = req.body;
     const sale = await Sale.findById(req.params.id);
     if (!sale) return res.status(404).json({ message: "Sale not found" });
     if (sale.refunded) return res.status(400).json({ message: "Sale already refunded" });
@@ -426,6 +427,7 @@ app.post('/api/sales/:id/refund', async (req, res) => {
     }
 
     sale.refunded = true;
+    if (reason) sale.refundReason = reason;
     await sale.save();
 
     res.json({ success: true, message: "Refund processed successfully" });
@@ -540,6 +542,63 @@ app.post('/api/test/expire-managers', async (req, res) => {
     res.json({ success: true, message: `Updated ${result.modifiedCount} managers to expired status.` });
   } catch (err) {
     res.status(500).json({ message: err.message });
+  }
+});
+
+app.post('/api/test/migrate-sales-shopid', async (req, res) => {
+  console.log("MIGRATION: Force linking orphaned sales...");
+  try {
+    const { userId } = req.body;
+    
+    // If a specific user triggered this, we link orphaned sales to THEIR shop
+    if (userId) {
+      const user = await User.findById(userId);
+      if (!user || !user.shopId) {
+        return res.status(400).json({ message: "User not found or not linked to a shop." });
+      }
+
+      console.log(`Linking orphaned sales to User: ${user.name}, Shop: ${user.shopId}`);
+
+      // Update ALL sales that have NO shopId
+      const result = await Sale.updateMany(
+        { 
+          $or: [{ shopId: { $exists: false } }, { shopId: null }, { shopId: "" }] 
+        },
+        { 
+          $set: { 
+            shopId: user.shopId,
+            cashierId: user._id // Also claim ownership so they show in "My Sales"
+          } 
+        }
+      );
+
+      const count = result.modifiedCount || result.nModified || 0;
+      console.log(`MIGRATION DONE: Claimed ${count} sales.`);
+      return res.json({ success: true, message: `Success! Claimed ${count} old sales.` });
+    } 
+    
+    res.status(400).json({ message: "No userId provided for migration." });
+  } catch (err) {
+    console.error("Migration error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/test/verify-migration', async (req, res) => {
+  try {
+    const total = await Sale.countDocuments();
+    const withShopId = await Sale.countDocuments({ shopId: { $exists: true, $ne: null } });
+    const withoutShopId = await Sale.countDocuments({ $or: [{ shopId: { $exists: false } }, { shopId: null }] });
+    
+    res.json({
+      message: "Migration Verification Status",
+      totalSales: total,
+      migrated: withShopId,
+      pending: withoutShopId,
+      success: withoutShopId === 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
 });
 

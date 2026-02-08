@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -16,6 +16,7 @@ export default function ProfileSettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [migrating, setMigrating] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   useEffect(() => {
@@ -63,8 +64,39 @@ export default function ProfileSettingsScreen() {
     }
   };
 
+  const handleMigrateData = () => {
+    Alert.alert(
+      "Confirm Migration",
+      "This will update all past sales to link them to your current shop. This process may take a moment.",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Start", 
+          onPress: async () => {
+            setMigrating(true);
+            try {
+              const userId = await AsyncStorage.getItem('userId');
+              const response = await fetch(`${API_BASE_URL}/test/migrate-sales-shopid`, { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+              });
+              const data = await response.json();
+              Alert.alert("Migration Result", data.message || "Migration completed");
+            } catch (error) {
+              Alert.alert("Error", "Failed to run migration");
+            } finally {
+              setMigrating(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
   return (
     <ThemedView style={styles.container}>
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={textColor} />
@@ -131,13 +163,27 @@ export default function ProfileSettingsScreen() {
             <ThemedText style={styles.saveButtonText}>Update Password</ThemedText>
           )}
         </TouchableOpacity>
+
+        <ThemedText type="subtitle" style={[styles.sectionTitle, { marginTop: 20 }]}>Data Management</ThemedText>
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#64748b' }]} 
+          onPress={handleMigrateData}
+          disabled={migrating || loading}
+        >
+          {migrating ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <ThemedText style={styles.saveButtonText}>Fix Old Sales Data</ThemedText>
+          )}
+        </TouchableOpacity>
       </View>
+      </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1 },
   header: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, gap: 15 },
   backButton: { padding: 5 },
   form: { gap: 20 },

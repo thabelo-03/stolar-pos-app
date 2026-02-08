@@ -43,6 +43,9 @@ export default function CartScreen() {
   const [showParkedModal, setShowParkedModal] = useState(false);
   const [recentSales, setRecentSales] = useState<any[]>([]);
   const [showRecentModal, setShowRecentModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundTarget, setRefundTarget] = useState<{id: string, amount: number} | null>(null);
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
@@ -283,7 +286,18 @@ export default function CartScreen() {
 
   const fetchRecentSales = async () => {
     try {
-      const res = await fetch(`${API_BASE_URL}/sales/recent`);
+      const userId = await AsyncStorage.getItem('userId');
+      let url = `${API_BASE_URL}/sales/recent`;
+      
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        if (user.shopId && user.role !== 'admin') {
+          url += `?shopId=${user.shopId}`;
+        }
+      }
+
+      const res = await fetch(url);
       const data = await res.json();
       setRecentSales(data);
       setShowRecentModal(true);
@@ -292,22 +306,29 @@ export default function CartScreen() {
     }
   };
 
-  const handleRefund = async (saleId: string) => {
-    Alert.alert("Confirm Refund", "Are you sure you want to refund this sale? Stock will be restored.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Refund", style: 'destructive', onPress: async () => {
-        try {
-          const res = await fetch(`${API_BASE_URL}/sales/refund/${saleId}`, { method: 'POST' });
-          const data = await res.json();
-          if (res.ok) {
-            Alert.alert("Success", "Refund processed");
-            fetchRecentSales(); // Refresh list
-          } else {
-            Alert.alert("Error", data.message || "Refund failed");
-          }
-        } catch (e) { Alert.alert("Error", "Network error"); }
-      }}
-    ]);
+  const handleRefund = (saleId: string, amount: number) => {
+    setRefundTarget({ id: saleId, amount });
+    setRefundReason('');
+    setShowRefundModal(true);
+  };
+
+  const confirmRefund = async () => {
+    if (!refundTarget) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/sales/${refundTarget.id}/refund`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: refundReason })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        Alert.alert("Success", "Refund processed");
+        fetchRecentSales();
+        setShowRefundModal(false);
+      } else {
+        Alert.alert("Error", data.message || "Refund failed");
+      }
+    } catch (e) { Alert.alert("Error", "Network error"); }
   };
 
   // --- 5. CHECKOUT WITH OFFLINE + CURRENCY LOGIC ---
@@ -649,10 +670,13 @@ export default function CartScreen() {
                                   {new Date(item.date).toLocaleString()} 
                                   {item.refunded && <Text style={{color: '#ef4444'}}> (Refunded)</Text>}
                                 </Text>
-                                <Text style={styles.parkedDetails}>{item.items?.length || 0} items • ${item.totalUSD?.toFixed(2)}</Text>
+                                <Text style={styles.parkedDetails}>{item.items?.length || 0} items • ${(item.totalUSD || item.total || item.amount || 0).toFixed(2)}</Text>
+                                {item.refunded && item.refundReason && (
+                                  <Text style={{ fontSize: 11, color: '#ef4444', fontStyle: 'italic', marginTop: 2 }}>Reason: {item.refundReason}</Text>
+                                )}
                             </View>
                             {!item.refunded && (
-                              <TouchableOpacity onPress={() => handleRefund(item._id)} style={[styles.deleteBtn, { backgroundColor: '#f59e0b' }]}>
+                              <TouchableOpacity onPress={() => handleRefund(item._id, item.totalUSD || item.total || item.amount || 0)} style={[styles.deleteBtn, { backgroundColor: '#f59e0b' }]}>
                                   <Text style={{color: 'white', fontWeight: 'bold', fontSize: 12}}>Refund</Text>
                               </TouchableOpacity>
                             )}
@@ -660,6 +684,31 @@ export default function CartScreen() {
                     )}
                 />
             </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showRefundModal} animationType="fade" transparent onRequestClose={() => setShowRefundModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Process Refund</Text>
+            <Text style={{marginBottom: 15, color: '#64748b'}}>
+              Refund amount: ${refundTarget?.amount.toFixed(2)}
+            </Text>
+            
+            <Text style={{fontWeight: '600', marginBottom: 5, color: '#1e293b'}}>Reason for Refund</Text>
+            <TextInput
+              style={[styles.input, { marginLeft: 0, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top' }]}
+              placeholder="e.g. Defective item, Customer changed mind"
+              value={refundReason}
+              onChangeText={setRefundReason}
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#ef4444' }]} onPress={confirmRefund}><Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text></TouchableOpacity>
+            </View>
+          </View>
         </View>
       </Modal>
 
