@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedView } from '@/components/themed-view';
@@ -32,6 +32,44 @@ export default function CashierInventoryScreen() {
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
+  
+  // Password Protection State
+  const [passwordVisible, setPasswordVisible] = useState(false);
+  const [password, setPassword] = useState('');
+  const [verifying, setVerifying] = useState(false);
+  const pendingAction = useRef<(() => void) | null>(null);
+
+  const requestPassword = (action: () => void) => {
+    pendingAction.current = action;
+    setPassword('');
+    setVerifying(false);
+    setPasswordVisible(true);
+  };
+
+  const handlePasswordSubmit = async () => {
+    if (!password) return;
+    setVerifying(true);
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      const response = await fetch(`${API_BASE_URL}/auth/verify-manager`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ cashierId: userId, password }),
+      });
+      
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setPasswordVisible(false);
+        pendingAction.current?.();
+      } else {
+        Alert.alert("Error", data.message || "Incorrect Password");
+      }
+    } catch (e) {
+      Alert.alert("Error", "Network error");
+    } finally {
+      setVerifying(false);
+    }
+  };
 
   const fetchInventory = async () => {
     try {
@@ -74,7 +112,8 @@ export default function CashierInventoryScreen() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    Alert.alert(
+    requestPassword(() => {
+      Alert.alert(
       "Delete Product",
       `Are you sure you want to delete "${name}"?`,
       [
@@ -98,21 +137,24 @@ export default function CashierInventoryScreen() {
         }
       ]
     );
+    });
   };
 
   const handleEdit = (item: InventoryItem) => {
-    router.push({
-      pathname: '/(tabs)/add-stock',
-      params: {
-        mode: 'edit',
-        id: item._id,
-        name: item.name,
-        quantity: item.quantity !== undefined ? item.quantity.toString() : '',
-        barcode: item.barcode || '',
-        price: item.price !== undefined ? item.price.toString() : '',
-        costPrice: item.costPrice?.toString() || '',
-        category: item.category || ''
-      }
+    requestPassword(() => {
+      router.push({
+        pathname: '/(tabs)/add-stock',
+        params: {
+          mode: 'edit',
+          id: item._id,
+          name: item.name,
+          quantity: item.quantity !== undefined ? item.quantity.toString() : '',
+          barcode: item.barcode || '',
+          price: item.price !== undefined ? item.price.toString() : '',
+          costPrice: item.costPrice?.toString() || '',
+          category: item.category || ''
+        }
+      });
     });
   };
 
@@ -324,6 +366,30 @@ export default function CashierInventoryScreen() {
           </View>
         </CameraView>
       </Modal>
+
+      {/* Password Modal */}
+      <Modal visible={passwordVisible} transparent animationType="fade" onRequestClose={() => setPasswordVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.passwordContainer}>
+            <Text style={styles.passwordTitle}>Manager Password</Text>
+            <TextInput 
+              style={styles.passwordInput} 
+              secureTextEntry 
+              placeholder="Enter Password"
+              value={password}
+              onChangeText={setPassword}
+              autoFocus
+              keyboardType="numeric"
+            />
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setPasswordVisible(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
+              <TouchableOpacity style={styles.confirmBtn} onPress={handlePasswordSubmit} disabled={verifying}>
+                {verifying ? <ActivityIndicator color="white" size="small" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -393,4 +459,13 @@ const styles = StyleSheet.create({
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  passwordContainer: { backgroundColor: 'white', padding: 20, borderRadius: 12, width: '80%', maxWidth: 300 },
+  passwordTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#1e293b' },
+  passwordInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, marginBottom: 20, fontSize: 16, textAlign: 'center' },
+  modalButtons: { flexDirection: 'row', gap: 10 },
+  cancelBtn: { flex: 1, padding: 12, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center' },
+  confirmBtn: { flex: 1, padding: 12, backgroundColor: '#1e40af', borderRadius: 8, alignItems: 'center' },
+  btnText: { fontWeight: 'bold' },
 });

@@ -150,6 +150,37 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
+app.post('/api/auth/verify-manager', async (req, res) => {
+  console.log('Verifying manager password for cashier:', req.body.cashierId);
+  try {
+    const { cashierId, password } = req.body;
+    const cashier = await User.findById(cashierId);
+    if (!cashier) return res.status(404).json({ message: "User not found" });
+
+    let manager;
+    // If the user is already a manager or admin, verify their own password
+    if (cashier.role === 'manager' || cashier.role === 'admin') {
+      manager = cashier;
+    } else {
+      // If cashier, find their shop's manager
+      if (!cashier.shopId) return res.status(400).json({ message: "You are not linked to a shop." });
+      const shop = await Shop.findById(cashier.shopId);
+      if (!shop) return res.status(404).json({ message: "Shop not found" });
+      manager = await User.findById(shop.manager);
+    }
+
+    if (!manager) return res.status(404).json({ message: "Manager account not found" });
+
+    const isMatch = await bcrypt.compare(password, manager.password);
+    if (!isMatch) return res.status(400).json({ message: "Incorrect Password" });
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Password verification error:", err);
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
 // --- USER ROUTES ---
 app.get('/api/users/:id', async (req, res) => {
   console.log(`Fetching user: ${req.params.id}`);
