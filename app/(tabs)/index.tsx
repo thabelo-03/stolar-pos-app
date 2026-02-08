@@ -2,7 +2,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from './api';
 
@@ -10,6 +10,7 @@ export default function CashierHome() {
   const router = useRouter();
   const { name } = useLocalSearchParams();
   const cashierName = Array.isArray(name) ? name[0] : name;
+  const [shopName, setShopName] = useState('Loading...');
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -64,6 +65,36 @@ export default function CashierHome() {
     }
   };
 
+  useEffect(() => {
+    const fetchShopName = async () => {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          const response = await fetch(`${API_BASE_URL}/users/${userId}`);
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.shopId) {
+              const shopRes = await fetch(`${API_BASE_URL}/shops/${userData.shopId}`);
+              if (shopRes.ok) {
+                const shopData = await shopRes.json();
+                setShopName(shopData.name || 'Unknown Shop');
+              } else {
+                setShopName('Shop Not Found');
+              }
+            } else {
+              setShopName('No Shop Linked');
+            }
+          } else {
+            setShopName('User Error');
+          }
+        } else {
+          setShopName('Not Logged In');
+        }
+      } catch (e) { setShopName('Offline'); }
+    };
+    fetchShopName();
+  }, []);
+
   const handleLogout = () => {
     Alert.alert(
       "Logout",
@@ -88,7 +119,7 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolarr POS</Text>
-            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>

@@ -337,16 +337,18 @@ export default function CartScreen() {
 
     setLoading(true);
 
-    let shopId = null;
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-        if (user.shopId) shopId = user.shopId;
+    let shopId = await AsyncStorage.getItem('shopId');
+    if (!shopId) {
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const user = await userRes.json();
+          if (user.shopId) shopId = user.shopId;
+        }
+      } catch(e) {
+        console.log("Could not get shopId for sale record");
       }
-    } catch(e) {
-      console.log("Could not get shopId for sale record");
     }
 
     const saleData = {
@@ -670,7 +672,10 @@ export default function CartScreen() {
                                   {new Date(item.date).toLocaleString()} 
                                   {item.refunded && <Text style={{color: '#ef4444'}}> (Refunded)</Text>}
                                 </Text>
-                                <Text style={styles.parkedDetails}>{item.items?.length || 0} items • ${(item.totalUSD || item.total || item.amount || 0).toFixed(2)}</Text>
+                                <Text style={styles.parkedDetails}>
+                                  {item.items?.length || 0} items • ${(item.totalUSD || item.total || item.amount || 0).toFixed(2)}
+                                  {item.cashierName ? ` • ${item.cashierName}` : ''}
+                                </Text>
                                 {item.refunded && item.refundReason && (
                                   <Text style={{ fontSize: 11, color: '#ef4444', fontStyle: 'italic', marginTop: 2 }}>Reason: {item.refundReason}</Text>
                                 )}

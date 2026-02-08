@@ -358,9 +358,21 @@ app.get('/api/sales/recent', async (req, res) => {
     const sales = await Sale.find(query)
       .sort({ date: -1 })
       .skip(skip)
-      .limit(limit);
+      .limit(limit)
+      .lean();
 
-    res.json(sales);
+    // Attach cashier names
+    const salesWithNames = await Promise.all(sales.map(async (sale) => {
+      if (sale.cashierId) {
+        try {
+          const cashier = await User.findById(sale.cashierId).select('name');
+          sale.cashierName = cashier ? cashier.name : 'Unknown';
+        } catch (e) { sale.cashierName = 'Unknown'; }
+      }
+      return sale;
+    }));
+
+    res.json(salesWithNames);
   } catch (err) {
     console.error("Error fetching recent sales:", err);
     res.status(500).json({ message: err.message });
@@ -369,6 +381,7 @@ app.get('/api/sales/recent', async (req, res) => {
 
 app.post('/api/sales', async (req, res) => {
   console.log('Processing sale. Items:', req.body.items?.length);
+ 
   try {
     const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, shopId, cashierId } = req.body;
 
@@ -377,7 +390,7 @@ app.post('/api/sales', async (req, res) => {
       const existing = await Sale.findOne({ offlineId });
       if (existing) return res.json({ success: true, message: "Sale already synced" });
     }
-
+    console.log('ShopD:', shopId, ' CashierId:', cashierId);
     const newSale = new Sale({
       items,
       // Map totalUSD from req.body to the "total" field your schema requires
@@ -566,11 +579,19 @@ app.post('/api/test/migrate-sales-shopid', async (req, res) => {
         },
         { 
           $set: { 
-            shopId: user.shopId,
-            cashierId: user._id // Also claim ownership so they show in "My Sales"
+            shopId: user.shopId.toString(),
+            cashierId: user._id.toString() // Ensure stored as String to match Schema
           } 
         }
       );
+
+      // Backfill totalUSD for old sales (using 'total' value)
+      try {
+        await Sale.updateMany(
+          { totalUSD: { $exists: false } },
+          [{ $set: { totalUSD: "$total" } }]
+        );
+      } catch (e) { console.log("Backfill totalUSD skipped:", e.message); }
 
       const count = result.modifiedCount || result.nModified || 0;
       console.log(`MIGRATION DONE: Claimed ${count} sales.`);

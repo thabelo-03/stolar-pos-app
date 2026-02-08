@@ -12,6 +12,7 @@ export default function CashierHome() {
   const cashierName = Array.isArray(name) ? name[0] : name;
   const userRole = Array.isArray(role) ? role[0] : role;
   const [isLinked, setIsLinked] = useState(false);
+  const [shopName, setShopName] = useState('Loading...');
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -72,11 +73,29 @@ export default function CashierHome() {
         const userId = await AsyncStorage.getItem('userId');
         if (userId) {
           const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const userData = await response.json();
-          if (userData.shopId) setIsLinked(true);
+          if (response.ok) {
+            const userData = await response.json();
+            if (userData.shopId) {
+              setIsLinked(true);
+              const shopRes = await fetch(`${API_BASE_URL}/shops/${userData.shopId}`);
+              if (shopRes.ok) {
+                const shopData = await shopRes.json();
+                setShopName(shopData.name || 'Unknown Shop');
+              } else {
+                setShopName('Shop Not Found');
+              }
+            } else {
+              setShopName('No Shop Linked');
+            }
+          } else {
+            setShopName('User Error');
+          }
+        } else {
+          setShopName('Not Logged In');
         }
       } catch (e) {
         console.log("Error checking shop link", e);
+        setShopName('Offline');
       }
     };
     checkShopLink();
@@ -106,7 +125,7 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolarr POS</Text>
-            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: Main Mall <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/profile-settings')}>
