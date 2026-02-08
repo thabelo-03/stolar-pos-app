@@ -433,7 +433,10 @@ app.post('/api/sales', async (req, res) => {
       rateUsed,
       paymentMethod,
       date,
-      offlineId
+      offlineId,
+      shopId,
+      cashierId,
+      userId: cashierId // Map cashierId to userId for Schema validation
     });
 
     await newSale.save();

@@ -351,10 +351,12 @@ export default function CartScreen() {
       }
     }
 
+    const userId = await AsyncStorage.getItem('userId');
     const saleData = {
       items: cartItems,
       total: totalUSD || 0,
       shopId: shopId,
+      cashierId: userId,
       totalUSD: totalUSD || 0,
       totalPaidLocal: convert(totalUSD || 0),
       currencyUsed: currency,

@@ -38,10 +38,32 @@ export default function MyShopScreen() {
   const [processing, setProcessing] = useState(false);
   const [branchCode, setBranchCode] = useState('');
   const router = useRouter();
+  const [modalType, setModalType] = useState<'leave' | 'switch'>('leave');
+  const [recentShops, setRecentShops] = useState<any[]>([]);
 
   useEffect(() => {
     fetchShopDetails();
+    loadRecentShops();
   }, []);
+
+  const loadRecentShops = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('recent_shops');
+      if (stored) setRecentShops(JSON.parse(stored));
+    } catch (e) {}
+  };
+
+  const saveToRecent = async (shopData: { name: string, branchCode: string }) => {
+    try {
+      const stored = await AsyncStorage.getItem('recent_shops');
+      let list = stored ? JSON.parse(stored) : [];
+      list = list.filter((s: any) => s.branchCode !== shopData.branchCode);
+      list.unshift(shopData);
+      if (list.length > 3) list = list.slice(0, 3);
+      await AsyncStorage.setItem('recent_shops', JSON.stringify(list));
+      setRecentShops(list);
+    } catch (e) {}
+  };
 
   const fetchShopDetails = async () => {
     try {
@@ -59,6 +81,7 @@ export default function MyShopScreen() {
           const shopData = await shopRes.json();
           setShop(shopData);
           setPendingRequest(null);
+          saveToRecent({ name: shopData.name, branchCode: shopData.branchCode });
         }
       } else {
         setShop(null);
@@ -104,7 +127,7 @@ export default function MyShopScreen() {
       if (response.ok) {
         setModalVisible(false);
         setShop(null);
-        Alert.alert("Success", "You have left the shop.");
+        Alert.alert("Success", modalType === 'switch' ? "Disconnected. Enter new branch code." : "You have left the shop.");
         router.replace('/(cashier)/my-shop'); // Stay on this screen to show Join options
       } else {
         Alert.alert("Error", data.message || "Failed to leave shop");
@@ -117,8 +140,9 @@ export default function MyShopScreen() {
     }
   };
 
-  const handleJoinShop = async () => {
-    if (!branchCode.trim()) {
+  const handleJoinShop = async (codeOverride?: string) => {
+    const codeToUse = typeof codeOverride === 'string' ? codeOverride : branchCode;
+    if (!codeToUse.trim()) {
       Alert.alert("Error", "Please enter a branch code");
       return;
     }
@@ -135,7 +159,7 @@ export default function MyShopScreen() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          branchCode: branchCode.trim().toUpperCase(), 
+          branchCode: codeToUse.trim().toUpperCase(), 
           cashierId: userId 
         }),
       });
@@ -215,8 +239,15 @@ export default function MyShopScreen() {
             </View>
 
             <TouchableOpacity 
+              style={styles.switchButton} 
+              onPress={() => { setModalType('switch'); setModalVisible(true); }}
+            >
+              <Text style={styles.switchButtonText}>Switch Shop</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
               style={styles.leaveButton} 
-              onPress={() => setModalVisible(true)}
+              onPress={() => { setModalType('leave'); setModalVisible(true); }}
             >
               <Text style={styles.leaveButtonText}>Leave Shop</Text>
             </TouchableOpacity>
@@ -256,6 +287,35 @@ export default function MyShopScreen() {
             >
               {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.linkButtonText}>Send Request</Text>}
             </TouchableOpacity>
+
+            {recentShops.length > 0 && (
+              <View style={styles.recentSection}>
+                <Text style={styles.recentLabel}>Recent Shops</Text>
+                {recentShops.map((item, index) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={styles.recentItem} 
+                    onPress={() => {
+                      setBranchCode(item.branchCode);
+                      Alert.alert(
+                        "Join Shop",
+                        `Send request to join ${item.name}?`,
+                        [
+                          { text: "Cancel", style: "cancel" },
+                          { text: "Join", onPress: () => handleJoinShop(item.branchCode) }
+                        ]
+                      );
+                    }}
+                  >
+                    <View>
+                      <Text style={styles.recentName}>{item.name}</Text>
+                      <Text style={styles.recentCode}>{item.branchCode}</Text>
+                    </View>
+                    <Ionicons name="copy-outline" size={20} color="#1e40af" />
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
           </View>
         )}
       </View>
@@ -269,10 +329,12 @@ export default function MyShopScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Ionicons name="warning-outline" size={40} color="#ef4444" />
-            <Text style={styles.modalTitle}>Leave Shop?</Text>
+            <Ionicons name={modalType === 'switch' ? "swap-horizontal" : "warning-outline"} size={40} color={modalType === 'switch' ? "#1e40af" : "#ef4444"} />
+            <Text style={styles.modalTitle}>{modalType === 'switch' ? 'Switch Shop?' : 'Leave Shop?'}</Text>
             <Text style={styles.modalText}>
-              Are you sure you want to leave {shop?.name}? You will lose access to this shop's sales and inventory.
+              {modalType === 'switch' 
+                ? `To switch branches, you must disconnect from ${shop?.name} first. Continue?`
+                : `Are you sure you want to leave ${shop?.name}? You will lose access to this shop's sales and inventory.`}
             </Text>
             
             <View style={styles.modalButtons}>
@@ -291,7 +353,7 @@ export default function MyShopScreen() {
                 {processing ? (
                   <ActivityIndicator color="#fff" />
                 ) : (
-                  <Text style={styles.confirmBtnText}>Yes, Leave</Text>
+                  <Text style={styles.confirmBtnText}>{modalType === 'switch' ? 'Yes, Switch' : 'Yes, Leave'}</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -327,6 +389,8 @@ const styles = StyleSheet.create({
   shopName: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 8 },
   shopDetail: { fontSize: 16, color: '#64748b', marginBottom: 4 },
   managerText: { fontSize: 14, color: '#94a3b8', marginTop: 12 },
+  switchButton: { backgroundColor: '#e0f2fe', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#bae6fd' },
+  switchButtonText: { color: '#0284c7', fontWeight: 'bold', fontSize: 16 },
   leaveButton: { backgroundColor: '#fee2e2', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
   leaveButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -345,5 +409,25 @@ const styles = StyleSheet.create({
   cancelBtn: { backgroundColor: '#f1f5f9' },
   cancelBtnText: { color: '#64748b', fontWeight: '600' },
   confirmBtn: { backgroundColor: '#ef4444' },
-  confirmBtnText: { color: '#fff', fontWeight: 'bold' }
+  confirmBtnText: { color: '#fff', fontWeight: 'bold' },
+  
+  recentSection: { width: '100%', marginTop: 30 },
+  recentLabel: { fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  recentItem: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center', 
+    backgroundColor: '#fff', 
+    padding: 16, 
+    borderRadius: 16, 
+    marginBottom: 10, 
+    width: '100%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  recentName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  recentCode: { fontSize: 12, color: '#64748b', marginTop: 2 }
 });

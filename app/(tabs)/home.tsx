@@ -12,6 +12,7 @@ export default function CashierHome() {
   const cashierName = Array.isArray(name) ? name[0] : name;
   const userRole = Array.isArray(role) ? role[0] : role;
   const [isLinked, setIsLinked] = useState(false);
+  const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [shopName, setShopName] = useState('Loading...');
 
   // Password Protection
@@ -77,6 +78,7 @@ export default function CashierHome() {
             const userData = await response.json();
             if (userData.shopId) {
               setIsLinked(true);
+              setHasPendingRequest(false);
               const shopRes = await fetch(`${API_BASE_URL}/shops/${userData.shopId}`);
               if (shopRes.ok) {
                 const shopData = await shopRes.json();
@@ -86,6 +88,12 @@ export default function CashierHome() {
               }
             } else {
               setShopName('No Shop Linked');
+              // Check for pending request
+              const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
+              if (reqRes.ok) {
+                const reqData = await reqRes.json();
+                if (reqData) setHasPendingRequest(true);
+              }
             }
           } else {
             setShopName('User Error');
@@ -176,6 +184,21 @@ export default function CashierHome() {
             <View style={styles.card}>
               <Text style={styles.sectionLabel}>Quick Actions</Text>
               
+              <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(cashier)/my-shop')}>
+                <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
+                  <Ionicons name="storefront" size={20} color="#0284c7" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.actionTitle}>{isLinked ? "My Shop" : "Link Shop"}</Text>
+                  <Text style={styles.actionSub}>{isLinked ? "View Details" : "Connect to Branch"}</Text>
+                </View>
+                {hasPendingRequest && !isLinked && (
+                  <View style={styles.pendingBadge}>
+                    <Text style={styles.pendingBadgeText}>Pending</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
+
               <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/daily-summary')}>
                 <View style={[styles.iconBox, { backgroundColor: '#eef2ff' }]}>
                   <Ionicons name="document-text" size={20} color="#6366f1" />
@@ -209,6 +232,18 @@ export default function CashierHome() {
                   <Text style={styles.actionSub}>Receipts</Text>
                 </View>
               </TouchableOpacity>
+              )}
+
+              {isLinked && (
+                <TouchableOpacity style={styles.actionRow} onPress={handleLeaveShop}>
+                  <View style={[styles.iconBox, { backgroundColor: '#fee2e2' }]}>
+                    <Ionicons name="log-out" size={20} color="#ef4444" />
+                  </View>
+                  <View>
+                    <Text style={styles.actionTitle}>Leave Shop</Text>
+                    <Text style={styles.actionSub}>Disconnect from branch</Text>
+                  </View>
+                </TouchableOpacity>
               )}
             </View>
 
@@ -327,4 +362,6 @@ const styles = StyleSheet.create({
   cancelBtn: { flex: 1, padding: 12, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center' },
   confirmBtn: { flex: 1, padding: 12, backgroundColor: '#1e40af', borderRadius: 8, alignItems: 'center' },
   btnText: { fontWeight: 'bold' },
+  pendingBadge: { backgroundColor: '#f59e0b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  pendingBadgeText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
 });
