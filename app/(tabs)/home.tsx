@@ -8,12 +8,14 @@ import { API_BASE_URL } from './api';
 
 export default function CashierHome() {
   const router = useRouter();
-  const { name, role } = useLocalSearchParams();
-  const cashierName = Array.isArray(name) ? name[0] : name;
+  const { name, role, shopName: initialShopName } = useLocalSearchParams();
+  const [cashierName, setCashierName] = useState(Array.isArray(name) ? name[0] : name);
   const userRole = Array.isArray(role) ? role[0] : role;
   const [isLinked, setIsLinked] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
-  const [shopName, setShopName] = useState('Loading...');
+  const [shopName, setShopName] = useState(initialShopName ? (Array.isArray(initialShopName) ? initialShopName[0] : initialShopName) : 'Loading...');
+  const [shopDetails, setShopDetails] = useState<any>(null);
+  const [infoModalVisible, setInfoModalVisible] = useState(false);
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -57,7 +59,9 @@ export default function CashierHome() {
       const data = await response.json();
       if (response.ok && data.success) {
         setPasswordVisible(false);
-        pendingAction.current?.();
+        setTimeout(() => {
+          pendingAction.current?.();
+        }, 100);
       } else {
         Alert.alert("Error", data.message || "Incorrect Password");
       }
@@ -76,6 +80,7 @@ export default function CashierHome() {
           const response = await fetch(`${API_BASE_URL}/users/${userId}`);
           if (response.ok) {
             const userData = await response.json();
+            if (userData.name) setCashierName(userData.name);
             if (userData.shopId) {
               setIsLinked(true);
               setHasPendingRequest(false);
@@ -83,6 +88,7 @@ export default function CashierHome() {
               if (shopRes.ok) {
                 const shopData = await shopRes.json();
                 setShopName(shopData.name || 'Unknown Shop');
+                setShopDetails(shopData);
               } else {
                 setShopName('Shop Not Found');
               }
@@ -133,7 +139,9 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolarr POS</Text>
-            <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+            <TouchableOpacity onPress={() => shopDetails && setInfoModalVisible(true)} disabled={!shopDetails}>
+              <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+            </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/profile-settings')}>
@@ -222,7 +230,6 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
-              {(userRole === 'admin' || userRole === 'manager') && (
               <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/last-sales')}>
                 <View style={[styles.iconBox, { backgroundColor: '#fffbeb' }]}>
                   <Ionicons name="receipt" size={20} color="#f59e0b" />
@@ -232,7 +239,6 @@ export default function CashierHome() {
                   <Text style={styles.actionSub}>Receipts</Text>
                 </View>
               </TouchableOpacity>
-              )}
             </View>
 
             {/* Add Stock Card */}
@@ -240,7 +246,7 @@ export default function CashierHome() {
               <Text style={styles.sectionLabel}>Add Stock</Text>
               <TouchableOpacity 
                 style={[styles.addStockBtn, !isLinked && { backgroundColor: '#e2e8f0' }]} 
-                onPress={() => requestPassword(() => router.push('/(tabs)/add-stock'))}
+                onPress={() => router.push('/(tabs)/add-stock')}
                 disabled={!isLinked}
               >
                 <View style={styles.addStockIcon}>
@@ -251,10 +257,6 @@ export default function CashierHome() {
                   <Text style={styles.actionSub}>{isLinked ? 'Adjust Inventory' : 'Link Shop Required'}</Text>
                 </View>
               </TouchableOpacity>
-              <View style={styles.lockRow}>
-                <Ionicons name="lock-closed" size={12} color="#f59e0b" />
-                <Text style={styles.lockText}>Password Required</Text>
-              </View>
             </View>
 
           </View>
@@ -284,6 +286,66 @@ export default function CashierHome() {
                 {verifying ? <ActivityIndicator color="white" size="small" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm</Text>}
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Shop Info Modal */}
+      <Modal visible={infoModalVisible} transparent animationType="fade" onRequestClose={() => setInfoModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.infoModalContainer}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Shop Information</Text>
+              <TouchableOpacity onPress={() => setInfoModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            {shopDetails && (
+              <View style={styles.infoContent}>
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIconBox}><Ionicons name="storefront" size={20} color="#1e40af" /></View>
+                  <View>
+                    <Text style={styles.infoLabel}>Shop Name</Text>
+                    <Text style={styles.infoValue}>{shopDetails.name}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIconBox}><Ionicons name="location" size={20} color="#1e40af" /></View>
+                  <View>
+                    <Text style={styles.infoLabel}>Location</Text>
+                    <Text style={styles.infoValue}>{shopDetails.location}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIconBox}><Ionicons name="qr-code" size={20} color="#1e40af" /></View>
+                  <View>
+                    <Text style={styles.infoLabel}>Branch Code</Text>
+                    <Text style={styles.infoValue}>{shopDetails.branchCode}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.divider} />
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIconBox}><Ionicons name="person" size={20} color="#1e40af" /></View>
+                  <View>
+                    <Text style={styles.infoLabel}>Manager</Text>
+                    <Text style={styles.infoValue}>{shopDetails.manager?.name || 'N/A'}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.infoRow}>
+                  <View style={styles.infoIconBox}><Ionicons name="mail" size={20} color="#1e40af" /></View>
+                  <View>
+                    <Text style={styles.infoLabel}>Contact</Text>
+                    <Text style={styles.infoValue}>{shopDetails.manager?.email || 'N/A'}</Text>
+                  </View>
+                </View>
+              </View>
+            )}
           </View>
         </View>
       </Modal>
@@ -352,4 +414,14 @@ const styles = StyleSheet.create({
   btnText: { fontWeight: 'bold' },
   pendingBadge: { backgroundColor: '#f59e0b', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   pendingBadgeText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
+
+  infoModalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '85%', maxWidth: 400 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  infoContent: { gap: 16 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  infoIconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
+  infoLabel: { fontSize: 12, color: '#64748b', marginBottom: 2 },
+  infoValue: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
+  divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
 });

@@ -42,6 +42,9 @@ export default function LastSalesScreen() {
         if (user.shopId && user.role !== 'admin') {
           url += `&shopId=${user.shopId}`;
         }
+        if (user.role === 'cashier') {
+          url += `&cashierId=${userId}`;
+        }
       }
 
       if (showRefundedOnly) url += `&refunded=true`;

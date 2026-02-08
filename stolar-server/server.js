@@ -17,6 +17,7 @@ const Product = require('./models/Product');
 const Sale = require('./models/Sale');
 const LinkRequest = require('./models/LinkRequest');
 const Notification = require('./models/Notification');
+const ActionLog = require('./models/ActionLog');
 
 const app = express();
 
@@ -241,6 +242,18 @@ app.get('/api/shops', async (req, res) => {
   }
 });
 
+app.get('/api/shops/:id', async (req, res) => {
+  console.log(`Fetching shop details: ${req.params.id}`);
+  try {
+    const shop = await Shop.findById(req.params.id).populate('manager', 'name email');
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+    res.json(shop);
+  } catch (err) {
+    console.error("Error fetching shop:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.post('/api/shops/register', async (req, res) => {
   console.log('Registering shop:', req.body.name);
   try {
@@ -325,9 +338,21 @@ app.get('/api/products/:barcode', async (req, res) => {
   }
 });
 
+app.get('/api/logs', async (req, res) => {
+  console.log('Fetching action logs:', req.query);
+  try {
+    const { shopId } = req.query;
+    const query = shopId ? { shopId } : {};
+    const logs = await ActionLog.find(query).sort({ timestamp: -1 }).limit(50);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.post('/api/products/add', async (req, res) => {
   console.log('Adding/Updating product:', req.body.name, req.body.barcode);
-  const { name, barcode, category, price, costPrice, quantity, shopId } = req.body; 
+  const { name, barcode, category, price, costPrice, quantity, shopId, userId } = req.body; 
   try {
     // Check for product in THIS specific shop
     let product = await Product.findOne({ barcode, shopId });
@@ -339,6 +364,18 @@ app.post('/api/products/add', async (req, res) => {
       product.costPrice = Number(costPrice);
       product.shopId = shopId || product.shopId;
       await product.save();
+
+      if (userId) {
+        const user = await User.findById(userId);
+        await new ActionLog({
+          action: 'UPDATE_STOCK',
+          details: `Updated ${name}: +${addQty} units`,
+          userId,
+          userName: user ? user.name : 'Unknown',
+          shopId: product.shopId
+        }).save();
+      }
+
       return res.json({ success: true, message: "Stock updated", product });
     } else {
       const newProduct = new Product({ 
@@ -346,6 +383,18 @@ app.post('/api/products/add', async (req, res) => {
         costPrice: Number(costPrice), stockQuantity: addQty, shopId 
       });
       await newProduct.save();
+
+      if (userId) {
+        const user = await User.findById(userId);
+        await new ActionLog({
+          action: 'ADD_PRODUCT',
+          details: `Added new product: ${name} (${addQty} units)`,
+          userId,
+          userName: user ? user.name : 'Unknown',
+          shopId
+        }).save();
+      }
+
       return res.status(201).json({ success: true, message: "New product registered", product: newProduct });
     }
   } catch (err) {
@@ -378,10 +427,11 @@ app.get('/api/sales/recent', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const { refunded, startDate, endDate, shopId } = req.query;
+    const { refunded, startDate, endDate, shopId, cashierId } = req.query;
 
     let query = {};
     if (shopId) query.shopId = shopId;
+    if (cashierId) query.cashierId = cashierId;
     if (refunded === 'true') query.refunded = true;
     if (startDate && endDate) {
       query.date = { $gte: startDate, $lte: endDate };

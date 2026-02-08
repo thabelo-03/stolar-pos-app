@@ -28,6 +28,7 @@ export default function AddStockScreen() {
   // Add this near your other useState hooks
 const [category, setCategory] = useState('General');
   const [shopId, setShopId] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
@@ -49,6 +50,7 @@ const [category, setCategory] = useState('General');
       try {
         const userId = await AsyncStorage.getItem('userId');
         if (userId) {
+          setCurrentUserId(userId);
           const response = await fetch(`${API_BASE_URL}/users/${userId}`);
           const userData = await response.json();
           if (userData.shopId) setShopId(userData.shopId);
@@ -109,7 +111,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId }),
+          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId: currentUserId }),
         });
 
         const data = await response.json();

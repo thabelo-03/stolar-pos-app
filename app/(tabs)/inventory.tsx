@@ -76,7 +76,9 @@ export default function CashierInventoryScreen() {
       const data = await response.json();
       if (response.ok && data.success) {
         setPasswordVisible(false);
-        pendingAction.current?.();
+        setTimeout(() => {
+          pendingAction.current?.();
+        }, 100);
       } else {
         Alert.alert("Error", data.message || "Incorrect Password");
       }
@@ -230,7 +232,12 @@ export default function CashierInventoryScreen() {
     <ThemedView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Inventory</Text>
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+          <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Inventory</Text>
+          <TouchableOpacity onPress={() => router.push('/(tabs)/recent-actions')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
+            <Ionicons name="time-outline" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
         
         <View style={styles.statsRow}>
           <View style={styles.statItem}>

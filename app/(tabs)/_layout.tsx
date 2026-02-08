@@ -1,10 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as LocalAuthentication from 'expo-local-authentication';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Notifications from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -24,59 +22,6 @@ export default function TabLayout() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const [lowStockCount, setLowStockCount] = useState<number | undefined>(undefined);
-
-  // Password Protection
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [password, setPassword] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const pendingAction = useRef<(() => void) | null>(null);
-
-  const requestPassword = async (action: () => void) => {
-    pendingAction.current = action;
-    setPassword('');
-    setVerifying(false);
-
-    // Try Biometrics First
-    const bioEnabled = await AsyncStorage.getItem('biometricEnabled');
-    if (bioEnabled === 'true') {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      if (hasHardware && isEnrolled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Manager Approval Required',
-          fallbackLabel: 'Use Password',
-        });
-        if (result.success) return action();
-      }
-    }
-
-    setPasswordVisible(true);
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!password) return;
-    setVerifying(true);
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      const response = await fetch(`${API_BASE_URL}/auth/verify-manager`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cashierId: userId, password }),
-      });
-      
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setPasswordVisible(false);
-        pendingAction.current?.();
-      } else {
-        Alert.alert("Error", data.message || "Incorrect Password");
-      }
-    } catch (e) {
-      Alert.alert("Error", "Network error");
-    } finally {
-      setVerifying(false);
-    }
-  };
 
   useEffect(() => {
     const requestPermissions = async () => {
@@ -112,7 +57,6 @@ export default function TabLayout() {
   }, []);
 
   return (
-    <>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#1e40af',
@@ -194,12 +138,6 @@ export default function TabLayout() {
           title: 'Add Stock',
           tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "add-circle" : "add-circle-outline"} color={color} />,
         }}
-        listeners={{
-          tabPress: (e) => {
-            e.preventDefault();
-            requestPassword(() => router.push('/(tabs)/add-stock'));
-          },
-        }}
       />
       
       {/* New: Profit Report Tab */}
@@ -212,6 +150,12 @@ export default function TabLayout() {
         }}
       />
       
+      {/* New: Recent Actions (Hidden) */}
+      <Tabs.Screen
+        name="recent-actions"
+        options={{ href: null, title: 'Actions' }}
+      />
+
       {/* New: Profile Settings Tab (Hidden) */}
       <Tabs.Screen
         name="profile-settings"
@@ -230,43 +174,7 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
-
-    <Modal visible={passwordVisible} transparent animationType="fade" onRequestClose={() => setPasswordVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.passwordContainer}>
-            <Text style={styles.passwordTitle}>Manager Password</Text>
-            <TextInput 
-              style={styles.passwordInput} 
-              secureTextEntry 
-              placeholder="Enter Password"
-              value={password}
-              onChangeText={setPassword}
-              autoFocus
-              keyboardType="numeric"
-            />
-            <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 15 }} onPress={() => requestPassword(pendingAction.current!)}>
-               <Ionicons name="finger-print" size={32} color="#1e40af" />
-            </TouchableOpacity>
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setPasswordVisible(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={styles.confirmBtn} onPress={handlePasswordSubmit} disabled={verifying}>
-                {verifying ? <ActivityIndicator color="white" size="small" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm</Text>}
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    </>
   );
 }
 
-const styles = StyleSheet.create({
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  passwordContainer: { backgroundColor: 'white', padding: 20, borderRadius: 12, width: '80%', maxWidth: 300 },
-  passwordTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#1e293b' },
-  passwordInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, marginBottom: 20, fontSize: 16, textAlign: 'center' },
-  modalButtons: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, padding: 12, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center' },
-  confirmBtn: { flex: 1, padding: 12, backgroundColor: '#1e40af', borderRadius: 8, alignItems: 'center' },
-  btnText: { fontWeight: 'bold' },
-});
+const styles = StyleSheet.create({});
