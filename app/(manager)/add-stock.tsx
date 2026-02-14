@@ -26,6 +26,7 @@ export default function ManagerAddStockScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   const [category, setCategory] = useState('General');
+  const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
@@ -41,6 +42,22 @@ export default function ManagerAddStockScreen() {
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
     }
   }, [params]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/products`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const cats = Array.from(new Set(data.map((p: any) => p.category).filter((c: any) => c && c !== 'General')));
+            setExistingCategories(prev => Array.from(new Set([...prev, ...cats])));
+          }
+        }
+      } catch (e) {}
+    };
+    fetchCategories();
+  }, []);
 
   const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
     const cleanText = text.replace(/[^0-9]/g, '');
@@ -234,6 +251,19 @@ export default function ManagerAddStockScreen() {
             placeholder="e.g. Groceries"
             placeholderTextColor={placeholderColor}
           />
+          {existingCategories.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
+              {existingCategories.map((cat, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.categoryChip} 
+                  onPress={() => setCategory(cat)}
+                >
+                  <Text style={styles.categoryText}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </View>
 
         <View style={styles.row}>
@@ -351,6 +381,9 @@ const styles = StyleSheet.create({
   halfInput: { flex: 1 },
   saveButton: { backgroundColor: '#10b981', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 20 },
   saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  categoriesContainer: { marginTop: 10, flexDirection: 'row' },
+  categoryChip: { backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#bae6fd' },
+  categoryText: { color: '#0284c7', fontSize: 12, fontWeight: '600' },
   
   // Camera Modal Styles
   camera: { flex: 1 },

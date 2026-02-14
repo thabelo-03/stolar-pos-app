@@ -179,6 +179,18 @@ export default function CartScreen() {
   };
 
   const addItemToCart = (product: any) => {
+    const availableStock = product.stockQuantity !== undefined ? product.stockQuantity : (product.quantity || 0);
+
+    if (availableStock <= 0) {
+      Alert.alert("Out of Stock", "This item is currently unavailable.");
+      return;
+    }
+
+    const currentInCart = cartItems.find(item => item.barcode === product.barcode);
+    if (currentInCart && currentInCart.quantity >= availableStock) {
+      return Alert.alert("Stock Limit", `Only ${availableStock} units available.`);
+    }
+
     setCartItems(prevItems => {
       const existing = prevItems.find(item => item.barcode === product.barcode);
       if (existing) {
@@ -192,6 +204,7 @@ export default function CartScreen() {
         price: Number(product.price) || 0,
         quantity: 1,
         barcode: product.barcode,
+        maxStock: availableStock
       }];
     });
     setSearchQuery('');
@@ -199,6 +212,14 @@ export default function CartScreen() {
   };
 
   const updateQuantity = (itemId: string, amount: number) => {
+    const item = cartItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (amount > 0 && item.maxStock !== undefined && item.quantity + amount > item.maxStock) {
+      Alert.alert("Limit Reached", `Max stock is ${item.maxStock}`);
+      return;
+    }
+
     setCartItems(curr => curr.map(i => i.id === itemId ? { ...i, quantity: i.quantity + amount } : i).filter(i => i.quantity > 0));
   };
 
@@ -415,6 +436,7 @@ export default function CartScreen() {
         });
         if (response.ok) {
           Alert.alert('Success', 'Transaction synced!');
+          setCartItems([]);
           router.replace('/(tabs)/home');
           return;
         } else {
@@ -432,6 +454,7 @@ export default function CartScreen() {
       const saved = await OfflineService.saveSaleLocally(saleData);
       if (saved) {
         Alert.alert('Saved Offline', 'Connection lost. Sale stored locally and will sync later.');
+        setCartItems([]);
         router.replace('/(tabs)/home');
       } else {
         Alert.alert('Error', 'Transaction failed and could not be saved offline.');

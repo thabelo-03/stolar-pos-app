@@ -233,8 +233,10 @@ export default function MyShopScreen() {
               <Text style={styles.shopName}>{shop.name}</Text>
               <Text style={styles.shopDetail}>{shop.location}</Text>
               <Text style={styles.shopDetail}>Code: {shop.branchCode}</Text>
-              {shop.manager && (
+              {shop.manager && (shop.manager.name || shop.manager.email) ? (
                 <Text style={styles.managerText}>Manager: {shop.manager.name}</Text>
+              ) : (
+                <Text style={styles.managerText}>Manager: N/A</Text>
               )}
             </View>
 

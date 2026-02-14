@@ -245,8 +245,20 @@ app.get('/api/shops', async (req, res) => {
 app.get('/api/shops/:id', async (req, res) => {
   console.log(`Fetching shop details: ${req.params.id}`);
   try {
-    const shop = await Shop.findById(req.params.id).populate('manager', 'name email');
+    // Fetch raw shop first to get the manager ID even if user doesn't exist
+    let shop = await Shop.findById(req.params.id).lean();
     if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    // Manually fetch manager details to handle broken references gracefully
+    if (shop.manager) {
+      const manager = await User.findById(shop.manager).select('name email').lean();
+      if (manager) {
+        shop.manager = manager;
+      } else {
+        shop.manager = { name: 'Unknown (User Deleted)', email: 'N/A' };
+      }
+    }
+
     res.json(shop);
   } catch (err) {
     console.error("Error fetching shop:", err);
@@ -380,7 +392,7 @@ app.post('/api/products/add', async (req, res) => {
     } else {
       const newProduct = new Product({ 
         name, barcode, category, price: Number(price), 
-        costPrice: Number(costPrice), stockQuantity: addQty, shopId 
+        costPrice: Number(costPrice), stockQuantity: addQty, shopId
       });
       await newProduct.save();
 

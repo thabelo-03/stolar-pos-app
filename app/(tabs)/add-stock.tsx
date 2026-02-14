@@ -1,10 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
@@ -29,6 +29,7 @@ export default function AddStockScreen() {
 const [category, setCategory] = useState('General');
   const [shopId, setShopId] = useState<string | null>(null);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
@@ -58,6 +59,22 @@ const [category, setCategory] = useState('General');
       } catch (e) { console.log("Error fetching shop ID", e); }
     };
     fetchUserShop();
+  }, []);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/products`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const cats = Array.from(new Set(data.map((p: any) => p.category).filter((c: any) => c && c !== 'General')));
+            setExistingCategories(prev => Array.from(new Set([...prev, ...cats])));
+          }
+        }
+      } catch (e) {}
+    };
+    fetchCategories();
   }, []);
 
   const handleSave = async () => {
@@ -250,6 +267,19 @@ const [category, setCategory] = useState('General');
             placeholder="e.g. Groceries"
             placeholderTextColor={placeholderColor}
           />
+          {existingCategories.length > 0 && (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
+              {existingCategories.map((cat, index) => (
+                <TouchableOpacity 
+                  key={index} 
+                  style={styles.categoryChip} 
+                  onPress={() => setCategory(cat)}
+                >
+                  <Text style={styles.categoryText}>{cat}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
         </ThemedView>
 
         <ThemedView>
@@ -412,6 +442,9 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
   },
+  categoriesContainer: { marginTop: 10, flexDirection: 'row' },
+  categoryChip: { backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#bae6fd' },
+  categoryText: { color: '#0284c7', fontSize: 12, fontWeight: '600' },
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
