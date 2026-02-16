@@ -4,7 +4,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { API_BASE_URL } from '../config';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -36,6 +36,7 @@ const ManagerIndex = () => {
   const [editLocation, setEditLocation] = useState('');
   const [editManagerId, setEditManagerId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [trialModalVisible, setTrialModalVisible] = useState(false);
   const [chartData, setChartData] = useState({
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [{ data: [0, 0, 0, 0, 0, 0, 0] }]
@@ -64,18 +65,14 @@ const ManagerIndex = () => {
         const userData = await userResponse.json();
         console.log("Fetched User Data:", userData);
         console.log("User Role:", userData.role);
-        // Force subscription status to 'expired' for testing purposes, as requested
-        if (userData.role === 'manager') {
-          userData.subscriptionStatus = 'expired';
-          console.log("FORCED Subscription Status for testing:", userData.subscriptionStatus);
-        }
+
         console.log("Subscription Status:", userData.subscriptionStatus);
-        // Simulate expired subscription for testing as requested
+        
+        // Check real subscription status (30-day trial logic handled by backend dates)
         if (userData.role === 'manager' && userData.subscriptionStatus === 'expired') {
-          console.log("Redirecting to subscription page...");
+          console.log("Subscription expired. Redirecting...");
           router.replace('/(manager)/subscription');
-          setLoading(false); // Stop loading and prevent further data fetching
-          return; 
+          return;
         }
         setUser(userData);
 
@@ -92,6 +89,9 @@ const ManagerIndex = () => {
           throw new Error('Failed to fetch shops');
         }
 
+        // Get IDs of shops owned by this manager to filter global data
+        const myShopIds = new Set(currentShops.map(s => s._id));
+
         // Fetch notifications for badge count
         const notifResponse = await fetch(`${API_BASE_URL}/notifications/${userId}`);
         if (notifResponse.ok) {
@@ -105,7 +105,9 @@ const ManagerIndex = () => {
         if (salesRes.ok) {
           const salesData = await salesRes.json();
           if (Array.isArray(salesData)) {
-            setAllSales(salesData);
+            // Filter sales to only those belonging to the manager's shops
+            const mySales = salesData.filter((s: any) => myShopIds.has(s.shopId));
+            setAllSales(mySales);
           }
         }
 
@@ -114,7 +116,9 @@ const ManagerIndex = () => {
         if (productsRes.ok) {
           const productsData = await productsRes.json();
           if (Array.isArray(productsData)) {
-            const low = productsData.filter((p: any) => Number(p.quantity) < 5);
+            // Filter products to only those belonging to the manager's shops
+            const myProducts = productsData.filter((p: any) => myShopIds.has(p.shopId));
+            const low = myProducts.filter((p: any) => Number(p.quantity) < 5);
             setLowStockItems(low.slice(0, 5));
           }
         }
@@ -506,6 +510,90 @@ const ManagerIndex = () => {
         </View>
       </Modal>
 
+      {/* Trial Reminder Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={trialModalVisible}
+        onRequestClose={() => setTrialModalVisible(false)}
+      >
+        <View style={styles.centeredModalOverlay}>
+            <View style={styles.editModalContent}>
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                    <View style={{ width: 60, height: 60, borderRadius: 30, backgroundColor: '#fff7ed', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="alert-circle" size={32} color="#f59e0b" />
+                    </View>
+                    <Text style={styles.modalTitle}>Subscription Due</Text>
+                    <Text style={{ textAlign: 'center', color: '#64748b', fontSize: 14, paddingHorizontal: 10 }}>
+                        Your subscription has expired. Please renew to continue using the application.
+                    </Text>
+                </View>
+
+                <View style={{ backgroundColor: '#f8fafc', padding: 16, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' }}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={styles.label}>Start Date:</Text>
+                        <Text style={{ fontWeight: '600', color: '#1e293b' }}>{new Date().toLocaleDateString()}</Text>
+                    </View>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                        <Text style={styles.label}>Due Date:</Text>
+                        <Text style={{ fontWeight: '600', color: '#ef4444' }}>{new Date().toLocaleDateString()}</Text>
+                    </View>
+                    <View style={{ height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 }} />
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <Text style={styles.label}>Amount Due:</Text>
+                        <Text style={{ fontWeight: '800', color: '#1e40af', fontSize: 18 }}>$10.00</Text>
+                    </View>
+                </View>
+
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#94a3b8', marginBottom: 12, textTransform: 'uppercase', letterSpacing: 0.5 }}>Payment Options</Text>
+                
+                <View style={{ flexDirection: 'row', gap: 12, marginBottom: 24 }}>
+                    <TouchableOpacity 
+                        style={styles.paymentOption} 
+                        onPress={() => {
+                            setTrialModalVisible(false);
+                            router.push('/(manager)/subscription');
+                        }}
+                    >
+                        <Ionicons name="card" size={24} color="#1e40af" />
+                        <Text style={styles.paymentOptionText}>Paynow</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.paymentOption} 
+                        onPress={() => Alert.alert("Cash Payment", "Please visit our office or contact an admin to pay via cash.")}
+                    >
+                        <Ionicons name="cash" size={24} color="#059669" />
+                        <Text style={[styles.paymentOptionText, { color: '#059669' }]}>Cash</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={styles.paymentOption} 
+                        onPress={() => Linking.openURL('tel:+123456789')}
+                    >
+                        <Ionicons name="call" size={24} color="#475569" />
+                        <Text style={[styles.paymentOptionText, { color: '#475569' }]}>Admin</Text>
+                    </TouchableOpacity>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: 12 }}>
+                    <TouchableOpacity 
+                        style={[styles.modalButton, styles.cancelButton]} 
+                        onPress={() => setTrialModalVisible(false)}
+                    >
+                        <Text style={styles.buttonText}>Cancel</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                        style={[styles.modalButton, styles.saveButton]} 
+                        onPress={() => setTrialModalVisible(false)}
+                    >
+                        <Text style={[styles.buttonText, { color: '#fff' }]}>Okay</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
+        </View>
+      </Modal>
+
       <FlatList
         data={shops}
         ListHeaderComponent={renderHeader}
@@ -797,6 +885,27 @@ const styles = StyleSheet.create({
     rankText: { color: '#1e40af', fontWeight: 'bold', fontSize: 12 },
     topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '500' },
     topItemQty: { fontSize: 12, color: '#64748b' },
+    paymentOption: {
+        flex: 1,
+        backgroundColor: '#fff',
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+        borderRadius: 12,
+        padding: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
+    },
+    paymentOptionText: {
+        marginTop: 8,
+        fontSize: 12,
+        fontWeight: '600',
+        color: '#1e40af',
+    },
 });
 
 export default ManagerIndex;
