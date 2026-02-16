@@ -18,6 +18,7 @@ const Sale = require('./models/Sale');
 const LinkRequest = require('./models/LinkRequest');
 const Notification = require('./models/Notification');
 const ActionLog = require('./models/ActionLog');
+const PaymentHistory = require('./models/PaymentHistory');
 
 const app = express();
 
@@ -127,6 +128,11 @@ app.post('/api/auth/login', async (req, res) => {
     const user = await User.findOne({ email });
     if (!user) return res.status(400).json({ message: "User not found" });
 
+    // Check if user is blocked
+    if (user.status === 'blocked') {
+      return res.status(403).json({ message: "Your account has been blocked. Please contact the administrator." });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) return res.status(400).json({ message: "Invalid credentials" });
 
@@ -195,6 +201,24 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// New endpoint to fetch users who made cash payments
+// NOTE: This must be defined BEFORE /api/users/:id to avoid conflict
+app.get('/api/users/cash-payers', async (req, res) => {
+  console.log('Fetching users who made cash payments');
+  try {
+    // 1. Find unique managerIds from PaymentHistory where paymentMethod is cash
+    const managerIds = await PaymentHistory.find({ paymentMethod: 'cash' }).distinct('managerId');
+
+    // 2. Fetch the corresponding User documents
+    const cashPayers = await User.find({ _id: { $in: managerIds } }).select('-password');
+
+    res.json(cashPayers);
+  } catch (err) {
+    console.error("Error fetching cash payers:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/api/users/:id', async (req, res) => {
   console.log(`Fetching user: ${req.params.id}`);
   try {
@@ -207,22 +231,16 @@ app.get('/api/users/:id', async (req, res) => {
   }
 });
 
-// New endpoint to fetch users who made cash payments
-app.get('/api/users/cash-payers', async (req, res) => {
-  console.log('Fetching users who made cash payments');
+// New endpoint to toggle user status (Block/Unblock)
+app.patch('/api/users/:id/status', async (req, res) => {
+  console.log(`Updating status for user ${req.params.id} to ${req.body.status}`);
   try {
-    // 1. Find all sales with paymentMethod: 'Cash'
-    const cashSales = await Sale.find({ paymentMethod: 'Cash' });
-
-    // 2. Extract unique userId's from these sales
-    const userIds = [...new Set(cashSales.map(sale => sale.userId))];
-
-    // 3. Fetch the corresponding User documents
-    const cashPayers = await User.find({ _id: { $in: userIds } }).select('-password');
-
-    res.json(cashPayers);
+    const { status } = req.body;
+    const user = await User.findByIdAndUpdate(req.params.id, { status }, { new: true });
+    if (!user) return res.status(404).json({ message: "User not found" });
+    res.json({ success: true, user });
   } catch (err) {
-    console.error("Error fetching cash payers:", err);
+    console.error("Status update error:", err);
     res.status(500).json({ message: err.message });
   }
 });
@@ -609,10 +627,25 @@ app.post('/api/subscription/check-status', async (req, res) => {
 
 // 3. Admin Manual Activation (Cash Payment)
 app.post('/api/admin/activate-user', async (req, res) => {
-  const { userId, months } = req.body; // months to add
-  console.log(`Admin activating user ${userId} for ${months} months`);
+  const { userId, months, managerName, managerEmail, amount, paymentMethod, isSeed } = req.body; 
+  console.log(`Admin activating user ${userId} for ${months} months. Amount: ${amount}`);
   
   try {
+    // Self-healing: Check for schema violation using native driver before Mongoose throws
+    // This handles cases where shopId is "main_branch" (string) instead of ObjectId
+    try {
+      if (userId && mongoose.Types.ObjectId.isValid(userId)) {
+        const _id = new mongoose.Types.ObjectId(userId);
+        const rawUser = await User.collection.findOne({ _id });
+        if (rawUser && rawUser.shopId === 'main_branch') {
+          console.log(`Auto-fixing invalid shopId for user ${userId}`);
+          await User.collection.updateOne({ _id }, { $set: { shopId: null } });
+        }
+      }
+    } catch (preCheckErr) {
+      console.warn("Pre-fetch check failed:", preCheckErr.message);
+    }
+
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
@@ -627,9 +660,109 @@ app.post('/api/admin/activate-user', async (req, res) => {
     user.subscriptionStatus = 'active';
     await user.save();
 
-    res.json({ success: true, message: "User activated successfully", newExpiry: currentExpiry });
+    // --- RECORD PAYMENT HISTORY ---
+    let historySaved = false;
+    try {
+      const historyData = {
+        managerId: user._id,
+        managerName: managerName || user.name,
+        managerEmail: managerEmail || user.email,
+        amount: (amount && Number(amount) > 0) ? Number(amount) : ((parseInt(months) || 1) * 10),
+        months: parseInt(months) || 1,
+        paymentMethod: paymentMethod || 'cash',
+        isSeed: !!isSeed
+      };
+      
+      console.log("Attempting to save history:", historyData);
+
+      const history = new PaymentHistory(historyData);
+      await history.save();
+      historySaved = true;
+      console.log("✅ Payment history recorded successfully.");
+    } catch (histErr) {
+      console.error("❌ Failed to save payment history:", histErr);
+    }
+    // ------------------------------
+
+    res.json({ success: true, message: "User activated successfully", newExpiry: currentExpiry, historySaved });
   } catch (err) {
     console.error("Admin activation error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/admin/payment-history', async (req, res) => {
+  console.log('🔍 Fetching payment history. Query Params:', req.query);
+  try {
+    const { startDate, endDate } = req.query;
+    let query = {};
+
+    // Only apply date filter if valid dates are provided
+    if (startDate && startDate !== 'undefined' || endDate && endDate !== 'undefined') {
+      query.date = {};
+      if (startDate) query.date.$gte = new Date(startDate);
+      if (endDate) query.date.$lte = new Date(endDate);
+      console.log('📅 Date filter applied:', query.date);
+    }
+
+    // Use .lean() to allow modification of the result objects
+    let history = await PaymentHistory.find(query).sort({ date: -1 }).limit(100).lean();
+    console.log(`✅ Found ${history.length} payment records.`);
+    
+    // Manually populate manager details if missing (for older records)
+    history = await Promise.all(history.map(async (item) => {
+      if (!item.managerName && item.managerId) {
+        const user = await User.findById(item.managerId).select('name email');
+        if (user) {
+          item.managerName = user.name;
+          item.managerEmail = user.email;
+        }
+      }
+      return item;
+    }));
+    
+    // Calculate total based on the filter (or all if no filter)
+    const agg = await PaymentHistory.aggregate([
+      { $match: query },
+      { $group: { _id: null, total: { $sum: "$amount" } } }
+    ]);
+    
+    const totalAmount = agg.length ? agg[0].total : 0;
+
+    res.json({ history, totalAmount });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete('/api/admin/payment-history/:id', async (req, res) => {
+  console.log(`Deleting payment history record: ${req.params.id}`);
+  try {
+    const { reason, adminName } = req.body;
+    const payment = await PaymentHistory.findById(req.params.id);
+    if (!payment) return res.status(404).json({ message: "Payment record not found" });
+
+    // Log to ActionLog for justification/audit
+    await new ActionLog({
+      action: 'DELETE_PAYMENT',
+      details: `Deleted payment: $${payment.amount} for ${payment.managerName} (${payment.managerEmail}). Reason: ${reason || 'None'}`,
+      userName: adminName || 'Admin',
+      shopId: null
+    }).save();
+
+    await PaymentHistory.findByIdAndDelete(req.params.id);
+    res.json({ success: true, message: "Payment deleted and logged." });
+  } catch (err) {
+    console.error("Delete payment error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.get('/api/admin/payment-history/deleted', async (req, res) => {
+  try {
+    const logs = await ActionLog.find({ action: 'DELETE_PAYMENT' }).sort({ timestamp: -1 }).limit(50);
+    res.json(logs);
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
@@ -648,6 +781,21 @@ app.post('/api/test/expire-managers', async (req, res) => {
     );
     
     res.json({ success: true, message: `Updated ${result.modifiedCount} managers to expired status.` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.post('/api/test/fix-users', async (req, res) => {
+  console.log("Fixing user schema issues...");
+  try {
+    // Use native MongoDB driver to bypass Mongoose schema validation
+    // This removes the invalid "main_branch" string from shopId
+    const result = await User.collection.updateMany(
+      { shopId: "main_branch" },
+      { $set: { shopId: null } }
+    );
+    res.json({ success: true, message: `Fixed ${result.modifiedCount} users with invalid shopId.` });
   } catch (err) {
     res.status(500).json({ message: err.message });
   }
