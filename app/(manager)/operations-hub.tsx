@@ -42,8 +42,7 @@ export default function OperationHub() {
   const [tempZar, setTempZar] = useState('19.2'); 
   const [tempZig, setTempZig] = useState('26.5');
 
-  // Placeholder stats (In production, fetch from /sales/stats?shopId=...&date=...)
-  const statsUSD = { sales: 150.50, orders: 12 }; 
+  const [stats, setStats] = useState({ revenue: 0, orders: 0 });
 
   useEffect(() => {
     const loadShopData = async () => {
@@ -65,6 +64,26 @@ export default function OperationHub() {
     };
     loadShopData();
   }, [shopString]);
+
+  // --- FETCH STATS ---
+  useEffect(() => {
+    if (shop?._id) {
+      fetchStats();
+    }
+  }, [shop, selectedDate]);
+
+  const fetchStats = async () => {
+    if (!shop?._id) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/sales/stats?shopId=${shop._id}&date=${selectedDate.toISOString()}`);
+      if (res.ok) {
+        const data = await res.json();
+        setStats(data);
+      }
+    } catch (e) {
+      console.error("Stats fetch error", e);
+    }
+  };
 
   // --- API: FETCH SAVED RATES ---
   const fetchCurrentRates = async (shopId: string) => {
@@ -125,6 +144,13 @@ export default function OperationHub() {
     } catch (error) { console.error('Fetch Error', error); }
     finally { setIsLoading(false); }
   };
+
+  // Automatically fetch requests when shop loads or modal opens
+  useEffect(() => {
+    if (shop?._id) {
+      fetchRequests();
+    }
+  }, [shop, isStaffModalVisible]);
 
   const handleShareCode = async () => {
     if (!shop) return;
@@ -189,8 +215,8 @@ export default function OperationHub() {
         </View>
 
         <View style={styles.statsGrid}>
-            <MetricBox label="Revenue" value={formatValue(statsUSD.sales)} color="#eff6ff" text="#1e40af" />
-            <MetricBox label="Orders" value={statsUSD.orders.toString()} color="#f0fdf4" text="#16a34a" />
+            <MetricBox label="Revenue" value={formatValue(stats.revenue)} color="#eff6ff" text="#1e40af" />
+            <MetricBox label="Orders" value={stats.orders.toString()} color="#f0fdf4" text="#16a34a" />
         </View>
 
         {/* SET DAILY RATES */}

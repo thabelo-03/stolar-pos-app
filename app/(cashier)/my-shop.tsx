@@ -3,15 +3,14 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Modal,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TextInput,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
 } from 'react-native';
 import { API_BASE_URL } from '../config';
 
@@ -155,7 +154,7 @@ export default function MyShopScreen() {
         return;
       }
 
-      const response = await fetch(`${API_BASE_URL}/shops/requests`, {
+      const response = await fetch(`${API_BASE_URL}/shops/request-link`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 

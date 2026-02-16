@@ -435,6 +435,50 @@ app.post('/api/products/add', async (req, res) => {
 
 // --- SALES & CHECKOUT ---
 
+app.get('/api/sales/stats', async (req, res) => {
+  console.log('Fetching sales stats:', req.query);
+  try {
+    const { shopId, date } = req.query;
+    if (!shopId) return res.status(400).json({ message: "Shop ID required" });
+
+    const targetDate = date ? new Date(date) : new Date();
+    const start = new Date(targetDate); start.setHours(0,0,0,0);
+    const end = new Date(targetDate); end.setHours(23,59,59,999);
+
+    let matchQuery = {
+      date: { $gte: start, $lte: end },
+      refunded: { $ne: true }
+    };
+
+    if (mongoose.Types.ObjectId.isValid(shopId)) {
+      matchQuery.shopId = new mongoose.Types.ObjectId(shopId);
+    } else {
+      matchQuery.shopId = shopId; // Fallback for string IDs
+    }
+
+    const stats = await Sale.aggregate([
+      { $match: matchQuery },
+      {
+        $group: {
+          _id: null,
+          totalRevenue: { $sum: { $ifNull: ["$totalUSD", "$total"] } },
+          totalOrders: { $sum: 1 }
+        }
+      }
+    ]);
+
+    const result = stats.length > 0 ? stats[0] : { totalRevenue: 0, totalOrders: 0 };
+
+    res.json({
+      revenue: result.totalRevenue,
+      orders: result.totalOrders
+    });
+  } catch (err) {
+    console.error("Stats error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.get('/api/sales', async (req, res) => {
   console.log('Fetching sales history with filters:', req.query);
   try {
@@ -869,15 +913,23 @@ app.get('/api/test/verify-migration', async (req, res) => {
 // --- STAFF LINKING ---
 
 app.get('/api/shops/requests/:id', async (req, res) => {
-  console.log(`Fetching requests for: ${req.params.id}`);
+  console.log(`Fetching requests for identifier: ${req.params.id}`);
   try {
     const identifier = req.params.id;
+    
+    // Validate ID format to prevent crashes
+    if (!mongoose.Types.ObjectId.isValid(identifier)) {
+      return res.status(400).json({ message: "Invalid ID format" });
+    }
+
     const requests = await LinkRequest.find({
       $or: [{ shop: identifier }, { manager: identifier }],
       status: 'pending'
     })
     .populate('cashier', 'name email')
-    .populate('shop', 'name location');
+    .populate('shop', 'name location branchCode');
+    
+    console.log(`Found ${requests.length} pending requests.`);
     res.json(requests || []);
   } catch (err) {
     console.error("Error fetching requests:", err);
@@ -885,8 +937,23 @@ app.get('/api/shops/requests/:id', async (req, res) => {
   }
 });
 
+// Add this missing route for Cashier UI to check status
+app.get('/api/shops/cashier-request/:userId', async (req, res) => {
+  try {
+    const request = await LinkRequest.findOne({ 
+      cashier: req.params.userId, 
+      status: 'pending' 
+    }).populate('shop', 'name branchCode');
+    
+    res.json(request); // Returns null if not found, which is valid
+  } catch (err) {
+    console.error("Error fetching cashier request:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // Add this to your server code
-app.post('/api/shops/requests', async (req, res) => {
+app.post('/api/shops/request-link', async (req, res) => {
   console.log('New join request:', req.body);
   try {
     const { branchCode, cashierId } = req.body;
@@ -894,7 +961,14 @@ app.post('/api/shops/requests', async (req, res) => {
     // 1. Find the shop by branch code
     const shop = await Shop.findOne({ branchCode });
     if (!shop) {
+      console.log(`❌ Shop lookup failed for code: '${branchCode}'. Ensure prefix is correct (e.g., STLR-).`);
       return res.status(404).json({ message: "Invalid branch code. Shop not found." });
+    }
+
+    // Ensure the shop actually has a manager to send the request to
+    if (!shop.manager) {
+      console.log(`❌ Shop ${shop.name} has no manager assigned.`);
+      return res.status(400).json({ message: "This shop has no manager assigned to approve requests." });
     }
 
     // 2. Check if a pending request already exists
@@ -916,11 +990,51 @@ app.post('/api/shops/requests', async (req, res) => {
     });
 
     await newRequest.save();
+    console.log(`✅ Request created for Manager: ${shop.manager}`);
     res.status(201).json({ success: true, message: "Request sent to manager." });
 
   } catch (err) {
     console.error("Join request error:", err);
     res.status(500).json({ message: "Server error: " + err.message });
+  }
+});
+
+app.put('/api/shops/requests/:id', async (req, res) => {
+  console.log(`Updating request ${req.params.id} to ${req.body.status}`);
+  try {
+    const { status } = req.body;
+    const request = await LinkRequest.findById(req.params.id);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+
+    request.status = status;
+    await request.save();
+
+    if (status === 'approved') {
+      // 1. Link User to Shop
+      await User.findByIdAndUpdate(request.cashier, { shopId: request.shop });
+      
+      // 2. Add User to Shop's cashiers list
+      await Shop.findByIdAndUpdate(request.shop, { 
+        $addToSet: { cashiers: request.cashier } 
+      });
+    }
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error("Request update error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete('/api/shops/requests/:id', async (req, res) => {
+  console.log(`Deleting request ${req.params.id}`);
+  try {
+    const request = await LinkRequest.findByIdAndDelete(req.params.id);
+    if (!request) return res.status(404).json({ message: "Request not found" });
+    res.json({ success: true, message: "Request cancelled" });
+  } catch (err) {
+    console.error("Request deletion error:", err);
+    res.status(500).json({ message: err.message });
   }
 });
 
