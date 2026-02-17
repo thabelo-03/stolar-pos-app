@@ -1130,6 +1130,24 @@ app.put('/api/notifications/:id/read', async (req, res) => {
   }
 });
 
+app.put('/api/notifications/read-all/:userId', async (req, res) => {
+  try {
+    await Notification.updateMany({ recipient: req.params.userId, isRead: false }, { isRead: true });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.delete('/api/notifications/clear-all/:userId', async (req, res) => {
+  try {
+    await Notification.deleteMany({ recipient: req.params.userId });
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
 // (Keep your other existing link request routes below...)
 
 const PORT = process.env.PORT || 5000;

@@ -70,6 +70,13 @@ export default function ManagerLayout() {
           title: 'Subscription Required' 
         }} 
       />
+      <Stack.Screen 
+        name="notifications" 
+        options={{ 
+          headerShown: false, 
+          title: 'Notifications' 
+        }} 
+      />
     </Stack>
   );
 }

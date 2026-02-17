@@ -2,13 +2,13 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart, PieChart } from 'react-native-chart-kit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
-import DateTimePicker from '@react-native-community/datetimepicker';
 
 interface Shop {
   _id: string;
@@ -327,7 +327,7 @@ const ManagerIndex = () => {
           <Text style={styles.headerSubtitle}>{user?.email}</Text>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => router.push('/notifications')}>
+          <TouchableOpacity onPress={() => router.push('/(manager)/notifications')}>
             <Ionicons name="notifications-outline" size={24} color="#fff" />
             {unreadCount > 0 && (
               <View style={styles.notificationBadge}>
