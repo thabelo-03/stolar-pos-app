@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -150,8 +151,21 @@ export default function ProfitReportScreen() {
 
   const fetchData = async () => {
     try {
+      const userId = await AsyncStorage.getItem('userId');
+      let shopId = null;
+      let userRole = null;
+
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        shopId = user.shopId;
+        userRole = user.role;
+      }
+
       // 1. Fetch Inventory to get Cost Prices
-      const invResponse = await fetch(`${API_BASE_URL}/products`);
+      let productsUrl = `${API_BASE_URL}/products`;
+      if (shopId) productsUrl += `?shopId=${shopId}`;
+      const invResponse = await fetch(productsUrl);
       const inventoryData = await invResponse.json();
       
       // Create a map for quick lookup: barcode -> costPrice
@@ -165,7 +179,17 @@ export default function ProfitReportScreen() {
       }
 
       // 2. Fetch Sales History
-      const salesResponse = await fetch(`${API_BASE_URL}/sales`);
+      let salesUrl = `${API_BASE_URL}/sales`;
+      const params = [];
+      if (shopId && userRole !== 'admin') {
+        params.push(`shopId=${shopId}`);
+      }
+      if (userRole === 'cashier') {
+        params.push(`cashierId=${userId}`);
+      }
+      if (params.length > 0) salesUrl += `?${params.join('&')}`;
+
+      const salesResponse = await fetch(salesUrl);
       const salesData = await salesResponse.json();
 
       if (Array.isArray(salesData)) {
@@ -177,8 +201,8 @@ export default function ProfitReportScreen() {
           if (Array.isArray(sale.items)) {
             sale.items.forEach((item: any) => {
               const qty = Number(item.quantity || 1);
-              // Try to find cost by barcode, default to 0 if not found
-              const unitCost = costMap.get(item.barcode) || 0;
+              // Use saved cost price if available, otherwise lookup current inventory cost
+              const unitCost = (item.costPrice !== undefined) ? Number(item.costPrice) : (costMap.get(item.barcode) || 0);
               saleCost += unitCost * qty;
             });
           }

@@ -4,7 +4,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, SafeAreaView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LineChart, PieChart } from 'react-native-chart-kit';
 import { API_BASE_URL } from '../config';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -48,6 +49,7 @@ const ManagerIndex = () => {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [allSales, setAllSales] = useState<any[]>([]);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -319,13 +321,13 @@ const ManagerIndex = () => {
 
   const renderHeader = () => (
     <View>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View>
           <Text style={styles.headerTitle}>Welcome, {user?.name}</Text>
           <Text style={styles.headerSubtitle}>{user?.email}</Text>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity>
+          <TouchableOpacity onPress={() => router.push('/notifications')}>
             <Ionicons name="notifications-outline" size={24} color="#fff" />
             {unreadCount > 0 && (
               <View style={styles.notificationBadge}>
@@ -368,6 +370,13 @@ const ManagerIndex = () => {
           bezier
           style={{ marginVertical: 8, borderRadius: 16 }}
         />
+        <TouchableOpacity 
+            style={styles.viewReportButton} 
+            onPress={() => router.push('/(manager)/profit-loss')}
+        >
+            <Text style={styles.viewReportText}>View Detailed Profit Report</Text>
+            <Ionicons name="arrow-forward" size={16} color="#1e40af" />
+        </TouchableOpacity>
       </View>
 
       {showDatePicker && (
@@ -442,7 +451,7 @@ const ManagerIndex = () => {
   );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Modal
         animationType="fade"
         transparent={true}
@@ -628,7 +637,7 @@ const ManagerIndex = () => {
           </TouchableOpacity>
         )}
       />
-    </SafeAreaView>
+    </View>
   );
 };
 
@@ -640,7 +649,6 @@ const styles = StyleSheet.create({
     header: {
         backgroundColor: '#1e3a8a',
         padding: 25,
-        paddingTop: 60,
         borderBottomLeftRadius: 30,
         borderBottomRightRadius: 30,
         flexDirection: 'row',
@@ -865,6 +873,21 @@ const styles = StyleSheet.create({
         color: '#1e40af',
         fontSize: 12,
         fontWeight: 'bold',
+    },
+    viewReportButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        marginTop: 10,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
+    },
+    viewReportText: {
+        color: '#1e40af',
+        fontWeight: 'bold',
+        fontSize: 14,
+        marginRight: 5,
     },
     topItemRow: {
         flexDirection: 'row',

@@ -46,6 +46,8 @@ export default function CartScreen() {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refundTarget, setRefundTarget] = useState<{id: string, amount: number} | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [tenderedAmount, setTenderedAmount] = useState('');
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
@@ -202,6 +204,7 @@ export default function CartScreen() {
         id: product._id || Date.now().toString(),
         name: product.name,
         price: Number(product.price) || 0,
+        costPrice: Number(product.costPrice) || 0,
         quantity: 1,
         barcode: product.barcode,
         maxStock: availableStock
@@ -353,7 +356,7 @@ export default function CartScreen() {
   };
 
   // --- 5. CHECKOUT WITH OFFLINE + CURRENCY LOGIC ---
-  const handleCheckout = async () => {
+  const processTransaction = async () => {
     if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
 
     setLoading(true);
@@ -373,13 +376,19 @@ export default function CartScreen() {
     }
 
     const userId = await AsyncStorage.getItem('userId');
+    const tenderedVal = parseFloat(tenderedAmount || '0');
+    const totalLocal = convert(totalUSD || 0);
+    const changeVal = Math.max(0, tenderedVal - totalLocal);
+
     const saleData = {
       items: cartItems,
       total: totalUSD || 0,
       shopId: shopId,
       cashierId: userId,
       totalUSD: totalUSD || 0,
-      totalPaidLocal: convert(totalUSD || 0),
+      totalPaidLocal: totalLocal,
+      tenderedAmount: tenderedVal,
+      change: changeVal,
       currencyUsed: currency,
       rateUsed: currency === 'USD' ? 1 : (rates as any)[currency],
       date: new Date().toISOString(),
@@ -437,6 +446,8 @@ export default function CartScreen() {
         if (response.ok) {
           Alert.alert('Success', 'Transaction synced!');
           setCartItems([]);
+          setShowPaymentModal(false);
+          setTenderedAmount('');
           router.replace('/(tabs)/home');
           return;
         } else {
@@ -455,6 +466,8 @@ export default function CartScreen() {
       if (saved) {
         Alert.alert('Saved Offline', 'Connection lost. Sale stored locally and will sync later.');
         setCartItems([]);
+        setShowPaymentModal(false);
+        setTenderedAmount('');
         router.replace('/(tabs)/home');
       } else {
         Alert.alert('Error', 'Transaction failed and could not be saved offline.');
@@ -462,6 +475,12 @@ export default function CartScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCheckout = () => {
+    if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
+    setTenderedAmount('');
+    setShowPaymentModal(true);
   };
 
   return (
@@ -755,6 +774,90 @@ export default function CartScreen() {
         </View>
       </Modal>
 
+      <Modal visible={showPaymentModal} animationType="slide" transparent onRequestClose={() => setShowPaymentModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Payment Details</Text>
+            
+            <View style={{marginBottom: 20, alignItems: 'center'}}>
+                <Text style={{fontSize: 14, color: '#64748b', marginBottom: 4}}>Total Due</Text>
+                <Text style={{fontSize: 32, fontWeight: 'bold', color: '#1e293b'}}>
+                    {symbol()} {convert(totalUSD).toFixed(2)}
+                </Text>
+            </View>
+
+            <View style={{marginBottom: 20}}>
+                <Text style={{fontSize: 14, color: '#64748b', marginBottom: 8}}>Amount Tendered</Text>
+                <View style={{flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 12, paddingHorizontal: 15}}>
+                    <Text style={{fontSize: 20, fontWeight: 'bold', color: '#64748b'}}>{symbol()}</Text>
+                    <TextInput
+                        style={{flex: 1, fontSize: 24, fontWeight: 'bold', color: '#1e293b', paddingVertical: 12, marginLeft: 10}}
+                        placeholder="0.00"
+                        keyboardType="numeric"
+                        value={tenderedAmount}
+                        onChangeText={setTenderedAmount}
+                        autoFocus
+                    />
+                </View>
+
+                <View style={styles.denomContainer}>
+                    {[1, 5, 10, 20, 50, 100, 200].map((amount) => (
+                        <TouchableOpacity 
+                            key={amount} 
+                            style={styles.denomBtn}
+                            onPress={() => setTenderedAmount(amount.toString())}
+                        >
+                            <Text style={styles.denomText}>{symbol()}{amount}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
+
+            <View style={{marginBottom: 25, alignItems: 'center', backgroundColor: '#f8fafc', padding: 15, borderRadius: 12}}>
+                <Text style={{fontSize: 14, color: '#64748b', marginBottom: 4}}>Change Due</Text>
+                <Text style={{fontSize: 28, fontWeight: 'bold', color: (parseFloat(tenderedAmount || '0') - convert(totalUSD)) < 0 ? '#ef4444' : '#10b981'}}>
+                    {symbol()} {Math.max(0, (parseFloat(tenderedAmount || '0') - convert(totalUSD))).toFixed(2)}
+                </Text>
+            </View>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowPaymentModal(false)} disabled={loading}>
+                <Text style={[styles.btnText, { color: '#64748b' }]}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.confirmBtn]} 
+                onPress={() => {
+                    const tendered = parseFloat(tenderedAmount || '0');
+                    const total = convert(totalUSD);
+                    
+                    if (tendered < total && Math.abs(tendered - total) > 0.01) {
+                         if (!tenderedAmount) {
+                             setTenderedAmount(total.toFixed(2));
+                             return;
+                         }
+                         Alert.alert("Insufficient Amount", "Tendered amount is less than total.");
+                         return;
+                    }
+                    processTransaction();
+                }}
+                disabled={loading}
+              >
+                {loading ? <ActivityIndicator color="white" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm & Print</Text>}
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+                style={{marginTop: 15, padding: 10, alignItems: 'center'}} 
+                onPress={() => setTenderedAmount(convert(totalUSD).toFixed(2))}
+                disabled={loading}
+            >
+                <Text style={{color: '#1e40af', fontWeight: '600'}}>Pay Exact Amount</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* FOOTER */}
       <View style={styles.footer}>
         <View style={styles.totalRow}>
@@ -885,4 +988,25 @@ const styles = StyleSheet.create({
   parkedDetails: { color: '#64748b', fontSize: 12 },
   restoreBtn: { backgroundColor: '#10b981', padding: 8, borderRadius: 8 },
   deleteBtn: { backgroundColor: '#ef4444', padding: 8, borderRadius: 8 },
+  denomContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  denomBtn: {
+    backgroundColor: '#f8fafc',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  denomText: {
+    color: '#334155',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 });

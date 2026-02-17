@@ -13,6 +13,7 @@ import {
   View
 } from 'react-native';
 import { API_BASE_URL } from '../config';
+import { useSafeAreaInsets as useRNCSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Shop {
   _id: string;
@@ -37,6 +38,7 @@ export default function MyShopScreen() {
   const [processing, setProcessing] = useState(false);
   const [branchCode, setBranchCode] = useState('');
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [modalType, setModalType] = useState<'leave' | 'switch'>('leave');
   const [recentShops, setRecentShops] = useState<any[]>([]);
 
@@ -219,7 +221,7 @@ export default function MyShopScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.title}>My Shop</Text>
         <Text style={styles.subtitle}>Branch Information</Text>
       </View>
@@ -283,7 +285,7 @@ export default function MyShopScreen() {
 
             <TouchableOpacity 
               style={styles.linkButton}
-              onPress={handleJoinShop}
+              onPress={() => handleJoinShop()}
               disabled={processing}
             >
               {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.linkButtonText}>Send Request</Text>}
@@ -371,7 +373,6 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#1e3a8a',
     padding: 25,
-    paddingTop: 60,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
@@ -432,3 +433,6 @@ const styles = StyleSheet.create({
   recentName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
   recentCode: { fontSize: 12, color: '#64748b', marginTop: 2 }
 });
+function useSafeAreaInsets() {
+  return useRNCSafeAreaInsets();
+}

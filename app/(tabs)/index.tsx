@@ -3,7 +3,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './api';
 
 export default function CashierHome() {
@@ -16,6 +17,7 @@ export default function CashierHome() {
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
+  const insets = useSafeAreaInsets();
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -148,23 +150,24 @@ export default function CashierHome() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1e40af" />
       
       {/* 1. Top Header Section */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolarr POS</Text>
             <TouchableOpacity onPress={() => shopDetails && setInfoModalVisible(true)} disabled={!shopDetails}>
-              <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text>
+              {/* <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={11} color="#4ade80" /> </Text> */}
+              <Text style={styles.statusSub}>Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={11} color="#4ade80" /> </Text>
             </TouchableOpacity>
           </View>
-          <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={26} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/notifications' as any)}>
+            <TouchableOpacity style={[styles.notificationBtn, { marginLeft: 10 }]} onPress={() => router.push('/notifications')}>
               <Ionicons name="notifications" size={26} color="white" />
               {unreadCount > 0 && (
                 <View style={styles.notificationBadge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
@@ -361,7 +364,7 @@ export default function CashierHome() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -373,7 +376,6 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 40, 
     borderBottomRightRadius: 40,
     paddingHorizontal: 25,
-    paddingTop: 40,
     zIndex: 10,
     elevation: 5,
   },

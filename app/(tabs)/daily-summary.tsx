@@ -7,6 +7,7 @@ import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
@@ -19,6 +20,7 @@ export default function DailySummaryScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
+  const insets = useSafeAreaInsets();
   
   const [transactions, setTransactions] = useState<any[]>([]);
   const [totalSales, setTotalSales] = useState(0);
@@ -289,7 +291,7 @@ export default function DailySummaryScreen() {
   const renderHeader = () => (
     <View>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="white" />
@@ -455,7 +457,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
     backgroundColor: '#1e40af',
-    paddingTop: 50,
     paddingBottom: 60, // Extra space for overlapping cards
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,

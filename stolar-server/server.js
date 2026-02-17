@@ -576,7 +576,7 @@ app.post('/api/sales', async (req, res) => {
   console.log('Processing sale. Items:', req.body.items?.length);
  
   try {
-    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, shopId, cashierId } = req.body;
+    const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, shopId, cashierId, tenderedAmount, change } = req.body;
 
     // Duplicate check for offline syncs
     if (offlineId) {
@@ -592,6 +592,8 @@ app.post('/api/sales', async (req, res) => {
       totalPaidLocal,
       currencyUsed,
       rateUsed,
+      tenderedAmount,
+      change,
       paymentMethod,
       date,
       offlineId,

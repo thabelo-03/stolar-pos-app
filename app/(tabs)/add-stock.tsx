@@ -6,6 +6,7 @@ import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
@@ -16,6 +17,7 @@ export default function AddStockScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
+  const insets = useSafeAreaInsets();
 
   const [itemName, setItemName] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -225,8 +227,8 @@ const [category, setCategory] = useState('General');
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
+    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { marginTop: 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={textColor} />
         </TouchableOpacity>
@@ -384,7 +386,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: 20,
-    paddingTop: 50,
   },
   header: {
     flexDirection: 'row',

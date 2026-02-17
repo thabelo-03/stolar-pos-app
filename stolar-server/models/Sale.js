@@ -7,7 +7,8 @@ const SaleSchema = new mongoose.Schema({
       name: String,
       price: Number,
       quantity: Number,
-      barcode: String
+      barcode: String,
+      costPrice: Number
     }
   ],
   total: {
@@ -17,6 +18,8 @@ const SaleSchema = new mongoose.Schema({
   totalUSD: Number,
   totalPaidLocal: Number,
   currencyUsed: String,
+  tenderedAmount: Number,
+  change: Number,
   rateUsed: Number,
   paymentMethod: {
     type: String,

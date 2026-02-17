@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import * as Notifications from 'expo-notifications';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
@@ -189,12 +189,6 @@ export default function TabLayout() {
       <Tabs.Screen
         name="recent-actions"
         options={{ href: null, title: 'Actions' }}
-      />
-      
-      {/* New: Notifications (Hidden) */}
-      <Tabs.Screen
-        name="notifications"
-        options={{ href: null, title: 'Notifications' }}
       />
 
       {/* New: Profile Settings Tab (Hidden) */}

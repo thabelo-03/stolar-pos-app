@@ -5,6 +5,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
@@ -33,6 +34,7 @@ export default function CashierInventoryScreen() {
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
+  const insets = useSafeAreaInsets();
   
   // Password Protection State
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -231,7 +233,7 @@ export default function CashierInventoryScreen() {
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Inventory</Text>
           <TouchableOpacity onPress={() => router.push('/(tabs)/recent-actions')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
@@ -424,7 +426,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
     backgroundColor: '#1e40af',
-    paddingTop: 50,
     paddingBottom: 20,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
