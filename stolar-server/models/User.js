@@ -9,6 +9,7 @@ const UserSchema = new mongoose.Schema({
     enum: ['admin', 'manager', 'cashier'], 
     default: 'cashier' 
   },
+  expoPushToken: { type: String },
   // CHANGED: Linked to the Shop Model via ObjectId
   shopId: { 
     type: mongoose.Schema.Types.ObjectId, 

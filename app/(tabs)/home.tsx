@@ -1,8 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from './api';
 
@@ -16,6 +16,7 @@ export default function CashierHome() {
   const [shopName, setShopName] = useState(initialShopName ? (Array.isArray(initialShopName) ? initialShopName[0] : initialShopName) : 'Loading...');
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -115,6 +116,25 @@ export default function CashierHome() {
     checkShopLink();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUnreadCount = async () => {
+        try {
+          const userId = await AsyncStorage.getItem('userId');
+          if (userId) {
+            const response = await fetch(`${API_BASE_URL}/notifications/${userId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const count = data.filter((n: any) => !n.isRead).length;
+              setUnreadCount(count);
+            }
+          }
+        } catch (e) {}
+      };
+      fetchUnreadCount();
+    }, [])
+  );
+
   const handleLogout = () => {
     Alert.alert(
       "Logout",
@@ -150,9 +170,11 @@ export default function CashierHome() {
             <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={26} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.notificationBtn}>
+            <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/notifications' as any)}>
               <Ionicons name="notifications" size={26} color="white" />
-              <View style={styles.notificationBadge}><Text style={styles.badgeText}>1</Text></View>
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
+              )}
             </TouchableOpacity>
           </View>
         </View>

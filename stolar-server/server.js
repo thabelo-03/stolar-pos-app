@@ -22,6 +22,32 @@ const PaymentHistory = require('./models/PaymentHistory');
 
 const app = express();
 
+// Helper: Send Expo Push Notification
+const sendPushNotification = async (expoPushToken, title, body, data = {}) => {
+  if (!expoPushToken) return;
+  const message = {
+    to: expoPushToken,
+    sound: 'default',
+    title: title,
+    body: body,
+    data: data,
+  };
+
+  try {
+    await fetch('https://exp.host/--/api/v2/push/send', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Accept-encoding': 'gzip, deflate',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(message),
+    });
+  } catch (error) {
+    console.error('Error sending push notification:', error);
+  }
+};
+
 // Paynow Configuration
 const paynow = new Paynow(process.env.PAYNOW_INTEGRATION_ID, process.env.PAYNOW_INTEGRATION_KEY);
 // Set result and return URLs (Replace with your actual frontend/backend URLs)
@@ -241,6 +267,17 @@ app.patch('/api/users/:id/status', async (req, res) => {
     res.json({ success: true, user });
   } catch (err) {
     console.error("Status update error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// Save Expo Push Token
+app.post('/api/users/push-token', async (req, res) => {
+  const { userId, token } = req.body;
+  try {
+    await User.findByIdAndUpdate(userId, { expoPushToken: token });
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });
@@ -571,6 +608,37 @@ app.post('/api/sales', async (req, res) => {
         { barcode: item.barcode },
         { $inc: { stockQuantity: -item.quantity } }
       );
+    }
+
+    // Notify Manager
+    if (shopId) {
+      try {
+        const shop = await Shop.findById(shopId);
+        if (shop && shop.manager) {
+          const cashier = await User.findById(cashierId);
+          const cashierName = cashier ? cashier.name : 'Cashier';
+          
+          await new Notification({
+            recipient: shop.manager,
+            sender: cashierId,
+            type: 'system',
+            message: `New Sale: $${Number(totalUSD).toFixed(2)} by ${cashierName}`,
+            relatedId: newSale._id
+          }).save();
+
+          // Send Push Notification
+          const managerUser = await User.findById(shop.manager);
+          if (managerUser && managerUser.expoPushToken) {
+            await sendPushNotification(
+              managerUser.expoPushToken,
+              "New Sale! 💰",
+              `$${Number(totalUSD).toFixed(2)} sale recorded by ${cashierName}`
+            );
+          }
+        }
+      } catch (notifErr) {
+        console.error("Notification error:", notifErr);
+      }
     }
 
     res.status(201).json({ success: true, sale: newSale });
@@ -1034,6 +1102,28 @@ app.delete('/api/shops/requests/:id', async (req, res) => {
     res.json({ success: true, message: "Request cancelled" });
   } catch (err) {
     console.error("Request deletion error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
+// --- NOTIFICATIONS ---
+
+app.get('/api/notifications/:userId', async (req, res) => {
+  try {
+    const notifications = await Notification.find({ recipient: req.params.userId })
+      .sort({ createdAt: -1 })
+      .limit(50);
+    res.json(notifications);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.put('/api/notifications/:id/read', async (req, res) => {
+  try {
+    await Notification.findByIdAndUpdate(req.params.id, { isRead: true });
+    res.json({ success: true });
+  } catch (err) {
     res.status(500).json({ message: err.message });
   }
 });

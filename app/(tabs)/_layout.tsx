@@ -1,8 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import * as Notifications from 'expo-notifications';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -26,6 +27,39 @@ export default function TabLayout() {
   useEffect(() => {
     const requestPermissions = async () => {
       await Notifications.requestPermissionsAsync();
+    };
+
+    const registerForPushNotificationsAsync = async () => {
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('default', {
+          name: 'default',
+          importance: Notifications.AndroidImportance.MAX,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#FF231F7C',
+        });
+      }
+
+      try {
+        const { status: existingStatus } = await Notifications.getPermissionsAsync();
+        let finalStatus = existingStatus;
+        if (existingStatus !== 'granted') {
+          const { status } = await Notifications.requestPermissionsAsync();
+          finalStatus = status;
+        }
+        if (finalStatus !== 'granted') return;
+        
+        const tokenData = await Notifications.getExpoPushTokenAsync();
+        const token = tokenData.data;
+
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+           await fetch(`${API_BASE_URL}/users/push-token`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ userId, token }),
+           });
+        }
+      } catch (error) { console.log("Push token error:", error); }
     };
 
     const fetchLowStock = async () => {
@@ -53,6 +87,7 @@ export default function TabLayout() {
     };
 
     requestPermissions();
+    registerForPushNotificationsAsync();
     fetchLowStock();
   }, []);
 
@@ -154,6 +189,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="recent-actions"
         options={{ href: null, title: 'Actions' }}
+      />
+      
+      {/* New: Notifications (Hidden) */}
+      <Tabs.Screen
+        name="notifications"
+        options={{ href: null, title: 'Notifications' }}
       />
 
       {/* New: Profile Settings Tab (Hidden) */}

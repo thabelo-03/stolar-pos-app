@@ -1,8 +1,8 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import * as LocalAuthentication from 'expo-local-authentication';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import * as LocalAuthentication from 'expo-local-authentication';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, SafeAreaView, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from './api';
 
@@ -15,6 +15,7 @@ export default function CashierHome() {
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [unreadCount, setUnreadCount] = useState(0);
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -112,6 +113,25 @@ export default function CashierHome() {
     fetchShopName();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      const fetchUnreadCount = async () => {
+        try {
+          const userId = await AsyncStorage.getItem('userId');
+          if (userId) {
+            const response = await fetch(`${API_BASE_URL}/notifications/${userId}`);
+            if (response.ok) {
+              const data = await response.json();
+              const count = data.filter((n: any) => !n.isRead).length;
+              setUnreadCount(count);
+            }
+          }
+        } catch (e) {}
+      };
+      fetchUnreadCount();
+    }, [])
+  );
+
   const handleLogout = () => {
     Alert.alert(
       "Logout",
@@ -144,9 +164,11 @@ export default function CashierHome() {
             <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={26} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.notificationBtn}>
+            <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/notifications' as any)}>
               <Ionicons name="notifications" size={26} color="white" />
-              <View style={styles.notificationBadge}><Text style={styles.badgeText}>1</Text></View>
+              {unreadCount > 0 && (
+                <View style={styles.notificationBadge}><Text style={styles.badgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text></View>
+              )}
             </TouchableOpacity>
           </View>
         </View>
@@ -415,4 +437,5 @@ const styles = StyleSheet.create({
   infoLabel: { fontSize: 12, color: '#64748b', marginBottom: 2 },
   infoValue: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
 });
