@@ -2,8 +2,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
@@ -264,7 +264,7 @@ export default function DailySummaryScreen() {
             <tbody>
               ${transactions.map(t => `
                 <tr class="${t.refunded ? 'refund-row' : ''}">
-                  <td>${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
+                  <td>${new Date(t.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                   <td>${Array.isArray(t.items) ? t.items.length + ' items' : t.items} ${t.refunded ? '(Refunded)' : ''}</td>
                   <td>${t.paymentMethod || 'Cash'}</td>
                   <td style="text-align: right;" class="${t.refunded ? 'refund-text' : 'amount'}">$${(t.total || t.amount || 0).toFixed(2)}</td>
@@ -440,7 +440,7 @@ export default function DailySummaryScreen() {
               </View>
             </View>
             <Text style={styles.transTime}>
-              {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
         )}

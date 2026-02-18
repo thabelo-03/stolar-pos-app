@@ -333,7 +333,7 @@ export default function ProfitReportScreen() {
               </View>
             </View>
             <Text style={styles.transTime}>
-              {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
         )}

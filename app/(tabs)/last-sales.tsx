@@ -336,7 +336,7 @@ export default function LastSalesScreen() {
                         : (item.items || 'Unknown Items')}
                     </Text>
                     <Text style={styles.cardSub}>
-                      {itemCount} item{itemCount !== 1 ? 's' : ''} • {item.time || (item.date ? new Date(item.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : 'Just now')}
+                      {itemCount} item{itemCount !== 1 ? 's' : ''} • {item.date ? new Date(item.date).toLocaleString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : (item.time || 'Just now')}
                       {item.cashierName ? ` • ${item.cashierName}` : ''}
                     </Text>
                     {isRefunded && item.refundReason && (
