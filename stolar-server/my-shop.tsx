@@ -14,6 +14,7 @@ import {
   TextInput
 } from 'react-native';
 import { API_BASE_URL } from '../app/config';
+import SubscriptionModal from './SubscriptionModal';
 
 
 interface Shop {
@@ -109,7 +110,7 @@ export default function MyShopScreen() {
         setModalVisible(false);
         setShop(null);
         Alert.alert("Success", "You have left the shop.");
-        router.replace('/(cashier)'); // Redirect to home or request screen
+        router.replace('/(cashier)/my-shop'); // Redirect to home or request screen
       } else {
         Alert.alert("Error", data.message || "Failed to leave shop");
       }
@@ -172,7 +173,7 @@ export default function MyShopScreen() {
     }
   };
 
-  const handleSubscriptionSuccess = (newExpiry: string) => {
+  const handleSubscriptionSuccess = () => {
     setSubscriptionExpired(false);
     Alert.alert("Success", "Subscription extended!");
     fetchShopDetails();
@@ -215,6 +216,17 @@ export default function MyShopScreen() {
               {shop.manager && (
                 <Text style={styles.managerText}>Manager: {shop.manager.name}</Text>
               )}
+            </View>
+
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionsRow}>
+                <TouchableOpacity 
+                    style={styles.quickActionCard} 
+                    onPress={() => router.push('/stock-take')}
+                >
+                    <View style={styles.actionIconCircle}><Ionicons name="clipboard" size={28} color="#1e40af" /></View>
+                    <Text style={styles.quickActionText}>Stock Take</Text>
+                </TouchableOpacity>
             </View>
 
             <TouchableOpacity 
@@ -336,6 +348,28 @@ const styles = StyleSheet.create({
   managerText: { fontSize: 14, color: '#94a3b8', marginTop: 12 },
   leaveButton: { backgroundColor: '#fee2e2', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
   leaveButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+  sectionContainer: { width: '100%', marginBottom: 15 },
+  sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  quickActionsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 15,
+  },
+  quickActionCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionIconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  quickActionText: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#64748b', marginTop: 16, marginBottom: 24 },
   linkButton: { backgroundColor: '#1e40af', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },

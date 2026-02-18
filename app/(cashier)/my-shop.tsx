@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   Modal,
   StyleSheet,
   Text,
@@ -12,8 +13,8 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
-import { useSafeAreaInsets as useRNCSafeAreaInsets } from 'react-native-safe-area-context';
 
 interface Shop {
   _id: string;
@@ -38,14 +39,42 @@ export default function MyShopScreen() {
   const [processing, setProcessing] = useState(false);
   const [branchCode, setBranchCode] = useState('');
   const router = useRouter();
-  const insets = useSafeAreaInsets();
+  const insets = useSafeAreaInsets(); // Use hook directly
   const [modalType, setModalType] = useState<'leave' | 'switch'>('leave');
   const [recentShops, setRecentShops] = useState<any[]>([]);
+  
+  // Manager Shop Selection State
+  const [shops, setShops] = useState<any[]>([]);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
 
-  useEffect(() => {
-    fetchShopDetails();
-    loadRecentShops();
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      fetchShopDetails();
+      loadRecentShops();
+      fetchManagerShops();
+    }, [])
+  );
+
+  const fetchManagerShops = async () => {
+    const role = await AsyncStorage.getItem('userRole');
+    const userId = await AsyncStorage.getItem('userId');
+    setUserRole(role);
+    if (role === 'manager' && userId) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                setShops(data);
+                // Auto-intercept: If manager has no shop selected in storage, show modal
+                const currentShopId = await AsyncStorage.getItem('shopId');
+                if (!currentShopId && data.length > 0) {
+                    setShopSelectionVisible(true);
+                }
+            }
+        } catch(e) {}
+    }
+  };
 
   const loadRecentShops = async () => {
     try {
@@ -211,6 +240,36 @@ export default function MyShopScreen() {
     }
   };
 
+  const handleSwitchPress = async () => {
+    // Ensure we have the latest shops before deciding
+    let currentShops = shops;
+    if (userRole === 'manager' && currentShops.length === 0) {
+        const userId = await AsyncStorage.getItem('userId');
+        if (userId) {
+             try {
+                 const res = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
+                 const data = await res.json();
+                 if (Array.isArray(data)) currentShops = data;
+             } catch(e) {}
+        }
+    }
+
+    if (userRole === 'manager' && currentShops.length > 0) {
+        setShops(currentShops); // Update state if we fetched fresh
+        setShopSelectionVisible(true);
+    } else {
+        setModalType('switch');
+        setModalVisible(true);
+    }
+  };
+
+  const handleSelectShop = async (selectedShop: any) => {
+    await AsyncStorage.setItem('shopId', selectedShop._id);
+    setShopSelectionVisible(false);
+    Alert.alert("Success", `Switched to ${selectedShop.name}`);
+    fetchShopDetails(); // Refresh current screen
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -241,9 +300,20 @@ export default function MyShopScreen() {
               )}
             </View>
 
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionsRow}>
+                <TouchableOpacity 
+                    style={styles.quickActionCard} 
+                    onPress={() => router.push('/stock-take')}
+                >
+                    <View style={styles.actionIconCircle}><Ionicons name="clipboard" size={28} color="#1e40af" /></View>
+                    <Text style={styles.quickActionText}>Stock Take</Text>
+                </TouchableOpacity>
+            </View>
+
             <TouchableOpacity 
               style={styles.switchButton} 
-              onPress={() => { setModalType('switch'); setModalVisible(true); }}
+              onPress={handleSwitchPress} // Now defined
             >
               <Text style={styles.switchButtonText}>Switch Shop</Text>
             </TouchableOpacity>
@@ -363,6 +433,70 @@ export default function MyShopScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* MANAGER SHOP SELECTION MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={shopSelectionVisible}
+        onRequestClose={() => setShopSelectionVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+                <Text style={styles.modalTitle}>Select Shop</Text>
+                <Text style={{textAlign: 'center', color: '#64748b', marginBottom: 20}}>Choose a shop to manage.</Text>
+                
+                <FlatList
+                    data={shops}
+                    keyExtractor={(item) => item._id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShop(item)}>
+                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
+                            <Text style={styles.shopSelectionText}>{item.name}</Text>
+                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
+                        </TouchableOpacity>
+                    )}
+                    style={{maxHeight: 300, width: '100%'}}
+                />
+
+                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn, {marginTop: 15, width: '100%'}]} onPress={() => setShopSelectionVisible(false)}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
+
+      {/* MANAGER SHOP SELECTION MODAL */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={shopSelectionVisible}
+        onRequestClose={() => setShopSelectionVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+                <Text style={styles.modalTitle}>Select Shop</Text>
+                <Text style={{textAlign: 'center', color: '#64748b', marginBottom: 20}}>Choose a shop to manage.</Text>
+                
+                <FlatList
+                    data={shops}
+                    keyExtractor={(item) => item._id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShop(item)}>
+                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
+                            <Text style={styles.shopSelectionText}>{item.name}</Text>
+                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
+                        </TouchableOpacity>
+                    )}
+                    style={{maxHeight: 300, width: '100%'}}
+                />
+
+                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn, {marginTop: 15, width: '100%'}]} onPress={() => setShopSelectionVisible(false)}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -395,6 +529,27 @@ const styles = StyleSheet.create({
   switchButtonText: { color: '#0284c7', fontWeight: 'bold', fontSize: 16 },
   leaveButton: { backgroundColor: '#fee2e2', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
   leaveButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+  sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, marginTop: 10 },
+  quickActionsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 15,
+  },
+  quickActionCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionIconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  quickActionText: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 18, color: '#64748b', marginTop: 16, marginBottom: 24, textAlign: 'center' },
   linkButton: { backgroundColor: '#1e40af', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 15, width: '100%', alignItems: 'center' },
@@ -431,8 +586,16 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   recentName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  recentCode: { fontSize: 12, color: '#64748b', marginTop: 2 }
+  recentCode: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  shopSelectionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  shopSelectionText: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
 });
-function useSafeAreaInsets() {
-  return useRNCSafeAreaInsets();
-}

@@ -1,11 +1,13 @@
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  FlatList,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   StatusBar,
   StyleSheet,
@@ -20,6 +22,8 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
+  const [shops, setShops] = useState<any[]>([]);
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -43,13 +47,29 @@ export default function LoginScreen() {
         await AsyncStorage.setItem('userId', data.id);
         await AsyncStorage.setItem('userRole', data.role);
         await AsyncStorage.setItem('userName', data.name);
-        if (data.shopId) await AsyncStorage.setItem('shopId', data.shopId);
+        
+        // Only set shopId for cashiers. Managers must select their shop via the modal.
+        if (data.role !== 'manager' && data.shopId) {
+          await AsyncStorage.setItem('shopId', data.shopId);
+        } else {
+          await AsyncStorage.removeItem('shopId');
+        }
 
         if (data.role === 'admin') {
           router.replace('/(admin)/manage-staff');
         } else if (data.role === 'manager') {
-          const params = data.shopId ? { shop: JSON.stringify({ _id: data.shopId, name: 'My Shop' }) } : {};
-          router.replace({ pathname: '/(manager)/operations-hub', params });
+          // Intercept: Check if manager has shops to select from for POS mode
+          try {
+            const shopsRes = await fetch(`${API_BASE_URL}/shops?managerId=${data.id}`);
+            const shopsData = await shopsRes.json();
+            if (Array.isArray(shopsData) && shopsData.length > 0) {
+              setShops(shopsData);
+              setShopSelectionVisible(true);
+              setLoading(false); // Stop loading to show modal
+              return; // Halt redirect
+            }
+          } catch (e) {}
+          router.replace('/(manager)'); // Fallback if no shops or error
         } else {
           router.replace('/(cashier)/my-shop');
         }
@@ -62,6 +82,17 @@ export default function LoginScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSelectShop = async (shop: any) => {
+    await AsyncStorage.setItem('shopId', shop._id);
+    setShopSelectionVisible(false);
+    router.replace('/(cashier)/my-shop');
+  };
+
+  const handleSkipToDashboard = () => {
+    setShopSelectionVisible(false);
+    router.replace('/(manager)');
   };
 
   return (
@@ -123,6 +154,38 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Shop Selection Modal for Managers */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={shopSelectionVisible}
+        onRequestClose={handleSkipToDashboard}
+      >
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>Select Shop</Text>
+                <Text style={styles.modalSubtitle}>Login as cashier for:</Text>
+                
+                <FlatList
+                    data={shops}
+                    keyExtractor={(item) => item._id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity style={styles.shopItem} onPress={() => handleSelectShop(item)}>
+                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
+                            <Text style={styles.shopName}>{item.name}</Text>
+                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
+                        </TouchableOpacity>
+                    )}
+                    style={{maxHeight: 300, width: '100%'}}
+                />
+
+                <TouchableOpacity style={styles.dashboardButton} onPress={handleSkipToDashboard}>
+                    <Text style={styles.dashboardButtonText}>Go to Manager Dashboard</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+      </Modal>
     </KeyboardAvoidingView>
   );
 }
@@ -234,4 +297,13 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
   },
+  // Modal Styles
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 400 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, textAlign: 'center' },
+  shopItem: { flexDirection: 'row', alignItems: 'center', padding: 15, backgroundColor: '#f8fafc', borderRadius: 12, marginBottom: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  shopName: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
+  dashboardButton: { marginTop: 10, padding: 15, alignItems: 'center', backgroundColor: '#e0f2fe', borderRadius: 12 },
+  dashboardButtonText: { color: '#0284c7', fontWeight: 'bold' },
 });

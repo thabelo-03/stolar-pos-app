@@ -101,12 +101,18 @@ export default function CashierInventoryScreen() {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-      const user = await userRes.json();
+      // Check local storage first (Manager switch support)
+      let activeShopId = await AsyncStorage.getItem('shopId');
       
-      if (user.shopId) {
-        setCurrentShopId(user.shopId);
-        const response = await fetch(`${API_BASE_URL}/products?shopId=${user.shopId}`);
+      if (!activeShopId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        activeShopId = user.shopId;
+      }
+      
+      if (activeShopId) {
+        setCurrentShopId(activeShopId);
+        const response = await fetch(`${API_BASE_URL}/products?shopId=${activeShopId}`);
         const data = await response.json();
         if (response.ok) {
           const mappedData = data.map((item: any) => ({

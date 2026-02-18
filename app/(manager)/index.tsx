@@ -3,7 +3,7 @@ import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { LineChart, PieChart } from 'react-native-chart-kit';
@@ -38,6 +38,7 @@ const ManagerIndex = () => {
   const [editLocation, setEditLocation] = useState('');
   const [editManagerId, setEditManagerId] = useState('');
   const [saving, setSaving] = useState(false);
+  const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
   const [trialModalVisible, setTrialModalVisible] = useState(false);
   const [chartData, setChartData] = useState({
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
@@ -52,7 +53,8 @@ const ManagerIndex = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  useEffect(() => {
+  useFocusEffect(
+    React.useCallback(() => {
     const fetchData = async () => {
       try {
         const userId = await AsyncStorage.getItem('userId');
@@ -137,7 +139,8 @@ const ManagerIndex = () => {
     };
 
     fetchData();
-  }, []);
+    }, [])
+  );
 
   useEffect(() => {
     if (allSales.length === 0) return;
@@ -183,7 +186,7 @@ const ManagerIndex = () => {
       salesByShop[sId] = (salesByShop[sId] || 0) + (sale.totalUSD || sale.total || sale.amount || 0);
     });
 
-    const colors = ['#fca5a5', '#fcd34d', '#86efac', '#93c5fd', '#c4b5fd', '#f9a8d4'];
+    const colors = ['#fca5a5', '#3b82f6', '#86efac', '#93c5fd', '#c4b5fd', '#f9a8d4'];
     const pieData = shops.map((shop, index) => ({
       name: shop.name,
       population: salesByShop[shop._id] || 0,
@@ -300,14 +303,19 @@ const ManagerIndex = () => {
     router.replace('/(auth)/login');
   };
 
-  const handleSwitchToCashier = async () => {
+  const handleSwitchToCashier = () => {
     setMenuVisible(false);
-    if (user && user.shopId) {
-      await AsyncStorage.setItem('shopId', user.shopId);
-      router.replace('/(tabs)/home');
+    if (shops.length > 0) {
+      setShopSelectionVisible(true);
     } else {
-      router.replace('/(cashier)/my-shop');
+      Alert.alert("No Shops", "Please register a shop first.");
     }
+  };
+
+  const handleSelectShopForPOS = async (shop: Shop) => {
+      await AsyncStorage.setItem('shopId', shop._id);
+      setShopSelectionVisible(false);
+      router.replace('/(tabs)/home');
   };
 
   if (loading) {
@@ -364,7 +372,7 @@ const ManagerIndex = () => {
         <LineChart
           data={chartData}
           width={Dimensions.get("window").width - 40}
-          height={220}
+          height={180}
           yAxisLabel="$"
           yAxisSuffix=""
           yAxisInterval={1}
@@ -376,18 +384,27 @@ const ManagerIndex = () => {
             color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
             labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
             style: { borderRadius: 16 },
-            propsForDots: { r: "4", strokeWidth: "2", stroke: "#f59e0b" }
+            propsForDots: { r: "5", strokeWidth: "2", stroke: "#1e3a8a" }
           }}
           bezier
           style={{ marginVertical: 8, borderRadius: 16 }}
         />
-        <TouchableOpacity 
-            style={styles.viewReportButton} 
-            onPress={() => router.push('/(manager)/profit-loss')}
-        >
-            <Text style={styles.viewReportText}>View Detailed Profit Report</Text>
-            <Ionicons name="arrow-forward" size={16} color="#1e40af" />
-        </TouchableOpacity>
+        
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
+            <TouchableOpacity style={styles.compactActionBtn} onPress={() => router.push('/(manager)/profit-loss')}>
+                <View style={[styles.iconBox, { backgroundColor: '#dcfce7', width: 32, height: 32, padding: 0 }]}>
+                    <Ionicons name="trending-up" size={18} color="#16a34a" />
+                </View>
+                <Text style={styles.compactActionText}>Profit Report</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.compactActionBtn} onPress={() => router.push('/stock-take')}>
+                <View style={[styles.iconBox, { backgroundColor: '#e0f2fe', width: 32, height: 32, padding: 0 }]}>
+                    <Ionicons name="clipboard" size={18} color="#0284c7" />
+                </View>
+                <Text style={styles.compactActionText}>Stock Take</Text>
+            </TouchableOpacity>
+        </View>
       </View>
 
       {showDatePicker && (
@@ -399,46 +416,60 @@ const ManagerIndex = () => {
         />
       )}
 
-      {/* Sales Distribution Pie Chart */}
-      {pieChartData.length > 0 && (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Sales by Shop</Text>
-          <PieChart
-            data={pieChartData}
-            width={Dimensions.get("window").width - 40}
-            height={220}
-            chartConfig={{
-              color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
-            }}
-            accessor={"population"}
-            backgroundColor={"transparent"}
-            paddingLeft={"15"}
-            center={[10, 0]}
-            absolute
-          />
-        </View>
-      )}
-
-      {/* Top Selling Products List */}
-      {topProducts.length > 0 && (
-        <View style={styles.chartContainer}>
-          <Text style={styles.chartTitle}>Top Selling Products</Text>
-          {topProducts.map((item, index) => (
-            <View key={index} style={styles.topItemRow}>
-              <View style={styles.rankBadge}>
-                <Text style={styles.rankText}>{index + 1}</Text>
+      {/* Row: Sales Distribution & Top Products */}
+      <View style={styles.rowContainer}>
+        <View style={[styles.chartContainer, styles.halfCard]}>
+          <Text style={styles.chartTitle}>Sales/Shop</Text>
+          {pieChartData.length > 0 ? (
+            <>
+              <PieChart
+                data={pieChartData}
+                width={Dimensions.get("window").width / 2 - 50}
+                height={120}
+                chartConfig={{
+                  color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+                }}
+                accessor={"population"}
+                backgroundColor={"transparent"}
+                paddingLeft={"15"}
+                center={[10, 0]}
+                absolute={false}
+                hasLegend={false}
+              />
+              <View style={{ marginTop: 10 }}>
+                {pieChartData.slice(0, 3).map((p, i) => (
+                  <View key={i} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
+                    <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: p.color, marginRight: 6 }} />
+                    <Text numberOfLines={1} style={{ fontSize: 10, color: '#64748b', flex: 1 }}>{p.name}</Text>
+                  </View>
+                ))}
               </View>
-              <Text style={styles.topItemName}>{item.name}</Text>
-              <Text style={styles.topItemQty}>{item.qty} sold</Text>
+            </>
+          ) : (
+            <Text style={{ color: '#94a3b8', fontSize: 12, marginTop: 10 }}>No data</Text>
+          )}
+        </View>
+
+        <View style={[styles.chartContainer, styles.halfCard]}>
+          <Text style={styles.chartTitle}>Top Items</Text>
+          {topProducts.slice(0, 4).map((item, index) => (
+            <View key={index} style={styles.miniTopItemRow}>
+              <View style={styles.miniRankBadge}>
+                <Text style={styles.miniRankText}>{index + 1}</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text numberOfLines={1} style={styles.miniTopItemName}>{item.name}</Text>
+                <Text style={styles.miniTopItemQty}>{item.qty} sold</Text>
+              </View>
             </View>
           ))}
         </View>
-      )}
+      </View>
 
       {/* Low Stock Alerts */}
       {lowStockItems.length > 0 && (
-        <View style={styles.chartContainer}>
-          <Text style={[styles.chartTitle, { color: '#ef4444' }]}>Low Stock Alerts ⚠️</Text>
+        <View style={[styles.chartContainer, { borderLeftWidth: 4, borderLeftColor: '#ef4444' }]}>
+          <Text style={[styles.chartTitle, { color: '#ef4444' }]}>Low Stock Alerts</Text>
           {lowStockItems.map((item, index) => (
             <View key={index} style={styles.topItemRow}>
               <View style={[styles.rankBadge, { backgroundColor: '#fee2e2' }]}>
@@ -493,6 +524,38 @@ const ManagerIndex = () => {
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
+      </Modal>
+
+      {/* Shop Selection Modal for POS Switch */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={shopSelectionVisible}
+        onRequestClose={() => setShopSelectionVisible(false)}
+      >
+        <View style={styles.centeredModalOverlay}>
+            <View style={styles.editModalContent}>
+                <Text style={styles.modalTitle}>Select Shop for POS</Text>
+                <Text style={{textAlign: 'center', color: '#64748b', marginBottom: 20}}>Choose which shop you want to manage as a cashier.</Text>
+                
+                <FlatList
+                    data={shops}
+                    keyExtractor={(item) => item._id}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShopForPOS(item)}>
+                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
+                            <Text style={styles.shopSelectionText}>{item.name}</Text>
+                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
+                        </TouchableOpacity>
+                    )}
+                    style={{maxHeight: 300, width: '100%'}}
+                />
+
+                <TouchableOpacity style={[styles.modalButton, styles.cancelButton, {marginTop: 15, width: '100%'}]} onPress={() => setShopSelectionVisible(false)}>
+                    <Text style={styles.buttonText}>Cancel</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
       </Modal>
 
       {/* Edit Shop Modal */}
@@ -718,7 +781,14 @@ const styles = StyleSheet.create({
         borderRadius: 15,
         marginBottom: 10,
         marginHorizontal: 20,
-        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 3,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 3.84,
+        elevation: 5,
     },
     shopItemContent: {
       flexDirection: 'row',
@@ -784,6 +854,18 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#1e293b',
     },
+    shopSelectionItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
+        backgroundColor: '#f8fafc',
+        borderRadius: 12,
+        marginBottom: 10,
+        borderWidth: 1,
+        borderColor: '#e2e8f0',
+    },
+    shopSelectionText: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
+    
     centeredModalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -857,13 +939,56 @@ const styles = StyleSheet.create({
         fontSize: 10,
         fontWeight: 'bold',
     },
+    quickActionsRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginHorizontal: 20,
+        marginTop: 20,
+        marginBottom: 5,
+    },
+    quickActionCard: {
+        backgroundColor: 'white',
+        borderRadius: 16,
+        paddingVertical: 20,
+        paddingHorizontal: 15,
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '48%',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4.65,
+        elevation: 8,
+    },
+    actionIconCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 10,
+    },
+    quickActionText: {
+        color: '#1e3a8a',
+        fontWeight: 'bold',
+        fontSize: 14,
+        textAlign: 'center',
+    },
     chartContainer: {
         backgroundColor: 'white',
         borderRadius: 16,
         padding: 15,
         margin: 20,
         marginBottom: 10,
-        elevation: 2,
+        shadowColor: "#000",
+        shadowOffset: {
+            width: 0,
+            height: 4,
+        },
+        shadowOpacity: 0.1,
+        shadowRadius: 4.65,
+        elevation: 8,
     },
     chartHeader: {
         flexDirection: 'row',
@@ -897,6 +1022,9 @@ const styles = StyleSheet.create({
         paddingTop: 15,
         borderTopWidth: 1,
         borderTopColor: '#f1f5f9',
+        paddingVertical: 12,
+        backgroundColor: '#f8fafc',
+        borderRadius: 10,
     },
     viewReportText: {
         color: '#1e40af',
@@ -904,6 +1032,37 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginRight: 5,
     },
+    rowContainer: {
+        flexDirection: 'row',
+        marginHorizontal: 15,
+        marginBottom: 10,
+        justifyContent: 'space-between',
+    },
+    halfCard: {
+        flex: 1,
+        margin: 5,
+        padding: 12,
+        minHeight: 200,
+    },
+    miniTopItemRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f1f5f9',
+    },
+    miniRankBadge: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 8,
+    },
+    miniRankText: { color: '#1e40af', fontWeight: 'bold', fontSize: 10 },
+    miniTopItemName: { fontSize: 12, color: '#334155', fontWeight: '600' },
+    miniTopItemQty: { fontSize: 10, color: '#64748b' },
     topItemRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -925,24 +1084,54 @@ const styles = StyleSheet.create({
     topItemQty: { fontSize: 12, color: '#64748b' },
     paymentOption: {
         flex: 1,
-        backgroundColor: '#fff',
+        alignItems: 'center',
+        padding: 10,
+        backgroundColor: '#f1f5f9',
+        borderRadius: 10,
         borderWidth: 1,
         borderColor: '#e2e8f0',
-        borderRadius: 12,
-        padding: 12,
-        alignItems: 'center',
-        justifyContent: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
     },
     paymentOptionText: {
-        marginTop: 8,
+        marginTop: 5,
         fontSize: 12,
-        fontWeight: '600',
+        fontWeight: 'bold',
         color: '#1e40af',
+    },
+    actionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderTopWidth: 1,
+        borderTopColor: '#f1f5f9',
+    },
+    iconBox: {
+        padding: 10,
+        borderRadius: 12,
+        marginRight: 12,
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    actionTitle: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
+    actionSub: { fontSize: 12, color: '#64748b' },
+    compactActionBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f8fafc',
+        paddingVertical: 12,
+        borderRadius: 12,
+        marginHorizontal: 4,
+        borderWidth: 1,
+        borderColor: '#f1f5f9',
+    },
+    compactActionText: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        color: '#334155',
+        marginLeft: 8,
     },
 });
 

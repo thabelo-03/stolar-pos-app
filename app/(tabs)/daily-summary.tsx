@@ -48,10 +48,16 @@ export default function DailySummaryScreen() {
       let queryParams = '';
       
       if (userId) {
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-        if (user.shopId && user.role !== 'admin') {
-          queryParams = `?shopId=${user.shopId}`;
+        // Check local storage first
+        const localShopId = await AsyncStorage.getItem('shopId');
+        if (localShopId) {
+            queryParams = `?shopId=${localShopId}`;
+        } else {
+            const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+            const user = await userRes.json();
+            if (user.shopId && user.role !== 'admin') {
+                queryParams = `?shopId=${user.shopId}`;
+            }
         }
       }
 

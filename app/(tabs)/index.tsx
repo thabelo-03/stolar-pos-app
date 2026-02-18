@@ -261,19 +261,6 @@ export default function CashierHome() {
                   <Text style={styles.actionSub}>Receipts</Text>
                 </View>
               </TouchableOpacity>
-
-              <TouchableOpacity style={styles.actionRow} onPress={() => requestPassword(() => router.push('/(tabs)/profit-report'))}>
-                <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
-                  <Ionicons name="trending-up" size={20} color="#16a34a" />
-                </View>
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={styles.actionTitle}>Profit Report</Text>
-                    <Ionicons name="lock-closed" size={12} color="#f59e0b" style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.actionSub}>Margins & Revenue</Text>
-                </View>
-              </TouchableOpacity>
             </View>
 
             {/* Add Stock Card */}
@@ -449,11 +436,11 @@ const styles = StyleSheet.create({
 
   infoModalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '85%', maxWidth: 400 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
   infoContent: { gap: 16 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   infoIconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
   infoLabel: { fontSize: 12, color: '#64748b', marginBottom: 2 },
   infoValue: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
 });

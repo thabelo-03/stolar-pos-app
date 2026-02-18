@@ -75,8 +75,9 @@ export default function CashierHome() {
     }
   };
 
-  useEffect(() => {
-    const checkShopLink = async () => {
+  useFocusEffect(
+    useCallback(() => {
+      const checkShopLink = async () => {
       try {
         const userId = await AsyncStorage.getItem('userId');
         const storedRole = await AsyncStorage.getItem('userRole');
@@ -87,10 +88,18 @@ export default function CashierHome() {
           if (response.ok) {
             const userData = await response.json();
             if (userData.name) setCashierName(userData.name);
-            if (userData.shopId) {
+            
+            // Prioritize local selection for managers, fallback to DB link
+            const localShopId = await AsyncStorage.getItem('shopId');
+            let activeShopId = userData.shopId;
+            if (storedRole === 'manager' && localShopId) {
+                activeShopId = localShopId;
+            }
+
+            if (activeShopId) {
               setIsLinked(true);
               setHasPendingRequest(false);
-              const shopRes = await fetch(`${API_BASE_URL}/shops/${userData.shopId}`);
+              const shopRes = await fetch(`${API_BASE_URL}/shops/${activeShopId}`);
               if (shopRes.ok) {
                 const shopData = await shopRes.json();
                 setShopName(shopData.name || 'Unknown Shop');
@@ -119,7 +128,8 @@ export default function CashierHome() {
       }
     };
     checkShopLink();
-  }, []);
+  }, [])
+  );
 
   useFocusEffect(
     useCallback(() => {
