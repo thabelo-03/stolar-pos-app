@@ -748,13 +748,41 @@ export default function CartScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Process Refund</Text>
+            
+            {refundTarget && (() => {
+              const sale = recentSales.find(s => s._id === refundTarget.id);
+              if (sale && sale.items && Array.isArray(sale.items)) {
+                return (
+                  <View style={{ maxHeight: 150, width: '100%', marginBottom: 10 }}>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 5 }}>ITEMS</Text>
+                    <FlatList
+                      data={sale.items}
+                      keyExtractor={(item, index) => index.toString()}
+                      renderItem={({ item }) => (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={{ fontSize: 14, color: '#334155', flex: 1 }} numberOfLines={1}>
+                            {item.quantity} x {item.name}
+                          </Text>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                            {symbol()} {convert((Number(item.price || 0) * Number(item.quantity || 0))).toFixed(2)}
+                          </Text>
+                        </View>
+                      )}
+                    />
+                    <View style={{ height: 1, backgroundColor: '#e2e8f0', marginVertical: 10 }} />
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
             <Text style={{marginBottom: 15, color: '#64748b'}}>
               Refund amount: ${refundTarget?.amount.toFixed(2)}
             </Text>
             
             <Text style={{fontWeight: '600', marginBottom: 5, color: '#1e293b'}}>Reason for Refund</Text>
             <TextInput
-              style={[styles.input, { marginLeft: 0, borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top' }]}
+              style={{ borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top', fontSize: 16, color: '#1e293b', width: '100%' }}
               placeholder="e.g. Defective item, Customer changed mind"
               value={refundReason}
               onChangeText={setRefundReason}

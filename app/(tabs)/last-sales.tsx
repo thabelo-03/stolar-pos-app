@@ -372,6 +372,34 @@ export default function LastSalesScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Process Refund</Text>
+            
+            {refundTargetId && (() => {
+              const sale = sales.find(s => (s.id || s._id) === refundTargetId);
+              if (sale && sale.items && Array.isArray(sale.items)) {
+                return (
+                  <View style={{ maxHeight: 150, width: '100%', marginBottom: 10 }}>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 5 }}>ITEMS</Text>
+                    <FlatList
+                      data={sale.items}
+                      keyExtractor={(item, index) => index.toString()}
+                      renderItem={({ item }) => (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <Text style={{ fontSize: 14, color: '#334155', flex: 1 }} numberOfLines={1}>
+                            {item.quantity} x {item.name}
+                          </Text>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                            ${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
+                          </Text>
+                        </View>
+                      )}
+                    />
+                    <View style={{ height: 1, backgroundColor: '#e2e8f0', marginVertical: 10 }} />
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
             <Text style={{marginBottom: 15, color: '#64748b'}}>Stock will be restored automatically.</Text>
             
             <Text style={{fontWeight: '600', marginBottom: 5, color: '#1e293b'}}>Reason for Refund</Text>
