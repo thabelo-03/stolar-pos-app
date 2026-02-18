@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
@@ -213,6 +215,66 @@ export default function LastSalesScreen() {
   const handleSalePress = (sale: any) => {
     setSelectedSale(sale);
     setDetailsModalVisible(true);
+  };
+
+  const handleShareReceipt = async () => {
+    if (!selectedSale) return;
+
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
+            h1 { text-align: center; margin-bottom: 5px; color: #1e40af; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
+            .divider { border-bottom: 1px dashed #ccc; margin: 20px 0; }
+            .item-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+            .item-name { font-weight: bold; }
+            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 10px; }
+            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999; }
+          </style>
+        </head>
+        <body>
+          <h1>Stolar POS</h1>
+          <div class="subtitle">
+            Date: ${new Date(selectedSale.date).toLocaleString()}<br>
+            Receipt #: ${selectedSale.id || selectedSale._id}<br>
+            Cashier: ${selectedSale.cashierName || 'N/A'}
+          </div>
+          
+          <div class="divider"></div>
+
+          ${(selectedSale.items || []).map((item: any) => `
+            <div class="item-row">
+              <div>
+                <div class="item-name">${item.name}</div>
+                <div style="font-size: 12px; color: #666;">${item.quantity} x $${Number(item.price).toFixed(2)}</div>
+              </div>
+              <div>$${(Number(item.price) * Number(item.quantity)).toFixed(2)}</div>
+            </div>
+          `).join('')}
+
+          <div class="divider"></div>
+
+          <div class="total-row">
+            <div>Total</div>
+            <div>$${Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0).toFixed(2)}</div>
+          </div>
+          
+          <div class="footer">
+            Thank you for your business!
+          </div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to share receipt');
+    }
   };
 
   return (
@@ -489,6 +551,11 @@ export default function LastSalesScreen() {
                      {selectedSale.refundReason && <Text style={{color: '#ef4444', textAlign: 'center', fontSize: 12, marginTop: 4}}>{selectedSale.refundReason}</Text>}
                    </View>
                 )}
+
+                <TouchableOpacity style={styles.shareBtn} onPress={handleShareReceipt}>
+                  <Ionicons name="share-social-outline" size={20} color="white" style={{ marginRight: 8 }} />
+                  <Text style={styles.shareBtnText}>Share Receipt</Text>
+                </TouchableOpacity>
               </>
             )}
           </View>
@@ -581,4 +648,18 @@ const styles = StyleSheet.create({
   modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
   btnText: { fontWeight: 'bold', fontSize: 16, color: '#64748b' },
+  shareBtn: { 
+    backgroundColor: '#1e40af', 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'center', 
+    padding: 15, 
+    borderRadius: 12, 
+    marginTop: 20 
+  },
+  shareBtnText: { 
+    color: 'white', 
+    fontWeight: 'bold', 
+    fontSize: 16 
+  },
 });
