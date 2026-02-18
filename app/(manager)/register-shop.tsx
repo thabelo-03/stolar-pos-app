@@ -22,6 +22,7 @@ export default function RegisterShop() {
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   
   // Modal for a polished success experience
   const [showSuccess, setShowSuccess] = useState(false);
@@ -32,7 +33,7 @@ export default function RegisterShop() {
     AsyncStorage.getItem('userId').then(setManagerId);
   }, []);
 
-  const handleRegisterShop = async () => {
+  const handleRegisterShop = async (confirmPremium = false) => {
     if (!managerId) {
       Alert.alert("Error", "User session not found. Please login again.");
       return;
@@ -52,11 +53,18 @@ export default function RegisterShop() {
         body: JSON.stringify({ 
             name: name.trim(), 
             location: location.trim(), 
-            managerId: managerId 
+            managerId: managerId,
+            confirmPremium
         }), 
       });
 
       const data = await response.json();
+
+      if (response.status === 409 && data.requiresConfirmation) {
+        setLoading(false);
+        setPremiumModalVisible(true);
+        return;
+      }
 
       if (response.ok || data.success) {
         setNewBranchCode(data.branchCode);
@@ -66,6 +74,7 @@ export default function RegisterShop() {
         // Clear inputs for next time
         setName('');
         setLocation('');
+        setPremiumModalVisible(false);
       } else {
         setLoading(false);
         Alert.alert("Error", data.message || "Could not register shop.");
@@ -116,7 +125,7 @@ export default function RegisterShop() {
 
           <TouchableOpacity 
             style={[styles.btn, loading && { backgroundColor: '#94a3b8' }]} 
-            onPress={handleRegisterShop}
+            onPress={() => handleRegisterShop(false)}
             disabled={loading}
           >
             {loading ? (
@@ -127,6 +136,58 @@ export default function RegisterShop() {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+      {/* --- PREMIUM UPGRADE MODAL --- */}
+      <Modal visible={premiumModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.premiumHeader}>
+              <Ionicons name="diamond" size={40} color="#f59e0b" />
+              <Text style={styles.modalTitle}>Upgrade to Premium</Text>
+            </View>
+            
+            <Text style={styles.premiumDesc}>
+              You are adding multiple shops. This requires the <Text style={{fontWeight: 'bold', color: '#1e40af'}}>Premium Plan</Text>.
+            </Text>
+
+            <View style={styles.planDetails}>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>Unlimited Shops</Text>
+              </View>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>Advanced Reporting</Text>
+              </View>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>Priority Support</Text>
+              </View>
+              <View style={styles.priceTag}>
+                <Text style={styles.priceText}>R400.00 / month</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.modalBtn, { backgroundColor: '#1e40af' }]} 
+              onPress={() => handleRegisterShop(true)}
+            >
+              <Text style={styles.modalBtnText}>Accept & Create Shop</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.modalBtn, { backgroundColor: '#f1f5f9', marginTop: 10 }]} 
+              onPress={() => setPremiumModalVisible(false)}
+            >
+              <Text style={[styles.modalBtnText, { color: '#64748b' }]}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.noteText}>
+              * You can pay via Paynow or Cash (Contact Admin) after creation.
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
       {/* --- SUCCESS MODAL --- */}
       <Modal visible={showSuccess} transparent animationType="slide">
@@ -193,5 +254,15 @@ const styles = StyleSheet.create({
   codeBox: { backgroundColor: '#f1f5f9', padding: 15, borderRadius: 10, width: '100%', alignItems: 'center', marginVertical: 20 },
   codeText: { fontSize: 32, fontWeight: 'bold', color: '#1e40af', letterSpacing: 2 },
   modalBtn: { backgroundColor: '#1e40af', width: '100%', paddingVertical: 15, borderRadius: 12, alignItems: 'center' },
-  modalBtnText: { color: 'white', fontWeight: 'bold' }
+  modalBtnText: { color: 'white', fontWeight: 'bold' },
+  
+  // Premium Modal Specifics
+  premiumHeader: { alignItems: 'center', marginBottom: 10 },
+  premiumDesc: { textAlign: 'center', color: '#64748b', marginBottom: 20, fontSize: 15, lineHeight: 22 },
+  planDetails: { width: '100%', backgroundColor: '#f8fafc', padding: 15, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
+  planRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  planText: { marginLeft: 10, color: '#334155', fontSize: 14, fontWeight: '500' },
+  priceTag: { marginTop: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 10 },
+  priceText: { fontSize: 18, fontWeight: 'bold', color: '#1e40af' },
+  noteText: { fontSize: 11, color: '#94a3b8', marginTop: 15, textAlign: 'center', fontStyle: 'italic' }
 });

@@ -153,7 +153,7 @@ app.post('/api/auth/login', async (req, res) => {
       subscriptionExpired: isExpired,
       subscriptionExpiry: user.subscriptionExpiry,
       shopCount,
-      nextBillingAmount: shopCount >= 2 ? 25 : 10
+      nextBillingAmount: shopCount >= 2 ? 400 : 150
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -197,8 +197,15 @@ app.post('/api/auth/verify-manager', async (req, res) => {
 app.get('/api/users', async (req, res) => {
   console.log('Fetching all users for admin');
   try {
-    const users = await User.find().select('-password').sort({ createdAt: -1 });
-    res.json(users);
+    const users = await User.find().select('-password').sort({ createdAt: -1 }).lean();
+    
+    // Enrich users with shop count for Admin UI flagging
+    const usersWithCounts = await Promise.all(users.map(async (user) => {
+      const count = await Shop.countDocuments({ manager: user._id });
+      return { ...user, shopCount: count };
+    }));
+
+    res.json(usersWithCounts);
   } catch (err) {
     console.error("Error fetching users:", err);
     res.status(500).json({ message: err.message });
@@ -226,8 +233,15 @@ app.get('/api/users/cash-payers', async (req, res) => {
 app.get('/api/users/:id', async (req, res) => {
   console.log(`Fetching user: ${req.params.id}`);
   try {
-    const user = await User.findById(req.params.id).select('-password');
+    const user = await User.findById(req.params.id).select('-password').lean();
     if (!user) return res.status(404).json({ message: "User not found" });
+    
+    // Calculate Plan Details dynamically
+    const shopCount = await Shop.countDocuments({ manager: user._id });
+    user.shopCount = shopCount;
+    user.nextBillingAmount = shopCount >= 2 ? 400 : 150;
+    user.planType = shopCount >= 2 ? 'Premium' : 'Standard';
+
     res.json(user);
   } catch (err) {
     console.error("Error fetching user:", err);
@@ -299,7 +313,7 @@ app.post('/api/shops/register', async (req, res) => {
       return res.status(409).json({ 
         success: false,
         requiresConfirmation: true,
-        message: "Adding a second shop upgrades your subscription to the Premium Plan ($25/month). Do you want to proceed?"
+        message: "Adding a second shop upgrades your subscription to the Premium Plan (R400/month). Do you want to proceed?"
       });
     }
 
@@ -865,14 +879,13 @@ app.post('/api/subscription/pay', async (req, res) => {
   console.log('Using Paynow INTEGRATION_KEY:', process.env.PAYNOW_INTEGRATION_KEY);
 
   try {
-    // Dynamic Pricing: $25 for 2+ shops, else $10
+    // Dynamic Pricing: R400 for 2+ shops, else R150
     const shopCount = await Shop.countDocuments({ manager: userId });
-    const planAmount = shopCount >= 2 ? 25 : 10;
-    const finalAmount = amount ? Number(amount) : planAmount;
+    const planAmount = shopCount >= 2 ? 400 : 150;
+    const finalAmount = planAmount; // Force server-calculated amount
 
     const payment = paynow.createPayment(`Subscription-${userId}-${Date.now()}`, email);
-    payment.add('Monthly Subscription', amount || 10); // Default $10 if not sent
-    payment.add('Monthly Subscription', finalAmount);
+    payment.add(`Monthly Subscription (${shopCount >= 2 ? 'Premium' : 'Standard'})`, finalAmount);
 
     const response = await paynow.send(payment);
 
@@ -948,14 +961,14 @@ app.post('/api/admin/activate-user', async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Determine Rate: Allow manual override via planType, otherwise auto-detect
-    let monthlyRate = 10;
+    let monthlyRate = 150;
     const shopCount = await Shop.countDocuments({ manager: userId });
 
-    if (planType === 'premium') monthlyRate = 25;
-    else if (planType === 'standard') monthlyRate = 10;
-    else monthlyRate = shopCount >= 2 ? 25 : 10; // Auto-detect
+    if (planType === 'premium') monthlyRate = 400;
+    else if (planType === 'standard') monthlyRate = 150;
+    else monthlyRate = shopCount >= 2 ? 400 : 150; // Auto-detect
 
-    const finalPlanType = monthlyRate === 25 ? 'Premium' : 'Standard';
+    const finalPlanType = monthlyRate === 400 ? 'Premium' : 'Standard';
 
     // If currently valid, add to existing expiry. If expired, start from now.
     const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 

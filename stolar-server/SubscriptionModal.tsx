@@ -19,6 +19,8 @@ interface User {
   email: string;
   role?: string;
   subscriptionStatus?: string; // Helpful to have
+  nextBillingAmount?: number;
+  planType?: string;
 }
 
 interface SubscriptionModalProps {
@@ -33,9 +35,6 @@ export default function SubscriptionModal({ visible, user, onSuccess, onLogout }
   const [pollUrl, setPollUrl] = useState<string | null>(null);
   const [checkingStatus, setCheckingStatus] = useState(false);
 
-  const AMOUNT = 10.00;
-  const PERIOD = "1 Month";
-
   const handlePayNow = async () => {
     if (!user) return;
     setLoading(true);
@@ -46,7 +45,6 @@ export default function SubscriptionModal({ visible, user, onSuccess, onLogout }
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: user.email,
-          amount: AMOUNT,
           userId: user.id
         }),
       });
@@ -126,11 +124,11 @@ export default function SubscriptionModal({ visible, user, onSuccess, onLogout }
             <View style={styles.divider} />
             <View style={styles.row}>
               <Text style={styles.label}>Plan:</Text>
-              <Text style={styles.value}>{PERIOD}</Text>
+              <Text style={styles.value}>{user.planType || 'Standard'} (1 Month)</Text>
             </View>
             <View style={styles.row}>
               <Text style={styles.label}>Total:</Text>
-              <Text style={styles.amount}>${AMOUNT.toFixed(2)}</Text>
+              <Text style={styles.amount}>R{(user.nextBillingAmount || 150).toFixed(2)}</Text>
             </View>
           </View>
 

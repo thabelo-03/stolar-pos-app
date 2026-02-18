@@ -15,7 +15,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { API_BASE_URL } from '../../config';
+import { API_BASE_URL } from '../app/config';
 
 interface User {
   _id: string;
@@ -24,6 +24,7 @@ interface User {
   role: string;
   subscriptionStatus: string;
   subscriptionExpiry?: string;
+  shopCount?: number;
 }
 
 export default function AdminDashboard() {
@@ -32,6 +33,7 @@ export default function AdminDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [monthsToAdd, setMonthsToAdd] = useState('1');
+  const [planType, setPlanType] = useState<'standard' | 'premium'>('standard');
   const [activating, setActivating] = useState(false);
   const router = useRouter();
 
@@ -67,7 +69,8 @@ export default function AdminDashboard() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           userId: selectedUser._id,
-          months: parseInt(monthsToAdd)
+          months: parseInt(monthsToAdd),
+          planType: planType // Send selected plan type
         })
       });
 
@@ -76,6 +79,7 @@ export default function AdminDashboard() {
         Alert.alert("Success", `Activated ${selectedUser.name} for ${monthsToAdd} month(s).`);
         setSelectedUser(null);
         setMonthsToAdd('1');
+        setPlanType('standard');
         fetchUsers(); // Refresh list
       } else {
         Alert.alert("Error", data.message || "Activation failed");
@@ -99,12 +103,19 @@ export default function AdminDashboard() {
 
     // Don't show activation for admins, usually
     const canActivate = item.role !== 'admin';
+    const isPremium = (item.shopCount || 0) >= 2;
 
     return (
       <View style={styles.userCard}>
         <View style={styles.userInfo}>
-          <Text style={styles.userName}>{item.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <Text style={styles.userName}>{item.name}</Text>
+            {isPremium && (
+              <View style={{ backgroundColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}><Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>PREMIUM</Text></View>
+            )}
+          </View>
           <Text style={styles.userEmail}>{item.email}</Text>
+          <Text style={{ fontSize: 12, color: '#64748b', marginTop: 2 }}>Shops: {item.shopCount || 0}</Text>
           <View style={styles.badges}>
             <View style={[styles.badge, { backgroundColor: '#e0f2fe' }]}>
               <Text style={[styles.badgeText, { color: '#0284c7' }]}>{item.role.toUpperCase()}</Text>
@@ -127,7 +138,10 @@ export default function AdminDashboard() {
         {canActivate && (
           <TouchableOpacity 
             style={styles.activateBtn}
-            onPress={() => setSelectedUser(item)}
+            onPress={() => {
+              setSelectedUser(item);
+              setPlanType((item.shopCount || 0) >= 2 ? 'premium' : 'standard');
+            }}
           >
             <Ionicons name="flash" size={20} color="#fff" />
           </TouchableOpacity>
@@ -185,6 +199,24 @@ export default function AdminDashboard() {
               />
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Plan Type:</Text>
+              <View style={styles.planSelector}>
+                <TouchableOpacity 
+                  style={[styles.planOption, planType === 'standard' && styles.planOptionActive]} 
+                  onPress={() => setPlanType('standard')}
+                >
+                  <Text style={[styles.planText, planType === 'standard' && styles.planTextActive]}>Standard (R150)</Text>
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={[styles.planOption, planType === 'premium' && styles.planOptionActive]} 
+                  onPress={() => setPlanType('premium')}
+                >
+                  <Text style={[styles.planText, planType === 'premium' && styles.planTextActive]}>Premium (R400)</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
             <View style={styles.modalActions}>
               <TouchableOpacity 
                 style={[styles.modalBtn, styles.cancelBtn]}
@@ -239,6 +271,12 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: '#f8fafc' },
+  
+  planSelector: { flexDirection: 'row', gap: 10 },
+  planOption: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center', backgroundColor: '#fff' },
+  planOptionActive: { backgroundColor: '#eff6ff', borderColor: '#1e40af' },
+  planText: { color: '#64748b', fontWeight: '600' },
+  planTextActive: { color: '#1e40af', fontWeight: 'bold' },
 
   modalActions: { flexDirection: 'row', gap: 12 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 8, alignItems: 'center' },

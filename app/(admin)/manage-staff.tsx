@@ -26,6 +26,7 @@ interface User {
   status: 'active' | 'blocked';
   subscriptionStatus?: string;
   subscriptionExpiry?: string;
+  shopCount?: number;
 }
 
 const API_ALL_USERS = `${API_BASE_URL}/users`;
@@ -41,6 +42,7 @@ export default function ManageStaff() {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null); // If null, manual entry mode
   const [monthsToAdd, setMonthsToAdd] = useState('1');
+  const [planType, setPlanType] = useState<'standard' | 'premium'>('standard');
   const [activating, setActivating] = useState(false);
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [paymentHistory, setPaymentHistory] = useState<any[]>([]);
@@ -142,8 +144,10 @@ export default function ManageStaff() {
   const openActivationModal = (user?: User) => {
     if (user) {
       setSelectedUser(user);
+      setPlanType((user.shopCount || 0) >= 2 ? 'premium' : 'standard');
     } else {
       setSelectedUser(null);
+      setPlanType('standard');
     }
     setMonthsToAdd('1');
     setModalVisible(true);
@@ -162,9 +166,8 @@ export default function ManageStaff() {
     setActivating(true);
     try {
       const months = parseInt(monthsToAdd) || 1;
-      const amount = months * 10; // Calculate amount based on $10/month
-
-      console.log("Sending activation request:", { userId, userName, userEmail, amount });
+      
+      console.log("Sending activation request:", { userId, userName, userEmail, planType });
 
       const response = await fetch(`${API_BASE_URL}/admin/activate-user`, {
         method: 'POST',
@@ -174,7 +177,7 @@ export default function ManageStaff() {
           managerName: userName,
           managerEmail: userEmail,
           months: months,
-          amount: amount,
+          planType: planType,
           paymentMethod: 'cash'
         })
       });
@@ -387,6 +390,7 @@ export default function ManageStaff() {
     const isExpired = item.subscriptionExpiry 
       ? new Date(item.subscriptionExpiry) < new Date() 
       : false;
+    const isPremium = (item.shopCount || 0) >= 2;
 
     return (
     <View style={[styles.card, item.status === 'blocked' && styles.cardBlocked]}>
@@ -403,6 +407,11 @@ export default function ManageStaff() {
         <View style={styles.infoContainer}>
           <View style={styles.nameRow}>
             <Text style={styles.name}>{item.name}</Text>
+            {isPremium && (
+              <View style={{ backgroundColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
+                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>PREMIUM</Text>
+              </View>
+            )}
             {item.status === 'blocked' && (
               <View style={styles.blockedBadge}>
                 <Text style={styles.blockedText}>BLOCKED</Text>
@@ -622,6 +631,24 @@ export default function ManageStaff() {
                   />
                 </View>
 
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>Plan Type:</Text>
+                  <View style={styles.planSelector}>
+                    <TouchableOpacity 
+                      style={[styles.planOption, planType === 'standard' && styles.planOptionActive]} 
+                      onPress={() => setPlanType('standard')}
+                    >
+                      <Text style={[styles.planText, planType === 'standard' && styles.planTextActive]}>Standard (R150)</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity 
+                      style={[styles.planOption, planType === 'premium' && styles.planOptionActive]} 
+                      onPress={() => setPlanType('premium')}
+                    >
+                      <Text style={[styles.planText, planType === 'premium' && styles.planTextActive]}>Premium (R400)</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setSelectedUser(null)}>
                     <Text style={styles.cancelBtnText}>Back</Text>
@@ -721,7 +748,7 @@ export default function ManageStaff() {
                 </View>
                 <View>
                   <Text style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase' }}>Total</Text>
-                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#16a34a' }}>${totalHistoryAmount}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#16a34a' }}>R{totalHistoryAmount}</Text>
                 </View>
               </View>
             )}
@@ -757,7 +784,7 @@ export default function ManageStaff() {
 
                   {historyView === 'active' && (
                     <View style={{ alignItems: 'flex-end' }}>
-                      <Text style={styles.historyAmount}>${item.amount}</Text>
+                      <Text style={styles.historyAmount}>R{item.amount}</Text>
                       <TouchableOpacity 
                         onPress={() => {
                           setPaymentToDelete(item);
@@ -897,6 +924,13 @@ const styles = StyleSheet.create({
   inputGroup: { marginBottom: 24 },
   label: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
   input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: '#f8fafc' },
+  
+  planSelector: { flexDirection: 'row', gap: 10 },
+  planOption: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center', backgroundColor: '#fff' },
+  planOptionActive: { backgroundColor: '#eff6ff', borderColor: '#1e40af' },
+  planText: { color: '#64748b', fontWeight: '600' },
+  planTextActive: { color: '#1e40af', fontWeight: 'bold' },
+
   modalActions: { flexDirection: 'row', gap: 12 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 8, alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },

@@ -1,25 +1,27 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
-    ActivityIndicator,
-    Alert,
-    Linking,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View
+  ActivityIndicator,
+  Alert,
+  Linking,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 
 interface User {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   role?: string;
   subscriptionStatus?: string;
+  nextBillingAmount?: number;
+  planType?: string;
 }
 
 export default function SubscriptionPage() {
@@ -28,9 +30,6 @@ export default function SubscriptionPage() {
   const [checkingStatus, setCheckingStatus] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
-
-  const AMOUNT = 10.00;
-  const PERIOD = "1 Month";
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -68,8 +67,8 @@ export default function SubscriptionPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: user.email,
-          amount: AMOUNT,
-          userId: user.id
+          // amount is now calculated on server
+          userId: user._id
         }),
       });
 
@@ -97,7 +96,6 @@ export default function SubscriptionPage() {
       const response = await fetch(`${API_BASE_URL}/subscription/check-status`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pollUrl, userId: user.id }),
       });
 
       const data = await response.json();
@@ -106,8 +104,7 @@ export default function SubscriptionPage() {
         Alert.alert("Success", "Payment received! Your subscription is active.");
         setPollUrl(null);
         // On success, navigate to the manager dashboard
-        router.replace('/(manager)/'); 
-      } else {
+        router.replace('/(manager)'); 
         Alert.alert("Status", `Current status: ${data.status || 'Unpaid'}. Please wait a moment if you just paid.`);
       }
     } catch (error) {
@@ -156,11 +153,11 @@ export default function SubscriptionPage() {
           <View style={styles.divider} />
           <View style={styles.row}>
             <Text style={styles.label}>Plan:</Text>
-            <Text style={styles.value}>{PERIOD}</Text>
+            <Text style={styles.value}>{user.planType || 'Standard'} (1 Month)</Text>
           </View>
           <View style={styles.row}>
             <Text style={styles.label}>Total:</Text>
-            <Text style={styles.amount}>${AMOUNT.toFixed(2)}</Text>
+            <Text style={styles.amount}>R{(user.nextBillingAmount || 150).toFixed(2)}</Text>
           </View>
         </View>
 
