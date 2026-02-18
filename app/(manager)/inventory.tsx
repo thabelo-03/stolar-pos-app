@@ -29,7 +29,7 @@ export default function ManagerInventoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin' | 'profit'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
@@ -92,6 +92,14 @@ export default function ManagerInventoryScreen() {
         const priceB = Number(b.price) || 0;
         const costB = Number(b.costPrice) || 0;
         valB = priceB > 0 ? ((priceB - costB) / priceB) * 100 : 0;
+      } else if (sortBy === 'profit') {
+        const priceA = Number(a.price) || 0;
+        const costA = Number(a.costPrice) || 0;
+        valA = priceA - costA;
+
+        const priceB = Number(b.price) || 0;
+        const costB = Number(b.costPrice) || 0;
+        valB = priceB - costB;
       } else {
         valA = (valA || '').toString().toLowerCase();
         valB = (valB || '').toString().toLowerCase();
@@ -317,7 +325,7 @@ export default function ManagerInventoryScreen() {
 
           <TouchableOpacity 
             style={styles.filterChip} 
-            onPress={() => setSortBy(prev => prev === 'name' ? 'price' : prev === 'price' ? 'quantity' : prev === 'quantity' ? 'margin' : 'name')}
+            onPress={() => setSortBy(prev => prev === 'name' ? 'price' : prev === 'price' ? 'quantity' : prev === 'quantity' ? 'margin' : prev === 'margin' ? 'profit' : 'name')}
           >
             <Text style={styles.filterText}>By: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}</Text>
           </TouchableOpacity>
@@ -355,6 +363,7 @@ export default function ManagerInventoryScreen() {
             const price = Number(item.price || 0);
             const cost = Number(item.costPrice || 0);
             const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+            const profit = price - cost;
 
             return (
               <View style={styles.card}>
@@ -383,8 +392,10 @@ export default function ManagerInventoryScreen() {
                     <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
                   </View>
                   <View>
-                    <Text style={styles.priceLabel}>Margin</Text>
-                    <Text style={[styles.priceValue, { color: margin >= 0 ? '#10b981' : '#ef4444' }]}>{margin.toFixed(1)}%</Text>
+                    <Text style={styles.priceLabel}>Profit</Text>
+                    <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
+                      ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
+                    </Text>
                   </View>
                   
                   <View style={styles.actions}>
