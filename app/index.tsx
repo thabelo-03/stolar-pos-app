@@ -1,7 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -25,6 +25,29 @@ export default function LoginScreen() {
   const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const router = useRouter();
+
+  // Check for existing session (Auto-Login for Offline Support)
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const token = await AsyncStorage.getItem('userToken');
+        const role = await AsyncStorage.getItem('userRole');
+        
+        if (token && role) {
+          if (role === 'admin') {
+            router.replace('/(admin)/manage-staff');
+          } else if (role === 'manager') {
+            router.replace('/(manager)');
+          } else {
+            router.replace('/(cashier)/my-shop');
+          }
+        }
+      } catch (e) {
+        // If error reading storage, stay on login screen
+      }
+    };
+    checkSession();
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
