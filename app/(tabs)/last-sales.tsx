@@ -30,6 +30,8 @@ export default function LastSalesScreen() {
   const [showRefundModal, setShowRefundModal] = useState(false);
   const [refundReason, setRefundReason] = useState('');
   const [refundTargetId, setRefundTargetId] = useState<string | null>(null);
+  const [detailsModalVisible, setDetailsModalVisible] = useState(false);
+  const [selectedSale, setSelectedSale] = useState<any>(null);
   const insets = useSafeAreaInsets();
 
   const fetchSales = async (pageNumber = 1) => {
@@ -208,6 +210,11 @@ export default function LastSalesScreen() {
     return 'wallet-outline';
   };
 
+  const handleSalePress = (sale: any) => {
+    setSelectedSale(sale);
+    setDetailsModalVisible(true);
+  };
+
   return (
     <ThemedView style={styles.container}>
       {/* Header Section */}
@@ -324,7 +331,11 @@ export default function LastSalesScreen() {
             const itemCount = Array.isArray(item.items) ? item.items.length : 1;
             
             return (
-              <View style={[styles.card, isRefunded && styles.refundedCard]}>
+              <TouchableOpacity 
+                style={[styles.card, isRefunded && styles.refundedCard]} 
+                onPress={() => handleSalePress(item)}
+                activeOpacity={0.7}
+              >
                 <View style={styles.cardLeft}>
                   <View style={[styles.iconCircle, isRefunded ? styles.iconRefunded : styles.iconSuccess]}>
                     <Ionicons name={isRefunded ? "return-up-back" : "receipt-outline"} size={20} color={isRefunded ? "#ef4444" : "#10b981"} />
@@ -357,7 +368,7 @@ export default function LastSalesScreen() {
                     <Text style={styles.refundedBadge}>REFUNDED</Text>
                   )}
                 </View>
-              </View>
+              </TouchableOpacity>
             );
           }}
           contentContainerStyle={styles.list}
@@ -415,6 +426,71 @@ export default function LastSalesScreen() {
               <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
               <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#ef4444' }]} onPress={confirmRefund}><Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text></TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Sale Details Modal */}
+      <Modal visible={detailsModalVisible} animationType="fade" transparent onRequestClose={() => setDetailsModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { maxHeight: '80%' }]}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
+              <Text style={styles.modalTitle}>Receipt Details</Text>
+              <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            {selectedSale && (
+              <>
+                <View style={{marginBottom: 15}}>
+                  <Text style={{color: '#64748b', fontSize: 14, marginBottom: 4}}>
+                    {selectedSale.date ? new Date(selectedSale.date).toLocaleString() : 'Unknown Date'}
+                  </Text>
+                  <Text style={{color: '#64748b', fontSize: 14, marginBottom: 4}}>
+                    Method: {selectedSale.paymentMethod || 'Cash'}
+                  </Text>
+                  {selectedSale.cashierName && (
+                    <Text style={{color: '#64748b', fontSize: 14}}>
+                      Cashier: {selectedSale.cashierName}
+                    </Text>
+                  )}
+                </View>
+
+                <View style={{borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 10}} />
+
+                <FlatList
+                  data={selectedSale.items || []}
+                  keyExtractor={(item, index) => index.toString()}
+                  renderItem={({ item }) => (
+                    <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
+                      <View style={{flex: 1, marginRight: 10}}>
+                        <Text style={{fontWeight: '600', color: '#1e293b'}}>{item.name}</Text>
+                        <Text style={{fontSize: 12, color: '#64748b'}}>{item.quantity} x ${Number(item.price || 0).toFixed(2)}</Text>
+                      </View>
+                      <Text style={{fontWeight: 'bold', color: '#1e293b'}}>
+                        ${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+                  style={{marginBottom: 15}}
+                />
+
+                <View style={{borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b'}}>Total</Text>
+                  <Text style={{fontSize: 24, fontWeight: 'bold', color: '#1e40af'}}>
+                    ${Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0).toFixed(2)}
+                  </Text>
+                </View>
+                
+                {selectedSale.refunded && (
+                   <View style={{marginTop: 15, padding: 10, backgroundColor: '#fee2e2', borderRadius: 8}}>
+                     <Text style={{color: '#ef4444', fontWeight: 'bold', textAlign: 'center'}}>REFUNDED</Text>
+                     {selectedSale.refundReason && <Text style={{color: '#ef4444', textAlign: 'center', fontSize: 12, marginTop: 4}}>{selectedSale.refundReason}</Text>}
+                   </View>
+                )}
+              </>
+            )}
           </View>
         </View>
       </Modal>
