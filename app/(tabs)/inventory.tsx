@@ -199,13 +199,10 @@ export default function CashierInventoryScreen() {
     }
 
     data.sort((a, b) => {
-      let valA: any = a[sortBy];
-      let valB: any = b[sortBy];
+      let valA: number | string = 0;
+      let valB: number | string = 0;
 
-      if (sortBy === 'price' || sortBy === 'quantity') {
-        valA = Number(valA) || 0;
-        valB = Number(valB) || 0;
-      } else if (sortBy === 'margin') {
+      if (sortBy === 'margin') {
         const priceA = Number(a.price) || 0;
         const costA = Number(a.costPrice) || 0;
         valA = priceA > 0 ? ((priceA - costA) / priceA) * 100 : 0;
@@ -221,9 +218,12 @@ export default function CashierInventoryScreen() {
         const priceB = Number(b.price) || 0;
         const costB = Number(b.costPrice) || 0;
         valB = priceB - costB;
+      } else if (sortBy === 'price' || sortBy === 'quantity') {
+        valA = Number(a[sortBy]) || 0;
+        valB = Number(b[sortBy]) || 0;
       } else {
-        valA = (valA || '').toString().toLowerCase();
-        valB = (valB || '').toString().toLowerCase();
+        valA = (a[sortBy] || '').toString().toLowerCase();
+        valB = (b[sortBy] || '').toString().toLowerCase();
       }
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;

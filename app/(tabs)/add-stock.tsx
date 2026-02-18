@@ -45,8 +45,9 @@ const [category, setCategory] = useState('General');
       setBarcode(params.barcode ? String(params.barcode) : '');
       setPrice(params.price ? Number(params.price).toFixed(2) : '');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
+      if (params.category) setCategory(params.category as string);
     }
-  }, [params]);
+  }, []);
 
   useEffect(() => {
     const fetchUserShop = async () => {

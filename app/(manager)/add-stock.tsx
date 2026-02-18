@@ -1,14 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import TextRecognition from '@react-native-ml-kit/text-recognition';
 
-import { ThemedText } from '../../components/themed-text';
-import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
 
@@ -37,7 +35,7 @@ export default function ManagerAddStockScreen() {
 
   useEffect(() => {
     const loadUser = async () => {
-      const id = await AsyncStorage.getItem('id'); // Assuming 'id' is stored on login
+      const id = await AsyncStorage.getItem('userId');
       if (id) setCurrentUserId(id);
     };
     loadUser();
@@ -48,8 +46,9 @@ export default function ManagerAddStockScreen() {
       setBarcode(params.barcode ? String(params.barcode) : '');
       setPrice(params.price ? Number(params.price).toFixed(2) : '');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
+      if (params.category) setCategory(params.category as string);
     }
-  }, [params]);
+  }, []);
 
   useEffect(() => {
     const fetchCategories = async () => {

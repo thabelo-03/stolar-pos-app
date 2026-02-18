@@ -779,6 +779,24 @@ export default function CartScreen() {
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Payment Details</Text>
             
+            <View style={{ maxHeight: 150, width: '100%', marginBottom: 15 }}>
+              <FlatList
+                data={cartItems}
+                keyExtractor={(item) => item.id}
+                renderItem={({ item }) => (
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 14, color: '#64748b', flex: 1 }} numberOfLines={1}>
+                      {item.quantity} x {item.name}
+                    </Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                      {symbol()} {convert((item.price || 0) * item.quantity).toFixed(2)}
+                    </Text>
+                  </View>
+                )}
+              />
+              <View style={{ height: 1, backgroundColor: '#e2e8f0', width: '100%', marginTop: 10 }} />
+            </View>
+
             <View style={{marginBottom: 20, alignItems: 'center'}}>
                 <Text style={{fontSize: 14, color: '#64748b', marginBottom: 4}}>Total Due</Text>
                 <Text style={{fontSize: 32, fontWeight: 'bold', color: '#1e293b'}}>

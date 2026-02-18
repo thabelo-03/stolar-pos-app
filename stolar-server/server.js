@@ -395,6 +395,53 @@ app.get('/api/logs', async (req, res) => {
   }
 });
 
+app.get('/api/logs/product/:id', async (req, res) => {
+  try {
+    const logs = await ActionLog.find({ relatedId: req.params.id })
+      .sort({ timestamp: -1 })
+      .limit(50);
+    res.json(logs);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.post('/api/products/:id/restore', async (req, res) => {
+  console.log(`Restoring product ${req.params.id} from log ${req.body.logId}`);
+  try {
+    const { logId, userId } = req.body;
+    const log = await ActionLog.findById(logId);
+    
+    if (!log || !log.previousState) {
+      return res.status(400).json({ message: "No restore point found for this action." });
+    }
+
+    const { name, price, costPrice, stockQuantity, category, barcode } = log.previousState;
+    
+    const product = await Product.findByIdAndUpdate(req.params.id, {
+      name, price, costPrice, stockQuantity, category, barcode
+    }, { new: true });
+
+    // Log the restore action itself
+    if (userId) {
+      const user = await User.findById(userId);
+      await new ActionLog({
+        action: 'RESTORE_STOCK',
+        details: `Restored to state from ${new Date(log.timestamp).toLocaleString()}`,
+        userId,
+        userName: user ? user.name : 'Unknown',
+        shopId: product.shopId,
+        relatedId: product._id
+      }).save();
+    }
+
+    res.json({ success: true, message: "Product restored successfully", product });
+  } catch (err) {
+    console.error("Restore error:", err);
+    res.status(500).json({ message: err.message });
+  }
+});
+
 app.post('/api/products/add', async (req, res) => {
   console.log('Adding/Updating product:', req.body.name, req.body.barcode);
   const { name, barcode, category, price, costPrice, quantity, shopId, userId } = req.body; 
@@ -404,6 +451,7 @@ app.post('/api/products/add', async (req, res) => {
     const addQty = Number(quantity) || 0;
 
     if (product) {
+      const previousState = product.toObject(); // Capture state before update
       product.stockQuantity = (product.stockQuantity || 0) + addQty;
       
       // Only update price/cost if provided (prevents overwriting with 0/NaN on partial updates)
@@ -425,7 +473,9 @@ app.post('/api/products/add', async (req, res) => {
           details: `Updated ${name}: +${addQty} units`,
           userId,
           userName: user ? user.name : 'Unknown',
-          shopId: product.shopId
+          shopId: product.shopId,
+          relatedId: product._id,
+          previousState
         }).save();
       }
 
@@ -445,7 +495,8 @@ app.post('/api/products/add', async (req, res) => {
           details: `Added new product: ${name} (${addQty} units)`,
           userId,
           userName: user ? user.name : 'Unknown',
-          shopId
+          shopId,
+          relatedId: newProduct._id
         }).save();
       }
 
@@ -489,6 +540,61 @@ app.post('/api/products/batch-update', async (req, res) => {
     res.json({ success: true, message: `Updated ${result.modifiedCount} items` });
   } catch (err) {
     console.error("Batch update error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.put('/api/products/:id', async (req, res) => {
+  console.log(`Updating product ${req.params.id}:`, req.body);
+  try {
+    const { name, barcode, category, price, costPrice, quantity, shopId, userId } = req.body;
+    
+    const updateData = {
+      name,
+      barcode,
+      category,
+      price: Number(price),
+      costPrice: Number(costPrice),
+      stockQuantity: Number(quantity)
+    };
+    if (shopId) updateData.shopId = shopId;
+
+    // Fetch original first to capture state
+    const originalProduct = await Product.findById(req.params.id);
+    const previousState = originalProduct ? originalProduct.toObject() : null;
+
+    const product = await Product.findByIdAndUpdate(req.params.id, updateData, { new: true });
+    if (!product) return res.status(404).json({ message: "Product not found" });
+
+    // Log action
+    if (userId) {
+      const user = await User.findById(userId);
+      await new ActionLog({
+        action: 'UPDATE_STOCK',
+        details: `Edited ${name}: Qty ${quantity}, Price $${price}`,
+        userId,
+        userName: user ? user.name : 'Unknown',
+        shopId: product.shopId,
+        relatedId: product._id,
+        previousState
+      }).save();
+    }
+
+    res.json({ success: true, product });
+  } catch (err) {
+    console.error("Product update error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.delete('/api/products/:id', async (req, res) => {
+  console.log(`Deleting product ${req.params.id}`);
+  try {
+    const product = await Product.findByIdAndDelete(req.params.id);
+    if (!product) return res.status(404).json({ message: "Product not found" });
+    res.json({ success: true, message: "Product deleted" });
+  } catch (err) {
+    console.error("Product deletion error:", err);
     res.status(500).json({ error: err.message });
   }
 });

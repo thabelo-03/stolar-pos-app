@@ -38,6 +38,10 @@ export default function ManagerInventoryScreen() {
   const [bulkModalVisible, setBulkModalVisible] = useState(false);
   const [bulkMode, setBulkMode] = useState<'fixed' | 'percent'>('percent');
   const [bulkValue, setBulkValue] = useState('');
+  
+  const [historyModalVisible, setHistoryModalVisible] = useState(false);
+  const [productHistory, setProductHistory] = useState<any[]>([]);
+  const [selectedHistoryItemName, setSelectedHistoryItemName] = useState('');
 
   const fetchInventory = async () => {
     try {
@@ -129,6 +133,20 @@ export default function ManagerInventoryScreen() {
     }
   };
 
+  const confirmDelete = (item: InventoryItem) => {
+    const itemId = item._id || item.id;
+    if (!itemId) return;
+
+    Alert.alert(
+      "Confirm Delete",
+      `Are you sure you want to delete "${item.name}"?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        { text: "Delete", style: "destructive", onPress: () => deleteItem(itemId) }
+      ]
+    );
+  };
+
   const stats = useMemo(() => {
     const totalItems = inventory.length;
     const totalValue = inventory.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
@@ -178,7 +196,7 @@ export default function ManagerInventoryScreen() {
         { 
           text: 'Delete', 
           style: 'destructive', 
-          onPress: () => deleteItem(itemId) 
+          onPress: () => confirmDelete(item) 
         },
       ]
     );
@@ -239,6 +257,52 @@ export default function ManagerInventoryScreen() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleViewHistory = async (item: InventoryItem) => {
+    const itemId = item._id || item.id;
+    if (!itemId) return;
+    
+    setSelectedHistoryItemName(item.name);
+    setProductHistory([]);
+    setHistoryModalVisible(true);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/logs/product/${itemId}`);
+      const data = await response.json();
+      if (Array.isArray(data)) setProductHistory(data);
+    } catch (e) { console.log("Error fetching history", e); }
+  };
+
+  const handleRestore = (logItem: any) => {
+    Alert.alert(
+      "Confirm Restore",
+      "This will revert the product details (Price, Stock, Name) to the state before this change. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Restore", 
+          onPress: async () => {
+            try {
+              const userId = await AsyncStorage.getItem('userId');
+              const response = await fetch(`${API_BASE_URL}/products/${logItem.relatedId}/restore`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ logId: logItem._id, userId })
+              });
+              const data = await response.json();
+              if (response.ok) {
+                Alert.alert("Success", "Product restored.");
+                setHistoryModalVisible(false);
+                fetchInventory();
+              } else {
+                Alert.alert("Error", data.message || "Failed to restore.");
+              }
+            } catch (e) { Alert.alert("Error", "Network error."); }
+          }
+        }
+      ]
+    );
   };
 
   return (
@@ -399,6 +463,9 @@ export default function ManagerInventoryScreen() {
                   </View>
                   
                   <View style={styles.actions}>
+                    <TouchableOpacity style={styles.actionBtn} onPress={() => handleViewHistory(item)}>
+                      <MaterialCommunityIcons name="history" size={20} color="#64748b" />
+                    </TouchableOpacity>
                     <TouchableOpacity style={styles.actionBtn} onPress={() => handleItemPress(item)}>
                       <MaterialCommunityIcons name="dots-horizontal" size={20} color="#64748b" />
                     </TouchableOpacity>
@@ -453,6 +520,43 @@ export default function ManagerInventoryScreen() {
                 <Text style={[styles.btnText, {color: 'white'}]}>Update All</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* History Modal */}
+      <Modal visible={historyModalVisible} transparent animationType="fade" onRequestClose={() => setHistoryModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContainer, { maxHeight: '80%' }]}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
+              <Text style={styles.modalTitle}>History: {selectedHistoryItemName}</Text>
+              <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            <FlatList
+              data={productHistory}
+              keyExtractor={(item) => item._id}
+              ListEmptyComponent={<Text style={styles.emptyText}>No history found.</Text>}
+              renderItem={({ item }) => (
+                <View style={styles.historyItem}>
+                  <View style={styles.historyHeader}>
+                    <Text style={styles.historyUser}>{item.userName || 'Unknown User'}</Text>
+                    <Text style={styles.historyDate}>{new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
+                  </View>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                    <Text style={styles.historyAction}>{item.action}</Text>
+                    {item.previousState && (
+                      <TouchableOpacity onPress={() => handleRestore(item)} style={styles.restoreBtn}>
+                        <Text style={styles.restoreText}>Restore</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <Text style={styles.historyDetails}>{item.details}</Text>
+                </View>
+              )}
+            />
           </View>
         </View>
       </Modal>
@@ -545,4 +649,13 @@ const styles = StyleSheet.create({
   cancelBtn: { backgroundColor: '#f1f5f9' },
   confirmBtn: { backgroundColor: '#1e40af' },
   btnText: { fontWeight: 'bold' },
+
+  historyItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  historyUser: { fontWeight: 'bold', color: '#1e293b', fontSize: 14 },
+  historyDate: { color: '#94a3b8', fontSize: 12 },
+  historyAction: { fontSize: 12, color: '#1e40af', fontWeight: '600', marginBottom: 2 },
+  historyDetails: { fontSize: 13, color: '#475569' },
+  restoreBtn: { backgroundColor: '#f0f9ff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#bae6fd' },
+  restoreText: { fontSize: 10, color: '#0284c7', fontWeight: 'bold' },
 });
