@@ -22,6 +22,7 @@ interface User {
   name: string;
   email: string;
   subscriptionStatus?: string; 
+  shopId?: string;
 }
 
 const ManagerIndex = () => {
@@ -299,6 +300,16 @@ const ManagerIndex = () => {
     router.replace('/(auth)/login');
   };
 
+  const handleSwitchToCashier = async () => {
+    setMenuVisible(false);
+    if (user && user.shopId) {
+      await AsyncStorage.setItem('shopId', user.shopId);
+      router.replace('/(tabs)/home');
+    } else {
+      router.replace('/(cashier)/my-shop');
+    }
+  };
+
   if (loading) {
     return (
       <ThemedView style={styles.container}>
@@ -467,6 +478,10 @@ const ManagerIndex = () => {
             <TouchableOpacity style={styles.menuItem}>
               <Ionicons name="settings-outline" size={24} color="#1e40af" />
               <Text style={styles.menuItemText}>Settings</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.menuItem} onPress={handleSwitchToCashier}>
+              <Ionicons name="calculator-outline" size={24} color="#1e40af" />
+              <Text style={styles.menuItemText}>Switch to POS</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
               <Ionicons name="log-out-outline" size={24} color="#ef4444" />

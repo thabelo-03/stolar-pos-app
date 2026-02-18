@@ -20,11 +20,13 @@ export default function ProfileSettingsScreen() {
   const [fixingCosts, setFixingCosts] = useState(false);
   const [estimatingCosts, setEstimatingCosts] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.getItem('biometricEnabled').then((value) => {
       setBiometricEnabled(value === 'true');
     });
+    AsyncStorage.getItem('userRole').then(setUserRole);
   }, []);
 
   const toggleBiometric = async (value: boolean) => {
@@ -143,6 +145,15 @@ export default function ProfileSettingsScreen() {
         </TouchableOpacity>
         <ThemedText type="title">Profile Settings</ThemedText>
       </View>
+
+      {userRole === 'manager' && (
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#0f172a', marginBottom: 20, marginTop: 0 }]} 
+          onPress={() => router.replace('/(manager)')}
+        >
+          <ThemedText style={styles.saveButtonText}>Switch to Manager Dashboard</ThemedText>
+        </TouchableOpacity>
+      )}
 
       <View style={styles.form}>
         <ThemedText type="subtitle" style={styles.sectionTitle}>Security</ThemedText>

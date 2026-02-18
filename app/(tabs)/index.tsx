@@ -14,6 +14,7 @@ export default function CashierHome() {
   const [shopName, setShopName] = useState(initialShopName ? (Array.isArray(initialShopName) ? initialShopName[0] : initialShopName) : 'Loading...');
   const [isLinked, setIsLinked] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
@@ -78,6 +79,9 @@ export default function CashierHome() {
     const fetchShopName = async () => {
       try {
         const userId = await AsyncStorage.getItem('userId');
+        const storedRole = await AsyncStorage.getItem('userRole');
+        if (storedRole) setUserRole(storedRole);
+
         if (userId) {
           const response = await fetch(`${API_BASE_URL}/users/${userId}`);
           if (response.ok) {
@@ -210,6 +214,18 @@ export default function CashierHome() {
             {/* Quick Actions Card */}
             <View style={styles.card}>
               <Text style={styles.sectionLabel}>Quick Actions</Text>
+
+              {userRole === 'manager' && (
+                <TouchableOpacity style={styles.actionRow} onPress={() => router.replace('/(manager)')}>
+                  <View style={[styles.iconBox, { backgroundColor: '#f1f5f9' }]}>
+                    <Ionicons name="briefcase" size={20} color="#0f172a" />
+                  </View>
+                  <View>
+                    <Text style={styles.actionTitle}>Manager Dashboard</Text>
+                    <Text style={styles.actionSub}>Switch workspace</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
               
               <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(cashier)/my-shop')}>
                 <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
@@ -290,7 +306,7 @@ export default function CashierHome() {
               value={password}
               onChangeText={setPassword}
               autoFocus
-              keyboardType="numeric"
+              keyboardType="default"
             />
             <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 15 }} onPress={() => requestPassword(pendingAction.current!)}>
                <Ionicons name="finger-print" size={32} color="#1e40af" />
