@@ -457,6 +457,42 @@ app.post('/api/products/add', async (req, res) => {
   }
 });
 
+app.post('/api/products/batch-update', async (req, res) => {
+  console.log('Batch updating products:', req.body.updates?.length);
+  const { updates, userId, shopId } = req.body; // updates: [{ id, costPrice }]
+  try {
+    if (!Array.isArray(updates) || updates.length === 0) {
+      return res.status(400).json({ message: "No updates provided" });
+    }
+
+    const operations = updates.map(u => ({
+      updateOne: {
+        filter: { _id: u.id },
+        update: { $set: { costPrice: Number(u.costPrice) } }
+      }
+    }));
+
+    const result = await Product.bulkWrite(operations);
+    
+    // Log the action
+    if (userId) {
+      const user = await User.findById(userId);
+      await new ActionLog({
+        action: 'BULK_UPDATE',
+        details: `Bulk updated cost price for ${updates.length} items`,
+        userId,
+        userName: user ? user.name : 'Unknown',
+        shopId: shopId || null
+      }).save();
+    }
+
+    res.json({ success: true, message: `Updated ${result.modifiedCount} items` });
+  } catch (err) {
+    console.error("Batch update error:", err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // --- SALES & CHECKOUT ---
 
 app.get('/api/sales/stats', async (req, res) => {
@@ -580,7 +616,7 @@ app.get('/api/sales/recent', async (req, res) => {
       // 2. Backfill Cost Price if missing (Fixes 0.00 COGS on profit report)
       if (sale.items && Array.isArray(sale.items)) {
         sale.items.forEach(item => {
-          if (item.costPrice === undefined || item.costPrice === null) {
+          if (!item.costPrice || item.costPrice === 0) {
             const key = `${item.barcode}_${String(sale.shopId)}`;
             // Check specific shop first, fallback to just barcode if needed
             if (productCostMap[key] !== undefined) {
@@ -1030,6 +1066,45 @@ app.get('/api/test/verify-migration', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/test/fix-product-costs', async (req, res) => {
+  console.log("Backfilling missing cost prices...");
+  try {
+    const result = await Product.updateMany(
+      { costPrice: { $exists: false } },
+      { $set: { costPrice: 0 } }
+    );
+    res.json({ success: true, message: `Updated ${result.modifiedCount} products with default cost price.` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+});
+
+app.post('/api/test/backfill-estimated-costs', async (req, res) => {
+  console.log("Backfilling 0-cost products with 70% of selling price...");
+  try {
+    // Find products with costPrice 0 or missing
+    const products = await Product.find({ 
+      $or: [{ costPrice: { $exists: false } }, { costPrice: 0 }] 
+    });
+
+    const operations = products.map(p => {
+      // Default to 70% of price
+      const estimatedCost = (p.price * 0.7).toFixed(2);
+      return {
+        updateOne: {
+          filter: { _id: p._id },
+          update: { $set: { costPrice: Number(estimatedCost) } }
+        }
+      };
+    });
+
+    const result = await Product.bulkWrite(operations);
+    res.json({ success: true, message: `Updated ${result.modifiedCount} products with estimated cost (70% of price).` });
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
 });
 

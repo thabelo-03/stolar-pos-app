@@ -17,6 +17,8 @@ export default function ProfileSettingsScreen() {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [migrating, setMigrating] = useState(false);
+  const [fixingCosts, setFixingCosts] = useState(false);
+  const [estimatingCosts, setEstimatingCosts] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
 
   useEffect(() => {
@@ -87,6 +89,44 @@ export default function ProfileSettingsScreen() {
               Alert.alert("Error", "Failed to run migration");
             } finally {
               setMigrating(false);
+            }
+          }
+        }
+      ]
+    );
+  };
+
+  const handleFixCosts = async () => {
+    setFixingCosts(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/test/fix-product-costs`, { method: 'POST' });
+      const data = await response.json();
+      Alert.alert("Success", data.message || "Products updated.");
+    } catch (error) {
+      Alert.alert("Error", "Failed to fix product costs.");
+    } finally {
+      setFixingCosts(false);
+    }
+  };
+
+  const handleEstimateCosts = async () => {
+    Alert.alert(
+      "Estimate Costs",
+      "This will set the Cost Price to 70% of the Selling Price for all items where Cost is currently 0. Continue?",
+      [
+        { text: "Cancel", style: "cancel" },
+        { 
+          text: "Yes, Estimate", 
+          onPress: async () => {
+            setEstimatingCosts(true);
+            try {
+              const response = await fetch(`${API_BASE_URL}/test/backfill-estimated-costs`, { method: 'POST' });
+              const data = await response.json();
+              Alert.alert("Success", data.message);
+            } catch (error) {
+              Alert.alert("Error", "Failed to estimate costs.");
+            } finally {
+              setEstimatingCosts(false);
             }
           }
         }
@@ -175,6 +215,22 @@ export default function ProfileSettingsScreen() {
           ) : (
             <ThemedText style={styles.saveButtonText}>Fix Old Sales Data</ThemedText>
           )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#059669', marginTop: 10 }]} 
+          onPress={handleFixCosts}
+          disabled={fixingCosts}
+        >
+          {fixingCosts ? <ActivityIndicator color="white" /> : <ThemedText style={styles.saveButtonText}>Initialize Cost Prices</ThemedText>}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#0891b2', marginTop: 10 }]} 
+          onPress={handleEstimateCosts}
+          disabled={estimatingCosts}
+        >
+          {estimatingCosts ? <ActivityIndicator color="white" /> : <ThemedText style={styles.saveButtonText}>Estimate Missing Costs (70%)</ThemedText>}
         </TouchableOpacity>
       </View>
       </ScrollView>

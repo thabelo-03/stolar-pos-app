@@ -201,8 +201,10 @@ export default function ProfitReportScreen() {
           if (Array.isArray(sale.items)) {
             sale.items.forEach((item: any) => {
               const qty = Number(item.quantity || 1);
-              // Use saved cost price if available, otherwise lookup current inventory cost
-              const unitCost = (item.costPrice !== undefined) ? Number(item.costPrice) : (costMap.get(item.barcode) || 0);
+              // Use saved cost price if available AND > 0, otherwise lookup current inventory cost
+              let unitCost = Number(item.costPrice || 0);
+              if (unitCost === 0) unitCost = costMap.get(item.barcode) || 0;
+              
               saleCost += unitCost * qty;
             });
           }

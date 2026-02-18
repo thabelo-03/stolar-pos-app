@@ -1,4 +1,5 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useMemo, useState } from 'react';
@@ -28,11 +29,15 @@ export default function ManagerInventoryScreen() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity'>('name');
+  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
+  
+  const [bulkModalVisible, setBulkModalVisible] = useState(false);
+  const [bulkMode, setBulkMode] = useState<'fixed' | 'percent'>('percent');
+  const [bulkValue, setBulkValue] = useState('');
 
   const fetchInventory = async () => {
     try {
@@ -79,6 +84,14 @@ export default function ManagerInventoryScreen() {
       if (sortBy === 'price' || sortBy === 'quantity') {
         valA = Number(valA) || 0;
         valB = Number(valB) || 0;
+      } else if (sortBy === 'margin') {
+        const priceA = Number(a.price) || 0;
+        const costA = Number(a.costPrice) || 0;
+        valA = priceA > 0 ? ((priceA - costA) / priceA) * 100 : 0;
+
+        const priceB = Number(b.price) || 0;
+        const costB = Number(b.costPrice) || 0;
+        valB = priceB > 0 ? ((priceB - costB) / priceB) * 100 : 0;
       } else {
         valA = (valA || '').toString().toLowerCase();
         valB = (valB || '').toString().toLowerCase();
@@ -168,6 +181,58 @@ export default function ManagerInventoryScreen() {
     setIsScanning(false);
   };
 
+  const handleBulkUpdate = async () => {
+    if (!bulkValue) {
+      Alert.alert("Error", "Please enter a value");
+      return;
+    }
+
+    const val = parseFloat(bulkValue);
+    if (isNaN(val) || val < 0) {
+      Alert.alert("Error", "Invalid value");
+      return;
+    }
+
+    // Prepare updates based on filtered inventory
+    const updates = filteredInventory.map(item => {
+      let newCost = 0;
+      if (bulkMode === 'fixed') {
+        newCost = val;
+      } else {
+        // Percentage of selling price (e.g. 70 means 70% of price)
+        const price = Number(item.price) || 0;
+        newCost = price * (val / 100);
+      }
+      return {
+        id: item._id || item.id,
+        costPrice: newCost.toFixed(2)
+      };
+    });
+
+    try {
+      setLoading(true);
+      const userId = await AsyncStorage.getItem('userId');
+      const response = await fetch(`${API_BASE_URL}/products/batch-update`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ updates, userId, shopId })
+      });
+      const data = await response.json();
+      if (response.ok) {
+        Alert.alert("Success", data.message);
+        setBulkModalVisible(false);
+        setBulkValue('');
+        fetchInventory();
+      } else {
+        Alert.alert("Error", data.message || "Failed to update");
+      }
+    } catch (e) {
+      Alert.alert("Error", "Network error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
@@ -177,6 +242,9 @@ export default function ManagerInventoryScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manager Inventory</Text>
+          <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={() => setBulkModalVisible(true)}>
+            <Ionicons name="layers-outline" size={24} color="#1e40af" />
+          </TouchableOpacity>
           <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
             <Ionicons name="add" size={24} color="#1e40af" />
           </TouchableOpacity>
@@ -249,7 +317,7 @@ export default function ManagerInventoryScreen() {
 
           <TouchableOpacity 
             style={styles.filterChip} 
-            onPress={() => setSortBy(prev => prev === 'name' ? 'price' : prev === 'price' ? 'quantity' : 'name')}
+            onPress={() => setSortBy(prev => prev === 'name' ? 'price' : prev === 'price' ? 'quantity' : prev === 'quantity' ? 'margin' : 'name')}
           >
             <Text style={styles.filterText}>By: {sortBy.charAt(0).toUpperCase() + sortBy.slice(1)}</Text>
           </TouchableOpacity>
@@ -335,6 +403,48 @@ export default function ManagerInventoryScreen() {
           }
         />
       )}
+
+      {/* Bulk Update Modal */}
+      <Modal visible={bulkModalVisible} transparent animationType="fade" onRequestClose={() => setBulkModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Bulk Update Cost Price</Text>
+            <Text style={styles.modalSubtitle}>Applying to {filteredInventory.length} items</Text>
+
+            <View style={styles.tabRow}>
+              <TouchableOpacity 
+                style={[styles.tabBtn, bulkMode === 'percent' && styles.activeTabBtn]} 
+                onPress={() => setBulkMode('percent')}
+              >
+                <Text style={[styles.tabText, bulkMode === 'percent' && styles.activeTabText]}>% of Price</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.tabBtn, bulkMode === 'fixed' && styles.activeTabBtn]} 
+                onPress={() => setBulkMode('fixed')}
+              >
+                <Text style={[styles.tabText, bulkMode === 'fixed' && styles.activeTabText]}>Fixed Amount</Text>
+              </TouchableOpacity>
+            </View>
+
+            <TextInput
+              style={styles.modalInput}
+              placeholder={bulkMode === 'percent' ? "e.g. 70 (for 70% of price)" : "e.g. 50.00"}
+              keyboardType="numeric"
+              value={bulkValue}
+              onChangeText={setBulkValue}
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setBulkModalVisible(false)}>
+                <Text style={styles.btnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleBulkUpdate}>
+                <Text style={[styles.btnText, {color: 'white'}]}>Update All</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -408,4 +518,20 @@ const styles = StyleSheet.create({
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 350 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, textAlign: 'center' },
+  tabRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 4, marginBottom: 20 },
+  tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  tabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
+  activeTabText: { color: '#1e40af' },
+  modalInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  modalActions: { flexDirection: 'row', gap: 10 },
+  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+  cancelBtn: { backgroundColor: '#f1f5f9' },
+  confirmBtn: { backgroundColor: '#1e40af' },
+  btnText: { fontWeight: 'bold' },
 });
