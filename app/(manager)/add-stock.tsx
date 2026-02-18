@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -27,6 +28,7 @@ export default function ManagerAddStockScreen() {
   const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   const [category, setCategory] = useState('General');
   const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
@@ -34,6 +36,12 @@ export default function ManagerAddStockScreen() {
   const placeholderColor = '#888';
 
   useEffect(() => {
+    const loadUser = async () => {
+      const id = await AsyncStorage.getItem('id'); // Assuming 'id' is stored on login
+      if (id) setCurrentUserId(id);
+    };
+    loadUser();
+
     if (isEditMode) {
       setItemName(params.name as string);
       setQuantity(params.quantity ? String(params.quantity) : '');
@@ -69,6 +77,11 @@ export default function ManagerAddStockScreen() {
     setFunction(numberValue.toFixed(2));
   };
 
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/(auth)/login');
+  };
+
   const handleSave = async () => {
     if (!itemName || !quantity || !price || !costPrice) {
       Alert.alert('Error', 'Please fill in all fields');
@@ -94,11 +107,23 @@ export default function ManagerAddStockScreen() {
           : `${API_BASE_URL}/products/add`;
         
         const method = isEditMode ? 'PUT' : 'POST';
+        
+        // Prepare safe payload
+        const payload = {
+          name: itemName,
+          quantity: Number(quantity) || 0,
+          barcode,
+          price: Number(price) || 0,
+          costPrice: Number(costPrice) || 0,
+          category: category,
+          shopId,
+          userId: currentUserId
+        };
 
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId }),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
@@ -187,10 +212,15 @@ export default function ManagerAddStockScreen() {
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+        <View style={styles.headerLeft}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <Text style={styles.title}>{isEditMode ? 'Edit Stock' : 'Add Stock'}</Text>
+        </View>
+        <TouchableOpacity onPress={handleLogout}>
+          <Ionicons name="log-out-outline" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.title}>{isEditMode ? 'Edit Stock' : 'Add Stock'}</Text>
       </View>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
@@ -345,7 +375,9 @@ const styles = StyleSheet.create({
     borderBottomRightRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
+  headerLeft: { flexDirection: 'row', alignItems: 'center' },
   backButton: { marginRight: 15 },
   title: {
     color: 'white',

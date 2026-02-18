@@ -1,6 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import { Tabs, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { Platform, StyleSheet } from 'react-native';
@@ -9,59 +8,12 @@ import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { API_BASE_URL } from './api';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: false,
-    shouldShowBanner: true,
-    shouldShowList: true,
-  }),
-});
-
 export default function TabLayout() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const [lowStockCount, setLowStockCount] = useState<number | undefined>(undefined);
 
   useEffect(() => {
-    const requestPermissions = async () => {
-      await Notifications.requestPermissionsAsync();
-    };
-
-    const registerForPushNotificationsAsync = async () => {
-      if (Platform.OS === 'android') {
-        await Notifications.setNotificationChannelAsync('default', {
-          name: 'default',
-          importance: Notifications.AndroidImportance.MAX,
-          vibrationPattern: [0, 250, 250, 250],
-          lightColor: '#FF231F7C',
-        });
-      }
-
-      try {
-        const { status: existingStatus } = await Notifications.getPermissionsAsync();
-        let finalStatus = existingStatus;
-        if (existingStatus !== 'granted') {
-          const { status } = await Notifications.requestPermissionsAsync();
-          finalStatus = status;
-        }
-        if (finalStatus !== 'granted') return;
-        
-        const tokenData = await Notifications.getExpoPushTokenAsync();
-        const token = tokenData.data;
-
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
-           await fetch(`${API_BASE_URL}/users/push-token`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ userId, token }),
-           });
-        }
-      } catch (error) { console.log("Push token error:", error); }
-    };
-
     const fetchLowStock = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/products`);
@@ -70,24 +22,12 @@ export default function TabLayout() {
           // Count items with quantity less than 5
           const count = data.filter((item: any) => Number(item.quantity) < 5).length;
           setLowStockCount(count > 0 ? count : undefined);
-
-          if (count > 0) {
-            await Notifications.scheduleNotificationAsync({
-              content: {
-                title: "Low Stock Alert ⚠️",
-                body: `You have ${count} items running low on stock. Check Inventory.`,
-              },
-              trigger: null,
-            });
-          }
         }
       } catch (error) {
         // Silently fail for badge updates
       }
     };
 
-    requestPermissions();
-    registerForPushNotificationsAsync();
     fetchLowStock();
   }, []);
 
@@ -183,6 +123,12 @@ export default function TabLayout() {
           title: 'Profit',
           tabBarIcon: ({ color, focused }) => <Ionicons size={24} name={focused ? "trending-up" : "trending-up-outline"} color={color} />,
         }}
+      />
+      
+      {/* Explicitly hide notifications tab */}
+      <Tabs.Screen
+        name="notifications"
+        options={{ href: null }}
       />
       
       {/* New: Recent Actions (Hidden) */}

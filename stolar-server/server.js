@@ -22,32 +22,6 @@ const PaymentHistory = require('./models/PaymentHistory');
 
 const app = express();
 
-// Helper: Send Expo Push Notification
-const sendPushNotification = async (expoPushToken, title, body, data = {}) => {
-  if (!expoPushToken) return;
-  const message = {
-    to: expoPushToken,
-    sound: 'default',
-    title: title,
-    body: body,
-    data: data,
-  };
-
-  try {
-    await fetch('https://exp.host/--/api/v2/push/send', {
-      method: 'POST',
-      headers: {
-        Accept: 'application/json',
-        'Accept-encoding': 'gzip, deflate',
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(message),
-    });
-  } catch (error) {
-    console.error('Error sending push notification:', error);
-  }
-};
-
 // Paynow Configuration
 const paynow = new Paynow(process.env.PAYNOW_INTEGRATION_ID, process.env.PAYNOW_INTEGRATION_KEY);
 // Set result and return URLs (Replace with your actual frontend/backend URLs)
@@ -168,6 +142,8 @@ app.post('/api/auth/login', async (req, res) => {
     // If expiry is in the past, they are expired
     const isExpired = expiry < now;
 
+    const shopCount = await Shop.countDocuments({ manager: user._id });
+
     res.json({ 
       success: true, 
       role: user.role, 
@@ -175,7 +151,9 @@ app.post('/api/auth/login', async (req, res) => {
       id: user._id,
       shopId: user.shopId,
       subscriptionExpired: isExpired,
-      subscriptionExpiry: user.subscriptionExpiry
+      subscriptionExpiry: user.subscriptionExpiry,
+      shopCount,
+      nextBillingAmount: shopCount >= 2 ? 25 : 10
     });
   } catch (err) {
     console.error("Login error:", err);
@@ -271,17 +249,6 @@ app.patch('/api/users/:id/status', async (req, res) => {
   }
 });
 
-// Save Expo Push Token
-app.post('/api/users/push-token', async (req, res) => {
-  const { userId, token } = req.body;
-  try {
-    await User.findByIdAndUpdate(userId, { expoPushToken: token });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ message: err.message });
-  }
-});
-
 // --- SHOP MANAGEMENT ---
 
 app.get('/api/shops', async (req, res) => {
@@ -324,7 +291,18 @@ app.get('/api/shops/:id', async (req, res) => {
 app.post('/api/shops/register', async (req, res) => {
   console.log('Registering shop:', req.body.name);
   try {
-    const { name, location, managerId } = req.body;
+    const { name, location, managerId, confirmPremium } = req.body;
+
+    // Premium Plan Check: Warn before adding 2nd shop
+    const existingShops = await Shop.countDocuments({ manager: managerId });
+    if (existingShops >= 1 && !confirmPremium) {
+      return res.status(409).json({ 
+        success: false,
+        requiresConfirmation: true,
+        message: "Adding a second shop upgrades your subscription to the Premium Plan ($25/month). Do you want to proceed?"
+      });
+    }
+
     const generatedCode = `STLR-${Math.floor(1000 + Math.random() * 9000)}`;
 
     const newShop = new Shop({
@@ -427,8 +405,16 @@ app.post('/api/products/add', async (req, res) => {
 
     if (product) {
       product.stockQuantity = (product.stockQuantity || 0) + addQty;
-      product.price = Number(price);
-      product.costPrice = Number(costPrice);
+      
+      // Only update price/cost if provided (prevents overwriting with 0/NaN on partial updates)
+      if (price !== undefined && price !== null && price !== '') product.price = Number(price);
+      if (costPrice !== undefined && costPrice !== null && costPrice !== '') product.costPrice = Number(costPrice);
+      
+      // Allow updating details
+      if (name) product.name = name;
+      if (category) product.category = category;
+
+      console.log(`[DEBUG] Updating ${product.name}: Price=${product.price}, Cost=${product.costPrice}`);
       product.shopId = shopId || product.shopId;
       await product.save();
 
@@ -446,9 +432,10 @@ app.post('/api/products/add', async (req, res) => {
       return res.json({ success: true, message: "Stock updated", product });
     } else {
       const newProduct = new Product({ 
-        name, barcode, category, price: Number(price), 
-        costPrice: Number(costPrice), stockQuantity: addQty, shopId
+        name, barcode, category, price: Number(price) || 0, 
+        costPrice: Number(costPrice) || 0, stockQuantity: addQty, shopId
       });
+      console.log(`[DEBUG] Creating ${name}: Price=${newProduct.price}, Cost=${newProduct.costPrice}`);
       await newProduct.save();
 
       if (userId) {
@@ -554,14 +541,62 @@ app.get('/api/sales/recent', async (req, res) => {
       .limit(limit)
       .lean();
 
-    // Attach cashier names
+    console.log(`[DEBUG] Found ${sales.length} sales. Checking for missing costs...`);
+
+    // Optimization: Pre-fetch product costs for items missing costPrice
+    const missingCostBarcodes = new Set();
+    sales.forEach(s => s.items?.forEach(i => {
+      if (i.costPrice === undefined || i.costPrice === null) missingCostBarcodes.add(i.barcode);
+    }));
+
+    let productCostMap = {};
+    if (missingCostBarcodes.size > 0) {
+      const products = await Product.find({ 
+        barcode: { $in: Array.from(missingCostBarcodes) } 
+      }).select('barcode shopId costPrice').lean();
+      
+      products.forEach(p => {
+        // Create a key combining barcode and shopId to ensure correct cost per shop
+        // Ensure shopId is string for consistent keys
+        productCostMap[`${p.barcode}_${String(p.shopId)}`] = p.costPrice;
+        
+        // Fallback: Store by barcode alone (uses the last one found if duplicates exist)
+        if (productCostMap[p.barcode] === undefined) {
+          productCostMap[p.barcode] = p.costPrice;
+        }
+      });
+    }
+
+    // Attach cashier names and backfill costPrice
     const salesWithNames = await Promise.all(sales.map(async (sale) => {
+      // 1. Attach Cashier Name
       if (sale.cashierId) {
         try {
           const cashier = await User.findById(sale.cashierId).select('name');
           sale.cashierName = cashier ? cashier.name : 'Unknown';
         } catch (e) { sale.cashierName = 'Unknown'; }
       }
+
+      // 2. Backfill Cost Price if missing (Fixes 0.00 COGS on profit report)
+      if (sale.items && Array.isArray(sale.items)) {
+        sale.items.forEach(item => {
+          if (item.costPrice === undefined || item.costPrice === null) {
+            const key = `${item.barcode}_${String(sale.shopId)}`;
+            // Check specific shop first, fallback to just barcode if needed
+            if (productCostMap[key] !== undefined) {
+              console.log(`[DEBUG] Backfilling cost for ${item.name}: ${productCostMap[key]}`);
+              item.costPrice = productCostMap[key];
+            } else if (productCostMap[item.barcode] !== undefined) {
+              // Fallback to barcode-only match
+              console.log(`[DEBUG] Using fallback cost for ${item.name}: ${productCostMap[item.barcode]}`);
+              item.costPrice = productCostMap[item.barcode];
+            } else {
+              console.log(`[DEBUG] No cost found for ${item.name} (Barcode: ${item.barcode}, Shop: ${sale.shopId})`);
+            }
+          }
+        });
+      }
+
       return sale;
     }));
 
@@ -578,6 +613,17 @@ app.post('/api/sales', async (req, res) => {
   try {
     const { items, totalUSD, totalPaidLocal, currencyUsed, rateUsed, paymentMethod, date, offlineId, shopId, cashierId, tenderedAmount, change } = req.body;
 
+    // Enrich items with costPrice from database if missing (Crucial for Profit/Loss)
+    const enrichedItems = await Promise.all(items.map(async (item) => {
+      if (item.costPrice === undefined || item.costPrice === null) {
+        const product = await Product.findOne({ barcode: item.barcode, shopId });
+        if (product) {
+          return { ...item, costPrice: product.costPrice };
+        }
+      }
+      return item;
+    }));
+
     // Duplicate check for offline syncs
     if (offlineId) {
       const existing = await Sale.findOne({ offlineId });
@@ -585,7 +631,7 @@ app.post('/api/sales', async (req, res) => {
     }
 
     const newSale = new Sale({
-      items,
+      items: enrichedItems,
       // Map totalUSD from req.body to the "total" field your schema requires
       total: totalUSD, 
       totalUSD,
@@ -627,16 +673,6 @@ app.post('/api/sales', async (req, res) => {
             message: `New Sale: $${Number(totalUSD).toFixed(2)} by ${cashierName}`,
             relatedId: newSale._id
           }).save();
-
-          // Send Push Notification
-          const managerUser = await User.findById(shop.manager);
-          if (managerUser && managerUser.expoPushToken) {
-            await sendPushNotification(
-              managerUser.expoPushToken,
-              "New Sale! 💰",
-              `$${Number(totalUSD).toFixed(2)} sale recorded by ${cashierName}`
-            );
-          }
         }
       } catch (notifErr) {
         console.error("Notification error:", notifErr);
@@ -687,8 +723,14 @@ app.post('/api/subscription/pay', async (req, res) => {
   console.log('Using Paynow INTEGRATION_KEY:', process.env.PAYNOW_INTEGRATION_KEY);
 
   try {
+    // Dynamic Pricing: $25 for 2+ shops, else $10
+    const shopCount = await Shop.countDocuments({ manager: userId });
+    const planAmount = shopCount >= 2 ? 25 : 10;
+    const finalAmount = amount ? Number(amount) : planAmount;
+
     const payment = paynow.createPayment(`Subscription-${userId}-${Date.now()}`, email);
     payment.add('Monthly Subscription', amount || 10); // Default $10 if not sent
+    payment.add('Monthly Subscription', finalAmount);
 
     const response = await paynow.send(payment);
 
@@ -741,7 +783,7 @@ app.post('/api/subscription/check-status', async (req, res) => {
 
 // 3. Admin Manual Activation (Cash Payment)
 app.post('/api/admin/activate-user', async (req, res) => {
-  const { userId, months, managerName, managerEmail, amount, paymentMethod, isSeed } = req.body; 
+  const { userId, months, managerName, managerEmail, amount, paymentMethod, isSeed, planType } = req.body; 
   console.log(`Admin activating user ${userId} for ${months} months. Amount: ${amount}`);
   
   try {
@@ -763,6 +805,16 @@ app.post('/api/admin/activate-user', async (req, res) => {
     const user = await User.findById(userId);
     if (!user) return res.status(404).json({ message: "User not found" });
 
+    // Determine Rate: Allow manual override via planType, otherwise auto-detect
+    let monthlyRate = 10;
+    const shopCount = await Shop.countDocuments({ manager: userId });
+
+    if (planType === 'premium') monthlyRate = 25;
+    else if (planType === 'standard') monthlyRate = 10;
+    else monthlyRate = shopCount >= 2 ? 25 : 10; // Auto-detect
+
+    const finalPlanType = monthlyRate === 25 ? 'Premium' : 'Standard';
+
     // If currently valid, add to existing expiry. If expired, start from now.
     const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 
         ? new Date(user.subscriptionExpiry) 
@@ -781,10 +833,11 @@ app.post('/api/admin/activate-user', async (req, res) => {
         managerId: user._id,
         managerName: managerName || user.name,
         managerEmail: managerEmail || user.email,
-        amount: (amount && Number(amount) > 0) ? Number(amount) : ((parseInt(months) || 1) * 10),
+        amount: (amount && Number(amount) > 0) ? Number(amount) : ((parseInt(months) || 1) * monthlyRate),
         months: parseInt(months) || 1,
         paymentMethod: paymentMethod || 'cash',
-        isSeed: !!isSeed
+        isSeed: !!isSeed,
+        details: `Manual Activation - ${finalPlanType} Plan` // Store plan details in history
       };
       
       console.log("Attempting to save history:", historyData);
@@ -798,7 +851,7 @@ app.post('/api/admin/activate-user', async (req, res) => {
     }
     // ------------------------------
 
-    res.json({ success: true, message: "User activated successfully", newExpiry: currentExpiry, historySaved });
+    res.json({ success: true, message: `User activated on ${finalPlanType} Plan`, newExpiry: currentExpiry, historySaved, planType: finalPlanType });
   } catch (err) {
     console.error("Admin activation error:", err);
     res.status(500).json({ message: err.message });

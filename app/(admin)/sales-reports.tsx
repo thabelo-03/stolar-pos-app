@@ -1,4 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -8,6 +10,7 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TouchableOpacity,
   View
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
@@ -30,6 +33,7 @@ interface ChartPoint {
 }
 
 export default function SalesReports() {
+  const router = useRouter();
   const [sales, setSales] = useState<Sale[]>([]);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
   const [stats, setStats] = useState({ totalRevenue: 0, totalCount: 0 });
@@ -98,6 +102,11 @@ export default function SalesReports() {
     fetchSales();
   }, []);
 
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/(auth)/login');
+  };
+
   const renderHeader = () => (
     <View>
       {/* 1. Summary Cards */}
@@ -151,6 +160,15 @@ export default function SalesReports() {
       
       {/* Blue Header Background */}
       <View style={styles.header}>
+        <View style={styles.headerTopRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
+            <Ionicons name="arrow-back" size={24} color="white" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
+            <Ionicons name="log-out-outline" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
+
         <Text style={styles.title}>Sales Reports</Text>
         <Text style={styles.subtitle}>Overview & Analytics</Text>
       </View>
@@ -217,7 +235,7 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#1e3a8a',
     paddingHorizontal: 24,
-    paddingTop: 60,
+    paddingTop: 50,
     paddingBottom: 30,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
@@ -225,8 +243,18 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 8,
-    zIndex: 10,
+    elevation: 0, // Reduced elevation so cards sit on top
+    zIndex: 0,    // Reduced zIndex so cards sit on top
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 15,
+  },
+  iconButton: {
+    padding: 8,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    borderRadius: 12,
   },
   title: { fontSize: 28, fontWeight: '800', color: 'white' },
   subtitle: { fontSize: 14, color: '#bfdbfe', marginTop: 4 },
@@ -238,6 +266,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     marginTop: -25, // Overlap effect
     marginBottom: 20,
+    zIndex: 10,     // Ensure cards are above header
+    elevation: 10,  // Ensure cards are above header on Android
   },
   summaryCard: {
     width: '48%',
