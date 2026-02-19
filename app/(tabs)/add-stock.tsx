@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -74,6 +73,12 @@ const [category, setCategory] = useState('General');
 
     if (!itemName || !quantity || !price || !costPrice) {
       Alert.alert('Error', 'Please fill in all fields');
+      return;
+    }
+
+    // Validate that Item Name ends with a weight (e.g., 1kg, 500g)
+    if (!/[0-9]+(\.[0-9]+)?\s*(kg|g)$/i.test(itemName.trim())) {
+      Alert.alert('Invalid Name', 'Item name must include weight at the end (e.g. "Rice 2kg" or "Spice 50g")');
       return;
     }
 
@@ -231,7 +236,7 @@ const [category, setCategory] = useState('General');
               style={[styles.input, { color: textColor, flex: 1 }]}
               value={itemName}
               onChangeText={setItemName}
-              placeholder="e.g. Apple"
+              placeholder="e.g. Apple 1kg"
               placeholderTextColor={placeholderColor}
             />
             <TouchableOpacity onPress={async () => {
