@@ -152,14 +152,14 @@ export default function ProfitReportScreen() {
   const fetchData = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      let shopId = null;
-      let userRole = null;
+      let shopId = await AsyncStorage.getItem('shopId');
+      let userRole = await AsyncStorage.getItem('userRole');
 
-      if (userId) {
+      if (userId && (!shopId || !userRole)) {
         const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
         const user = await userRes.json();
-        shopId = user.shopId;
-        userRole = user.role;
+        if (!shopId) shopId = user.shopId;
+        if (!userRole) userRole = user.role;
       }
 
       // 1. Fetch Inventory to get Cost Prices

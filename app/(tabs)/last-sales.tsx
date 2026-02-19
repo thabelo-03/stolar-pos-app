@@ -2,8 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -43,12 +43,21 @@ export default function LastSalesScreen() {
       let url = `${API_BASE_URL}/sales/recent?limit=10&page=${pageNumber}`;
       
       if (userId) {
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-        if (user.shopId && user.role !== 'admin') {
-          url += `&shopId=${user.shopId}`;
+        // Check local storage first (Manager switch support)
+        let activeShopId = await AsyncStorage.getItem('shopId');
+        let role = await AsyncStorage.getItem('userRole');
+
+        if (!activeShopId || !role) {
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const user = await userRes.json();
+          if (!activeShopId) activeShopId = user.shopId;
+          if (!role) role = user.role;
         }
-        if (user.role === 'cashier') {
+
+        if (activeShopId && role !== 'admin') {
+          url += `&shopId=${activeShopId}`;
+        }
+        if (role === 'cashier') {
           url += `&cashierId=${userId}`;
         }
       }

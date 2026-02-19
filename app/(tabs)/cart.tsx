@@ -59,13 +59,18 @@ export default function CartScreen() {
       try {
         const userId = await AsyncStorage.getItem('userId');
         let endpoint = `${API_BASE_URL}/shops/rates`;
+        
+        // Check local storage first (Manager switch support)
+        let activeShopId = await AsyncStorage.getItem('shopId');
 
-        if (userId) {
+        if (userId && !activeShopId) {
           const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
           const user = await userRes.json();
-          if (user.shopId) {
-            endpoint = `${API_BASE_URL}/shops/rates/${user.shopId}`;
-          }
+          activeShopId = user.shopId;
+        }
+
+        if (activeShopId) {
+          endpoint = `${API_BASE_URL}/shops/rates/${activeShopId}`;
         }
 
         const response = await fetch(endpoint); 
@@ -89,11 +94,17 @@ export default function CartScreen() {
         const userId = await AsyncStorage.getItem('userId');
         if (!userId) return;
 
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
+        // Check local storage first (Manager switch support)
+        let activeShopId = await AsyncStorage.getItem('shopId');
 
-        if (user.shopId) {
-          const response = await fetch(`${API_BASE_URL}/products?shopId=${user.shopId}`);
+        if (!activeShopId) {
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const user = await userRes.json();
+          activeShopId = user.shopId;
+        }
+
+        if (activeShopId) {
+          const response = await fetch(`${API_BASE_URL}/products?shopId=${activeShopId}`);
           if (response.ok) {
             setAllProducts(await response.json());
           }
@@ -314,10 +325,18 @@ export default function CartScreen() {
       let url = `${API_BASE_URL}/sales/recent`;
       
       if (userId) {
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-        if (user.shopId && user.role !== 'admin') {
-          url += `?shopId=${user.shopId}`;
+        let activeShopId = await AsyncStorage.getItem('shopId');
+        let role = await AsyncStorage.getItem('userRole');
+
+        if (!activeShopId || !role) {
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          const user = await userRes.json();
+          if (!activeShopId) activeShopId = user.shopId;
+          if (!role) role = user.role;
+        }
+
+        if (activeShopId && role !== 'admin') {
+          url += `?shopId=${activeShopId}`;
         }
       }
 
