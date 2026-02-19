@@ -1,11 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './api';
+import { useManagerAuth } from './use-manager-auth';
+
 
 export default function CashierHome() {
   const router = useRouter();
@@ -20,60 +21,17 @@ export default function CashierHome() {
   const [unreadCount, setUnreadCount] = useState(0);
   const insets = useSafeAreaInsets();
 
-  // Password Protection
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [password, setPassword] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const pendingAction = useRef<(() => void) | null>(null);
-
-  const requestPassword = async (action: () => void) => {
-    pendingAction.current = action;
-    setPassword('');
-    setVerifying(false);
-
-    // Try Biometrics First
-    const bioEnabled = await AsyncStorage.getItem('biometricEnabled');
-    if (bioEnabled === 'true') {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      if (hasHardware && isEnrolled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Manager Approval Required',
-          fallbackLabel: 'Use Password',
-        });
-        if (result.success) return action();
-      }
-    }
-
-    setPasswordVisible(true);
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!password) return;
-    setVerifying(true);
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      const response = await fetch(`${API_BASE_URL}/auth/verify-manager`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cashierId: userId, password }),
-      });
-      
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setPasswordVisible(false);
-        setTimeout(() => {
-          pendingAction.current?.();
-        }, 100);
-      } else {
-        Alert.alert("Error", data.message || "Incorrect Password");
-      }
-    } catch (e) {
-      Alert.alert("Error", "Network error");
-    } finally {
-      setVerifying(false);
-    }
-  };
+  // Password Protection Hook
+  const {
+    passwordVisible,
+    setPasswordVisible,
+    password,
+    setPassword,
+    verifying,
+    requestPassword,
+    handlePasswordSubmit,
+    pendingAction
+  } = useManagerAuth();
 
   useEffect(() => {
     const fetchShopName = async () => {
@@ -161,14 +119,17 @@ export default function CashierHome() {
       <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.brandTitle}>Stolarr POS</Text>
+            <Text style={styles.brandTitle}>Stolar POS</Text>
             <TouchableOpacity onPress={() => shopDetails && setInfoModalVisible(true)} disabled={!shopDetails}>
               {/* <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={11} color="#4ade80" /> </Text> */}
               <Text style={styles.statusSub}>Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={11} color="#4ade80" /> </Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={styles.notificationBtn} onPress={handleLogout}>
+            <TouchableOpacity style={styles.notificationBtn} onPress={() => router.push('/(tabs)/profile-settings')}>
+              <Ionicons name="settings-outline" size={26} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.notificationBtn, { marginLeft: 10 }]} onPress={handleLogout}>
               <Ionicons name="log-out-outline" size={26} color="white" />
             </TouchableOpacity>
             <TouchableOpacity style={[styles.notificationBtn, { marginLeft: 10 }]} onPress={() => router.push('/notifications')}>
@@ -261,18 +222,35 @@ export default function CashierHome() {
                   <Text style={styles.actionSub}>Receipts</Text>
                 </View>
               </TouchableOpacity>
+
+              <TouchableOpacity style={styles.actionRow} onPress={() => requestPassword(() => router.push('/(tabs)/profit-report'))}>
+                <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                  <Ionicons name="trending-up" size={20} color="#16a34a" />
+                </View>
+                <View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.actionTitle}>Profit Report</Text>
+                    <Ionicons name="lock-closed" size={12} color="#f59e0b" style={{ marginLeft: 4 }} />
+                  </View>
+                  <Text style={styles.actionSub}>Margins & Revenue</Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
             {/* Add Stock Card */}
-            <View style={styles.card}>
+            <View style={[styles.card, !isLinked && { opacity: 0.6 }]}>
               <Text style={styles.sectionLabel}>Add Stock</Text>
-              <TouchableOpacity style={styles.addStockBtn} onPress={() => router.push('/(tabs)/add-stock')}>
+              <TouchableOpacity 
+                style={[styles.addStockBtn, !isLinked && { backgroundColor: '#e2e8f0' }]} 
+                onPress={() => router.push('/(tabs)/add-stock')}
+                disabled={!isLinked}
+              >
                 <View style={styles.addStockIcon}>
-                   <Ionicons name="add-circle" size={24} color="#059669" />
+                   <Ionicons name="add-circle" size={24} color={isLinked ? "#059669" : "#94a3b8"} />
                 </View>
                 <View>
-                  <Text style={styles.actionTitle}>Add Stock</Text>
-                  <Text style={styles.actionSub}>Adjust Inventory</Text>
+                  <Text style={[styles.actionTitle, !isLinked && { color: '#64748b' }]}>Add Stock</Text>
+                  <Text style={styles.actionSub}>{isLinked ? 'Adjust Inventory' : 'Link Shop Required'}</Text>
                 </View>
               </TouchableOpacity>
             </View>
@@ -436,11 +414,11 @@ const styles = StyleSheet.create({
 
   infoModalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '85%', maxWidth: 400 },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
   infoContent: { gap: 16 },
   infoRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   infoIconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
   infoLabel: { fontSize: 12, color: '#64748b', marginBottom: 2 },
   infoValue: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 8 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
 });

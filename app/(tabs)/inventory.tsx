@@ -22,6 +22,8 @@ interface InventoryItem {
   stockQuantity?: number;
 }
 
+type SortOption = 'name' | 'price' | 'quantity' | 'margin' | 'profit';
+
 export default function CashierInventoryScreen() {
   const router = useRouter();
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
@@ -29,7 +31,7 @@ export default function CashierInventoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
-  const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin' | 'profit'>('name');
+  const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
@@ -113,7 +115,7 @@ export default function CashierInventoryScreen() {
       if (activeShopId) {
         setCurrentShopId(activeShopId);
         const response = await fetch(`${API_BASE_URL}/products?shopId=${activeShopId}`);
-        const data = await response.json();
+        const data: any[] = await response.json();
         if (response.ok) {
           const mappedData = data.map((item: any) => ({
             ...item,
@@ -225,11 +227,13 @@ export default function CashierInventoryScreen() {
         const costB = Number(b.costPrice) || 0;
         valB = priceB - costB;
       } else if (sortBy === 'price' || sortBy === 'quantity') {
-        valA = Number(a[sortBy]) || 0;
-        valB = Number(b[sortBy]) || 0;
+        // Explicitly cast to keyof InventoryItem for safe access, though we know these specific keys exist
+        valA = Number(a[sortBy as keyof InventoryItem]) || 0;
+        valB = Number(b[sortBy as keyof InventoryItem]) || 0;
       } else {
-        valA = (a[sortBy] || '').toString().toLowerCase();
-        valB = (b[sortBy] || '').toString().toLowerCase();
+        // Default string sort (name)
+        valA = (a.name || '').toString().toLowerCase();
+        valB = (b.name || '').toString().toLowerCase();
       }
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -311,6 +315,60 @@ export default function CashierInventoryScreen() {
       }
     });
   };
+
+  const renderInventoryItem = useCallback(({ item }: { item: InventoryItem }) => {
+    const qty = Number(item.quantity) || 0;
+    const status = getStockStatus(qty);
+    const price = Number(item.price) || 0;
+    const cost = Number(item.costPrice) || 0;
+    const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+    const profit = price - cost;
+
+    return (
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.iconBox}>
+            <MaterialCommunityIcons name="cube-outline" size={24} color="#1e40af" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.itemName}>{item.name}</Text>
+            <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
+          </View>
+          <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+            <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+          </View>
+        </View>
+
+        <View style={styles.cardDivider} />
+
+        <View style={styles.cardFooter}>
+          <View>
+            <Text style={styles.priceLabel}>Price</Text>
+            <Text style={styles.priceValue}>${price.toFixed(2)}</Text>
+          </View>
+          <View>
+            <Text style={styles.priceLabel}>Stock</Text>
+            <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
+          </View>
+          <View>
+            <Text style={styles.priceLabel}>Profit</Text>
+            <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
+              ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
+            </Text>
+          </View>
+          
+          <View style={styles.actions}>
+            <TouchableOpacity style={styles.actionBtn} onPress={() => handleEdit(item)}>
+              <MaterialCommunityIcons name="pencil" size={20} color="#64748b" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleDelete(item._id, item.name)}>
+              <MaterialCommunityIcons name="delete" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    );
+  }, []);
 
   return (
     <ThemedView style={styles.container}>
@@ -421,58 +479,7 @@ export default function CashierInventoryScreen() {
           keyExtractor={(item) => item._id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => {
-            const qty = Number(item.quantity) || 0;
-            const status = getStockStatus(qty);
-            const price = Number(item.price) || 0;
-            const cost = Number(item.costPrice) || 0;
-            const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
-            const profit = price - cost;
-            return (
-              <View style={styles.card}>
-                <View style={styles.cardHeader}>
-                  <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name="cube-outline" size={24} color="#1e40af" />
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemName}>{item.name}</Text>
-                    <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
-                  </View>
-                  <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
-                    <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
-                  </View>
-                </View>
-
-                <View style={styles.cardDivider} />
-
-                <View style={styles.cardFooter}>
-                  <View>
-                    <Text style={styles.priceLabel}>Price</Text>
-                    <Text style={styles.priceValue}>${price.toFixed(2)}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.priceLabel}>Stock</Text>
-                    <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.priceLabel}>Profit</Text>
-                    <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
-                      ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
-                    </Text>
-                  </View>
-                  
-                  <View style={styles.actions}>
-                    <TouchableOpacity style={styles.actionBtn} onPress={() => handleEdit(item)}>
-                      <MaterialCommunityIcons name="pencil" size={20} color="#64748b" />
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleDelete(item._id, item.name)}>
-                      <MaterialCommunityIcons name="delete" size={20} color="#ef4444" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </View>
-            );
-          }}
+          renderItem={renderInventoryItem}
           ListEmptyComponent={<Text style={styles.empty}>No products found.</Text>}
         />
       )}
