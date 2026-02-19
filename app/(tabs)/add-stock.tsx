@@ -12,6 +12,7 @@ import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 
 export default function AddStockScreen() {
   const router = useRouter();
@@ -29,14 +30,14 @@ export default function AddStockScreen() {
   const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   // Add this near your other useState hooks
 const [category, setCategory] = useState('General');
-  const [shopId, setShopId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = '#888';
+
+  const { shopId, userId, loading: shopLoading } = useActiveShop();
 
   useEffect(() => {
     if (isEditMode) {
@@ -47,21 +48,6 @@ const [category, setCategory] = useState('General');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
       if (params.category) setCategory(params.category as string);
     }
-  }, []);
-
-  useEffect(() => {
-    const fetchUserShop = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
-          setCurrentUserId(userId);
-          const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const userData = await response.json();
-          if (userData.shopId) setShopId(userData.shopId);
-        }
-      } catch (e) { console.log("Error fetching shop ID", e); }
-    };
-    fetchUserShop();
   }, []);
 
   useEffect(() => {
@@ -131,7 +117,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId: currentUserId }),
+          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId }),
         });
 
         const data = await response.json();
@@ -347,10 +333,10 @@ const [category, setCategory] = useState('General');
           />
         </ThemedView>
 
-        {loading ? (
+        {loading || shopLoading ? (
           <ActivityIndicator size="large" color={textColor} />
         ) : (
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={shopLoading}>
             <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>
           </TouchableOpacity>
         )}

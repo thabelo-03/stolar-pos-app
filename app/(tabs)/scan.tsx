@@ -2,17 +2,22 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useActiveShop } from './use-active-shop';
 
 export default function ScanScreen() {
   const router = useRouter();
   const [permission, requestPermission] = useCameraPermissions();
   const [manualEntry, setManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const { shopId, loading: shopLoading } = useActiveShop();
 
-  if (!permission) {
-    // Camera permissions are still loading.
-    return <View style={styles.container} />;
+  if (shopLoading || !permission) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="white" />
+      </View>
+    );
   }
 
   if (!permission.granted) {
@@ -30,7 +35,7 @@ export default function ScanScreen() {
     // Navigate to the cart screen with the scanned barcode
     router.push({
       pathname: '/(tabs)/cart',
-      params: { barcode: data },
+      params: { barcode: data, shopId: shopId || '' },
     });
   };
 

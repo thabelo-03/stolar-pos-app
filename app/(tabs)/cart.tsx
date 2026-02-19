@@ -23,8 +23,10 @@ import { API_BASE_URL } from './api';
 
 // IMPORT OFFLINE TOOLS
 import * as Network from 'expo-network';
-import { useActiveShop } from './use-active-shop';
 import { OfflineService } from '../services/offlineService';
+import { useActiveShop } from './use-active-shop';
+import { useProducts } from './use-products';
+import { useRates } from './use-rates';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -35,7 +37,6 @@ export default function CartScreen() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [activeScanField, setActiveScanField] = useState<'search-barcode' | 'search-ocr' | null>(null);
@@ -52,52 +53,15 @@ export default function CartScreen() {
 
   // MULTI-CURRENCY STATE
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
-  const [rates, setRates] = useState<{ ZAR: number; ZiG: number; updatedAt?: string }>({ ZAR: 19.2, ZiG: 26.5 }); 
 
-  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
-
-  // --- 1. FETCH LIVE RATES FROM DATABASE ---
-  useEffect(() => {
-    if (shopLoading) return;
-    const fetchRates = async () => {
-      try {
-        let endpoint = `${API_BASE_URL}/shops/rates`;
-        if (shopId) {
-          endpoint = `${API_BASE_URL}/shops/rates/${shopId}`;
-        }
-
-        const response = await fetch(endpoint); 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.rates) {
-            setRates(data.rates);
-          }
-        }
-      } catch (error) {
-        console.log("Using default fallback rates due to connectivity.");
-      }
-    };
-    fetchRates();
-  }, [shopLoading, shopId]);
+  const { shopId, shopName, userRole, userId, loading: shopLoading } = useActiveShop();
+  const { products: allProducts, fetchProducts } = useProducts();
+  const { rates } = useRates();
 
   // --- 2. FETCH PRODUCTS ---
   useEffect(() => {
-    if (shopLoading) return;
-    const fetchAllProducts = async () => {
-      try {
-        if (!userId) return;
-        if (shopId) {
-          const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
-          if (response.ok) {
-            setAllProducts(await response.json());
-          }
-        }
-      } catch (error) {
-        console.log("Working in offline product mode.");
-      }
-    };
-    fetchAllProducts();
-  }, [shopLoading, shopId, userId]);
+    fetchProducts();
+  }, [fetchProducts]);
 
   // Update total whenever cart changes
   useEffect(() => {
@@ -465,7 +429,10 @@ export default function CartScreen() {
       {/* HEADER */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#1e293b" /></TouchableOpacity>
-        <Text style={styles.title}>Stolar Cart</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={styles.title}>Stolar Cart</Text>
+          {shopName && <Text style={styles.shopSub}>{shopName}</Text>}
+        </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
           <TouchableOpacity onPress={fetchRecentSales} style={styles.headerIconBtn}>
               <Ionicons name="receipt-outline" size={20} color="#1e40af" />
@@ -905,6 +872,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: 'white' },
   title: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
+  shopSub: { fontSize: 12, color: '#64748b', fontWeight: '600' },
   rateBadge: { backgroundColor: '#eff6ff', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#dbeafe' },
   rateText: { fontSize: 12, color: '#1e40af', fontWeight: 'bold' },
   rateTimeText: { fontSize: 8, color: '#64748b', textAlign: 'center', marginTop: 2 },

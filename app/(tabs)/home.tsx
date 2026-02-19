@@ -6,6 +6,8 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
+import { useNotifications } from './use-notifications';
 
 export default function CashierHome() {
   const router = useRouter();
@@ -17,8 +19,10 @@ export default function CashierHome() {
   const [shopName, setShopName] = useState(initialShopName ? (Array.isArray(initialShopName) ? initialShopName[0] : initialShopName) : 'Loading...');
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const { unreadCount, fetchUnreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
+
+  const { shopId, shopName: hookShopName, userRole: hookUserRole, userId, loading: shopLoading, refreshShop } = useActiveShop();
 
   // Password Protection
   const [passwordVisible, setPasswordVisible] = useState(false);
@@ -75,79 +79,64 @@ export default function CashierHome() {
     }
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      const checkShopLink = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        const storedRole = await AsyncStorage.getItem('userRole');
-        if (storedRole) setUserRole(storedRole);
+  useEffect(() => {
+    if (hookUserRole) setUserRole(hookUserRole);
+  }, [hookUserRole]);
 
-        if (userId) {
-          const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-          if (response.ok) {
-            const userData = await response.json();
-            if (userData.name) setCashierName(userData.name);
-            
-            // Prioritize local selection for managers, fallback to DB link
-            const localShopId = await AsyncStorage.getItem('shopId');
-            let activeShopId = userData.shopId;
-            if (storedRole === 'manager' && localShopId) {
-                activeShopId = localShopId;
-            }
+  useEffect(() => {
+    if (hookShopName) setShopName(hookShopName);
+  }, [hookShopName]);
 
-            if (activeShopId) {
-              setIsLinked(true);
-              setHasPendingRequest(false);
-              const shopRes = await fetch(`${API_BASE_URL}/shops/${activeShopId}`);
-              if (shopRes.ok) {
-                const shopData = await shopRes.json();
-                setShopName(shopData.name || 'Unknown Shop');
-                setShopDetails(shopData);
-              } else {
-                setShopName('Shop Not Found');
-              }
-            } else {
-              setShopName('No Shop Linked');
-              // Check for pending request
-              const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
-              if (reqRes.ok) {
-                const reqData = await reqRes.json();
-                if (reqData) setHasPendingRequest(true);
-              }
-            }
-          } else {
-            setShopName('User Error');
-          }
-        } else {
-          setShopName('Not Logged In');
-        }
-      } catch (e) {
-        console.log("Error checking shop link", e);
-        setShopName('Offline');
-      }
-    };
-    checkShopLink();
-  }, [])
-  );
+  useEffect(() => {
+    const updateDashboard = async () => {
+      if (shopLoading) return;
 
-  useFocusEffect(
-    useCallback(() => {
-      const fetchUnreadCount = async () => {
+      if (userId) {
         try {
-          const userId = await AsyncStorage.getItem('userId');
-          if (userId) {
-            const response = await fetch(`${API_BASE_URL}/notifications/${userId}`);
-            if (response.ok) {
-              const data = await response.json();
-              const count = data.filter((n: any) => !n.isRead).length;
-              setUnreadCount(count);
-            }
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          if (userRes.ok) {
+            const userData = await userRes.json();
+            if (userData.name) setCashierName(userData.name);
           }
         } catch (e) {}
-      };
+
+        if (shopId) {
+          setIsLinked(true);
+          setHasPendingRequest(false);
+          try {
+            const shopRes = await fetch(`${API_BASE_URL}/shops/${shopId}`);
+            if (shopRes.ok) {
+              const shopData = await shopRes.json();
+              setShopName(shopData.name || 'Unknown Shop');
+              setShopDetails(shopData);
+            } else {
+              setShopName('Shop Not Found');
+            }
+          } catch (e) { setShopName('Offline'); }
+        } else {
+          setShopName('No Shop Linked');
+          setIsLinked(false);
+          setShopDetails(null);
+          try {
+            const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
+            if (reqRes.ok) {
+              const reqData = await reqRes.json();
+              if (reqData) setHasPendingRequest(true);
+            }
+          } catch (e) {}
+        }
+      } else {
+        setShopName('Not Logged In');
+      }
+    };
+    updateDashboard();
+  }, [shopId, userId, shopLoading]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refreshShop();
       fetchUnreadCount();
-    }, [])
+    }, [refreshShop, fetchUnreadCount])
   );
 
   const handleLogout = () => {

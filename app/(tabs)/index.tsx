@@ -6,6 +6,8 @@ import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Tex
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './api';
 import { useManagerAuth } from './use-manager-auth';
+import { useNotifications } from './use-notifications';
+import { useActiveShop } from './use-active-shop';
 
 
 export default function CashierHome() {
@@ -18,8 +20,11 @@ export default function CashierHome() {
   const [userRole, setUserRole] = useState<string | null>(null);
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingDetails, setLoadingDetails] = useState(false);
+  const { unreadCount, fetchUnreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
+
+  const { shopId, shopName: hookShopName, userRole: hookUserRole, userId, loading: shopLoading, refreshShop } = useActiveShop();
 
   // Password Protection Hook
   const {
@@ -34,66 +39,53 @@ export default function CashierHome() {
   } = useManagerAuth();
 
   useEffect(() => {
-    const fetchShopName = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        const storedRole = await AsyncStorage.getItem('userRole');
-        if (storedRole) setUserRole(storedRole);
+    if (hookUserRole) setUserRole(hookUserRole);
+  }, [hookUserRole]);
 
-        if (userId) {
-          const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-          if (response.ok) {
-            const userData = await response.json();
+  useEffect(() => {
+    if (hookShopName) setShopName(hookShopName);
+  }, [hookShopName]);
+
+  useEffect(() => {
+    const updateDashboard = async () => {
+      if (shopLoading) return;
+
+      if (userId) {
+        try {
+          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+          if (userRes.ok) {
+            const userData = await userRes.json();
             if (userData.name) setCashierName(userData.name);
-            if (userData.shopId) {
-              setIsLinked(true);
-              setHasPendingRequest(false);
-              const shopRes = await fetch(`${API_BASE_URL}/shops/${userData.shopId}`);
-              if (shopRes.ok) {
-                const shopData = await shopRes.json();
-                setShopName(shopData.name || 'Unknown Shop');
-                setShopDetails(shopData);
-              } else {
-                setShopName('Shop Not Found');
-              }
-            } else {
-              setShopName('No Shop Linked');
-              setIsLinked(false);
-              // Check for pending request
-              const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
-              if (reqRes.ok) {
-                const reqData = await reqRes.json();
-                if (reqData) setHasPendingRequest(true);
-              }
-            }
-          } else {
-            setShopName('User Error');
           }
+        } catch (e) {}
+
+        if (shopId) {
+          setIsLinked(true);
+          setHasPendingRequest(false);
         } else {
-          setShopName('Not Logged In');
+          setShopName('No Shop Linked');
+          setIsLinked(false);
+          setShopDetails(null);
+          try {
+            const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
+            if (reqRes.ok) {
+              const reqData = await reqRes.json();
+              if (reqData) setHasPendingRequest(true);
+            }
+          } catch (e) {}
         }
-      } catch (e) { setShopName('Offline'); }
+      } else {
+        setShopName('Not Logged In');
+      }
     };
-    fetchShopName();
-  }, []);
+    updateDashboard();
+  }, [shopId, userId, shopLoading]);
 
   useFocusEffect(
     useCallback(() => {
-      const fetchUnreadCount = async () => {
-        try {
-          const userId = await AsyncStorage.getItem('userId');
-          if (userId) {
-            const response = await fetch(`${API_BASE_URL}/notifications/${userId}`);
-            if (response.ok) {
-              const data = await response.json();
-              const count = data.filter((n: any) => !n.isRead).length;
-              setUnreadCount(count);
-            }
-          }
-        } catch (e) {}
-      };
+      refreshShop();
       fetchUnreadCount();
-    }, [])
+    }, [refreshShop, fetchUnreadCount])
   );
 
   const handleLogout = () => {
@@ -111,6 +103,23 @@ export default function CashierHome() {
     );
   };
 
+  const handleOpenShopInfo = async () => {
+    if (!shopId) return;
+    setInfoModalVisible(true);
+    
+    if (!shopDetails) {
+      setLoadingDetails(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/shops/${shopId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setShopDetails(data);
+        }
+      } catch (e) {}
+      setLoadingDetails(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1e40af" />
@@ -120,8 +129,7 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolar POS</Text>
-            <TouchableOpacity onPress={() => shopDetails && setInfoModalVisible(true)} disabled={!shopDetails}>
-              {/* <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={11} color="#4ade80" /> </Text> */}
+            <TouchableOpacity onPress={handleOpenShopInfo} disabled={!isLinked}>
               <Text style={styles.statusSub}>Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={11} color="#4ade80" /> </Text>
             </TouchableOpacity>
           </View>
@@ -297,7 +305,9 @@ export default function CashierHome() {
               </TouchableOpacity>
             </View>
             
-            {shopDetails && (
+            {loadingDetails ? (
+              <ActivityIndicator size="large" color="#1e40af" style={{ marginVertical: 20 }} />
+            ) : shopDetails ? (
               <View style={styles.infoContent}>
                 <View style={styles.infoRow}>
                   <View style={styles.infoIconBox}><Ionicons name="storefront" size={20} color="#1e40af" /></View>
@@ -341,6 +351,8 @@ export default function CashierHome() {
                   </View>
                 </View>
               </View>
+            ) : (
+              <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>Could not load details.</Text>
             )}
           </View>
         </View>

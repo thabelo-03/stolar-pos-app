@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Animated,
+  FlatList,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -24,6 +25,8 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [workspaceModalVisible, setWorkspaceModalVisible] = useState(false);
   const [managerData, setManagerData] = useState<any>(null);
+  const [shops, setShops] = useState<any[]>([]);
+  const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
   const scaleValue = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -99,17 +102,35 @@ export default function Login() {
   };
 
   const handleWorkspaceSelection = async (type: 'manager' | 'cashier') => {
-    setWorkspaceModalVisible(false);
     if (type === 'manager') {
+      setWorkspaceModalVisible(false);
       router.replace('/(manager)');
     } else {
-      if (managerData?.shopId) {
-        await AsyncStorage.setItem('shopId', managerData.shopId);
-        router.replace('/(tabs)/home');
-      } else {
-        router.replace('/(cashier)/my-shop');
+      // Cashier POS selected by Manager
+      try {
+        const userId = await AsyncStorage.getItem('userId');
+        const response = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
+        const shopsData = await response.json();
+        
+        setWorkspaceModalVisible(false);
+
+        if (Array.isArray(shopsData) && shopsData.length > 0) {
+           setShops(shopsData);
+           setTimeout(() => setShopSelectionVisible(true), 300);
+        } else {
+           router.replace('/(manager)');
+        }
+      } catch (e) {
+        setWorkspaceModalVisible(false);
+        Alert.alert("Error", "Failed to load shops.");
       }
     }
+  };
+
+  const handleSelectShopForPOS = async (shop: any) => {
+      await AsyncStorage.setItem('shopId', shop._id);
+      setShopSelectionVisible(false);
+      router.replace('/(tabs)/home');
   };
 
   return (
@@ -220,6 +241,51 @@ export default function Login() {
               <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
             </TouchableOpacity>
           </Animated.View>
+        </View>
+      </Modal>
+
+      {/* Shop Selection Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={shopSelectionVisible}
+        onRequestClose={() => setShopSelectionVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Shop</Text>
+              <Text style={styles.modalSubtitle}>Choose a shop for POS session</Text>
+            </View>
+
+            <FlatList
+              data={shops}
+              keyExtractor={(item) => item._id}
+              style={{ maxHeight: 300 }}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={styles.workspaceButton} 
+                  onPress={() => handleSelectShopForPOS(item)}
+                >
+                  <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
+                    <Ionicons name="storefront" size={24} color="#0284c7" />
+                  </View>
+                  <View style={styles.workspaceTextContainer}>
+                    <Text style={styles.workspaceTitle}>{item.name}</Text>
+                    <Text style={styles.workspaceDesc}>{item.location}</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
+                </TouchableOpacity>
+              )}
+            />
+            
+            <TouchableOpacity 
+              style={[styles.loginBtn, { backgroundColor: '#f1f5f9', marginTop: 10 }]} 
+              onPress={() => setShopSelectionVisible(false)}
+            >
+              <Text style={[styles.loginBtnText, { color: '#64748b' }]}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </KeyboardAvoidingView>

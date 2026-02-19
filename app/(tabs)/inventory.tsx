@@ -11,6 +11,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
+import { useProducts } from './use-products';
 
 interface InventoryItem {
   _id: string;
@@ -49,7 +50,8 @@ export default function CashierInventoryScreen() {
   const [verifying, setVerifying] = useState(false);
   const pendingAction = useRef<(() => void) | null>(null);
 
-  const { shopId, userId, loading: shopLoading } = useActiveShop();
+  const { shopId, userId } = useActiveShop();
+  const { fetchProducts, loading: productsLoading } = useProducts();
 
   const requestPassword = async (action: () => void) => {
     pendingAction.current = action;
@@ -101,23 +103,13 @@ export default function CashierInventoryScreen() {
   };
 
   const fetchInventory = async () => {
-    if (shopLoading) return;
     try {
-      if (!userId) return;
-
-      if (shopId) {
-        const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
-        const data: any[] = await response.json();
-        if (response.ok) {
-          const mappedData = data.map((item: any) => ({
-            ...item,
-            quantity: item.stockQuantity !== undefined ? item.stockQuantity : (item.quantity || 0)
-          }));
-          setInventory(mappedData);
-        }
-      } else {
-        setInventory([]);
-      }
+      const data = await fetchProducts();
+      const mappedData = data.map((item: any) => ({
+        ...item,
+        quantity: item.stockQuantity !== undefined ? item.stockQuantity : (item.quantity || 0)
+      }));
+      setInventory(mappedData);
     } catch (error) {
       console.log('Error fetching inventory:', error);
     } finally {
@@ -129,7 +121,7 @@ export default function CashierInventoryScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchInventory();
-    }, [shopId, shopLoading])
+    }, [fetchProducts])
   );
 
   const onRefresh = () => {
@@ -462,7 +454,7 @@ export default function CashierInventoryScreen() {
         </ScrollView>
       </View>
 
-      {loading ? (
+      {loading || productsLoading ? (
         <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 50 }} />
       ) : (
         <FlatList

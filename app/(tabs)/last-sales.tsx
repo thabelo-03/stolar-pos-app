@@ -13,16 +13,15 @@ import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
+import { useSales } from './use-sales';
 
 export default function LastSalesScreen() {
   const router = useRouter();
   const textColor = useThemeColor({}, 'text');
-  const [sales, setSales] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Removed local sales/loading state in favor of hook
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showRefundedOnly, setShowRefundedOnly] = useState(false);
   const [startDate, setStartDate] = useState(new Date());
@@ -37,75 +36,36 @@ export default function LastSalesScreen() {
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const insets = useSafeAreaInsets();
 
-  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+  const { shopId, loading: shopLoading } = useActiveShop();
+  const { sales, loading, fetchSales: fetchSalesHook, hasMore, setSales } = useSales();
 
-  const fetchSales = async (pageNumber = 1) => {
+  const loadSales = async (pageNumber = 1) => {
     if (shopLoading && pageNumber === 1) return;
+    if (pageNumber > 1) setLoadingMore(true);
 
-    try {
-      // Attempt to fetch from API
-      let url = `${API_BASE_URL}/sales/recent?limit=10&page=${pageNumber}`;
-      
-      if (userId) {
-        if (shopId && userRole !== 'admin') {
-          url += `&shopId=${shopId}`;
-        }
-        if (userRole === 'cashier') {
-          url += `&cashierId=${userId}`;
-        }
-      }
-
-      if (showRefundedOnly) url += `&refunded=true`;
-      if (filterByDate) {
-        const start = new Date(startDate); start.setHours(0,0,0,0);
-        const end = new Date(endDate); end.setHours(23,59,59,999);
-        url += `&startDate=${start.toISOString()}&endDate=${end.toISOString()}`;
-      }
-
-      const response = await fetch(url);
-      const data = await response.json();
-      
-      if (response.ok && Array.isArray(data)) {
-        if (data.length < 10) setHasMore(false);
-        setPage(pageNumber);
-
-        if (pageNumber === 1) {
-          setSales(data);
-        } else {
-          setSales((prev) => [...prev, ...data]);
-        }
-      } else {
-        // Fallback mock data for demonstration
-        throw new Error('API not ready');
-      }
-    } catch (error) {
-      if (pageNumber === 1) {
-        // Mock data if API fails
-        setSales([
-          { id: '1', time: '10:30 AM', date: new Date().toISOString(), total: 25.50, items: '2x Coffee, Bagel' },
-          { id: '2', time: '11:15 AM', date: new Date().toISOString(), total: 12.00, items: 'Sandwich' },
-          { id: '3', time: '12:45 PM', date: new Date().toISOString(), total: 8.50, items: 'Green Tea, Cookie' },
-          { id: '4', time: '01:20 PM', date: new Date().toISOString(), total: 45.00, items: 'Lunch Special x3' },
-          { id: '5', time: '02:10 PM', date: new Date().toISOString(), total: 5.00, items: 'Espresso' },
-        ]);
-      }
-      setHasMore(false);
-    } finally {
-      setLoading(false);
-      setLoadingMore(false);
-      setRefreshing(false);
-    }
+    await fetchSalesHook({
+      page: pageNumber,
+      limit: 10,
+      refunded: showRefundedOnly,
+      startDate: filterByDate ? startDate : undefined,
+      endDate: filterByDate ? endDate : undefined,
+      endpoint: 'recent'
+    });
+    
+    setPage(pageNumber);
+    setLoadingMore(false);
+    setRefreshing(false);
   };
 
   useEffect(() => {
     if (!shopLoading) {
-      fetchSales(1);
+      loadSales(1);
     }
   }, [showRefundedOnly, filterByDate, startDate, endDate, shopLoading, shopId]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchSales(1);
+    loadSales(1);
   };
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
@@ -171,7 +131,7 @@ export default function LastSalesScreen() {
   const handleLoadMore = () => {
     if (!loadingMore && hasMore && searchQuery === '') {
       setLoadingMore(true);
-      fetchSales(page + 1);
+      loadSales(page + 1);
     }
   };
 
@@ -201,7 +161,7 @@ export default function LastSalesScreen() {
       const data = await response.json();
       if (response.ok) {
         Alert.alert('Success', 'Sale refunded successfully');
-        fetchSales(1); 
+        loadSales(1); 
         setShowRefundModal(false);
       } else {
         Alert.alert('Error', data.message || 'Failed to refund sale');
@@ -385,7 +345,7 @@ export default function LastSalesScreen() {
         )}
       </View>
 
-      {loading ? (
+      {loading && page === 1 ? (
         <ActivityIndicator size="large" color={textColor} style={{ marginTop: 20 }} />
       ) : (
         <FlatList

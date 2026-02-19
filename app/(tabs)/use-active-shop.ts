@@ -4,6 +4,7 @@ import { API_BASE_URL } from './api';
 
 export function useActiveShop() {
   const [shopId, setShopId] = useState<string | null>(null);
+  const [shopName, setShopName] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -32,6 +33,18 @@ export function useActiveShop() {
 
       setShopId(activeShopId);
       setUserRole(role);
+
+      if (activeShopId) {
+        try {
+          const shopRes = await fetch(`${API_BASE_URL}/shops/${activeShopId}`);
+          if (shopRes.ok) {
+            const shopData = await shopRes.json();
+            setShopName(shopData.name);
+          }
+        } catch (e) {}
+      } else {
+        setShopName(null);
+      }
     } catch (error) {
       console.error("Error in useActiveShop", error);
     } finally {
@@ -43,5 +56,5 @@ export function useActiveShop() {
     fetchActiveShop();
   }, []);
 
-  return { shopId, userRole, userId, loading, refreshShop: fetchActiveShop };
+  return { shopId, shopName, userRole, userId, loading, refreshShop: fetchActiveShop };
 }

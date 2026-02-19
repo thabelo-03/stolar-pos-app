@@ -10,11 +10,12 @@ import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
+import { useSales } from './use-sales';
+import { useProducts } from './use-products';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
   const textColor = useThemeColor({}, 'text');
-  const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState({
     revenue: 0,
     cost: 0,
@@ -33,7 +34,9 @@ export default function ProfitReportScreen() {
     datasets: [{ data: [0, 0, 0, 0] }]
   });
 
-  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+  const { shopId, loading: shopLoading } = useActiveShop();
+  const { loading: salesLoading, fetchSales } = useSales();
+  const { fetchProducts } = useProducts();
 
   useEffect(() => {
     if (!shopLoading) {
@@ -157,10 +160,7 @@ export default function ProfitReportScreen() {
   const fetchData = async () => {
     try {
       // 1. Fetch Inventory to get Cost Prices
-      let productsUrl = `${API_BASE_URL}/products`;
-      if (shopId) productsUrl += `?shopId=${shopId}`;
-      const invResponse = await fetch(productsUrl);
-      const inventoryData = await invResponse.json();
+      const inventoryData = await fetchProducts();
       
       // Create a map for quick lookup: barcode -> costPrice
       const costMap = new Map();
@@ -172,19 +172,8 @@ export default function ProfitReportScreen() {
         });
       }
 
-      // 2. Fetch Sales History
-      let salesUrl = `${API_BASE_URL}/sales`;
-      const params = [];
-      if (shopId && userRole !== 'admin') {
-        params.push(`shopId=${shopId}`);
-      }
-      if (userRole === 'cashier') {
-        params.push(`cashierId=${userId}`);
-      }
-      if (params.length > 0) salesUrl += `?${params.join('&')}`;
-
-      const salesResponse = await fetch(salesUrl);
-      const salesData = await salesResponse.json();
+      // 2. Fetch Sales History using Hook
+      const salesData = await fetchSales({ endpoint: 'all' });
 
       if (Array.isArray(salesData)) {
         const processedSales = salesData.map((sale: any) => {
@@ -218,7 +207,6 @@ export default function ProfitReportScreen() {
     } catch (error) {
       console.log('Error calculating profit:', error);
     } finally {
-      setLoading(false);
       setRefreshing(false);
     }
   };
