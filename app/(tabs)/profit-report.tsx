@@ -12,6 +12,7 @@ import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
 import { useSales } from './use-sales';
 import { useProducts } from './use-products';
+import { useRates } from './use-rates';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
@@ -34,9 +35,20 @@ export default function ProfitReportScreen() {
     datasets: [{ data: [0, 0, 0, 0] }]
   });
 
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+
   const { shopId, loading: shopLoading } = useActiveShop();
   const { loading: salesLoading, fetchSales } = useSales();
   const { fetchProducts } = useProducts();
+  const { rates } = useRates();
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   useEffect(() => {
     if (!shopLoading) {
@@ -51,7 +63,7 @@ export default function ProfitReportScreen() {
       setSalesList([]);
       setReportData({ revenue: 0, cost: 0, profit: 0, margin: 0, salesCount: 0 });
     }
-  }, [allSales, date, viewMode]);
+  }, [allSales, date, viewMode, currency, rates]);
 
   const filterDataByDate = () => {
     let filtered: any[] = [];
@@ -66,7 +78,7 @@ export default function ProfitReportScreen() {
       const hourlyProfit = new Array(24).fill(0);
       filtered.forEach((sale: any) => {
         const hour = new Date(sale.date).getHours();
-        hourlyProfit[hour] += sale.profit;
+        hourlyProfit[hour] += convert(sale.profit);
       });
       chartLabels = ["8am", "12pm", "4pm", "8pm"];
       chartDataPoints = [8, 12, 16, 20].map(h => hourlyProfit[h]);
@@ -97,7 +109,7 @@ export default function ProfitReportScreen() {
             const sd = new Date(s.date);
             return sd >= dayStart && sd <= dayEnd;
           })
-          .reduce((acc: number, curr: any) => acc + curr.profit, 0);
+          .reduce((acc: number, curr: any) => acc + convert(curr.profit), 0);
         chartDataPoints.push(dayProfit);
       }
     } else {
@@ -114,10 +126,11 @@ export default function ProfitReportScreen() {
       const weeklyProfits = [0, 0, 0, 0];
       filtered.forEach((s: any) => {
         const d = new Date(s.date).getDate();
-        if (d <= 7) weeklyProfits[0] += s.profit;
-        else if (d <= 14) weeklyProfits[1] += s.profit;
-        else if (d <= 21) weeklyProfits[2] += s.profit;
-        else weeklyProfits[3] += s.profit;
+        const p = convert(s.profit);
+        if (d <= 7) weeklyProfits[0] += p;
+        else if (d <= 14) weeklyProfits[1] += p;
+        else if (d <= 21) weeklyProfits[2] += p;
+        else weeklyProfits[3] += p;
       });
       chartDataPoints = weeklyProfits;
     }
@@ -126,8 +139,8 @@ export default function ProfitReportScreen() {
     let totalCost = 0;
 
     filtered.forEach(sale => {
-      totalRevenue += (sale.total || sale.amount || 0);
-      totalCost += sale.cost;
+      totalRevenue += convert(sale.total || sale.amount || 0);
+      totalCost += convert(sale.cost);
     });
 
     setSalesList(filtered);
@@ -224,6 +237,13 @@ export default function ProfitReportScreen() {
         </View>
         
         <View style={styles.controlsRow}>
+          <TouchableOpacity 
+            style={styles.currencySelector} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={styles.dateText}>{currency}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
             <Ionicons name="calendar" size={20} color="#1e40af" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
@@ -252,15 +272,15 @@ export default function ProfitReportScreen() {
       <View style={styles.statsGrid}>
         <View style={[styles.card, { backgroundColor: '#e0f2fe' }]}>
           <Text style={styles.cardLabel}>Revenue</Text>
-          <Text style={[styles.cardValue, { color: '#0284c7' }]}>${reportData.revenue.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#0284c7' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: '#fee2e2' }]}>
           <Text style={styles.cardLabel}>COGS</Text>
-          <Text style={[styles.cardValue, { color: '#dc2626' }]}>${reportData.cost.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#dc2626' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: '#dcfce7', width: '100%' }]}>
           <Text style={styles.cardLabel}>Net Profit</Text>
-          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>${reportData.profit.toFixed(2)}</Text>
+          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
           <Text style={{ color: '#16a34a', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
         </View>
       </View>
@@ -272,7 +292,7 @@ export default function ProfitReportScreen() {
           data={chartData}
           width={Dimensions.get("window").width - 60}
           height={180}
-          yAxisLabel="$"
+          yAxisLabel={symbol === '$' ? '$' : ''}
           yAxisSuffix=""
           chartConfig={{
             backgroundColor: "#ffffff",
@@ -308,9 +328,9 @@ export default function ProfitReportScreen() {
                 <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#16a34a" : "#dc2626"} />
               </View>
               <View>
-                <Text style={styles.transAmount}>${(item.total || 0).toFixed(2)}</Text>
+                <Text style={styles.transAmount}>{symbol} {convert(item.total || 0).toFixed(2)}</Text>
                 <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#16a34a' : '#dc2626' }]}>
-                  Profit: ${item.profit.toFixed(2)}
+                  Profit: {symbol} {convert(item.profit).toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -342,6 +362,7 @@ const styles = StyleSheet.create({
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5 },
   dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
   dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 13 },
+  currencySelector: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
 
   viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16 },

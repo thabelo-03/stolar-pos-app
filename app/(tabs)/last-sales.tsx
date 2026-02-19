@@ -14,6 +14,7 @@ import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
 import { useSales } from './use-sales';
+import { useRates } from './use-rates';
 
 export default function LastSalesScreen() {
   const router = useRouter();
@@ -36,8 +37,18 @@ export default function LastSalesScreen() {
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const insets = useSafeAreaInsets();
 
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
   const { shopId, loading: shopLoading } = useActiveShop();
   const { sales, loading, fetchSales: fetchSalesHook, hasMore, setSales } = useSales();
+  const { rates } = useRates();
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   const loadSales = async (pageNumber = 1) => {
     if (shopLoading && pageNumber === 1) return;
@@ -120,13 +131,13 @@ export default function LastSalesScreen() {
   }, [sales, searchQuery, showRefundedOnly, filterByDate, startDate, endDate]);
 
   const stats = useMemo(() => {
-    const total = filteredSales.reduce((acc, curr) => acc + (curr.total || curr.amount || curr.totalUSD || 0), 0);
+    const total = filteredSales.reduce((acc, curr) => acc + convert(curr.total || curr.amount || curr.totalUSD || 0), 0);
     return {
       total,
       count: filteredSales.length,
       avg: filteredSales.length ? total / filteredSales.length : 0
     };
-  }, [filteredSales]);
+  }, [filteredSales, currency, rates]);
 
   const handleLoadMore = () => {
     if (!loadingMore && hasMore && searchQuery === '') {
@@ -257,7 +268,7 @@ export default function LastSalesScreen() {
         <View style={styles.statsRow}>
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Revenue</Text>
-            <Text style={styles.statValue}>${stats.total.toFixed(2)}</Text>
+            <Text style={styles.statValue}>{symbol} {stats.total.toFixed(2)}</Text>
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statCard}>
@@ -267,7 +278,7 @@ export default function LastSalesScreen() {
           <View style={styles.statDivider} />
           <View style={styles.statCard}>
             <Text style={styles.statLabel}>Average</Text>
-            <Text style={styles.statValue}>${stats.avg.toFixed(2)}</Text>
+            <Text style={styles.statValue}>{symbol} {stats.avg.toFixed(2)}</Text>
           </View>
         </View>
 
@@ -290,6 +301,13 @@ export default function LastSalesScreen() {
 
         {/* Filter Chips */}
         <View style={styles.filterRow}>
+          <TouchableOpacity 
+            style={[styles.filterChip, { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }]} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={[styles.filterText, { color: '#0284c7' }]}>{currency}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity 
             style={[styles.filterChip, !showRefundedOnly && !filterByDate && styles.activeFilterChip]} 
             onPress={() => {
@@ -384,7 +402,7 @@ export default function LastSalesScreen() {
 
                 <View style={styles.cardRight}>
                   <Text style={[styles.amountText, isRefunded && styles.refundedText]}>
-                    ${Number(item.total || item.amount || item.totalUSD || 0).toFixed(2)}
+                    {symbol} {convert(Number(item.total || item.amount || item.totalUSD || 0)).toFixed(2)}
                   </Text>
                   {!isRefunded ? (
                     <TouchableOpacity onPress={() => handleRefund(item.id || item._id)} style={styles.miniRefundBtn}>
@@ -425,7 +443,7 @@ export default function LastSalesScreen() {
                             {item.quantity} x {item.name}
                           </Text>
                           <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
-                            ${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
+                            {symbol} {convert(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
                           </Text>
                         </View>
                       )}
@@ -492,10 +510,10 @@ export default function LastSalesScreen() {
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
                       <View style={{flex: 1, marginRight: 10}}>
                         <Text style={{fontWeight: '600', color: '#1e293b'}}>{item.name}</Text>
-                        <Text style={{fontSize: 12, color: '#64748b'}}>{item.quantity} x ${Number(item.price || 0).toFixed(2)}</Text>
+                        <Text style={{fontSize: 12, color: '#64748b'}}>{item.quantity} x {symbol} {convert(Number(item.price || 0)).toFixed(2)}</Text>
                       </View>
                       <Text style={{fontWeight: 'bold', color: '#1e293b'}}>
-                        ${(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
+                        {symbol} {convert(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
                       </Text>
                     </View>
                   )}
@@ -505,7 +523,7 @@ export default function LastSalesScreen() {
                 <View style={{borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
                   <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b'}}>Total</Text>
                   <Text style={{fontSize: 24, fontWeight: 'bold', color: '#1e40af'}}>
-                    ${Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0).toFixed(2)}
+                    {symbol} {convert(Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0)).toFixed(2)}
                   </Text>
                 </View>
                 

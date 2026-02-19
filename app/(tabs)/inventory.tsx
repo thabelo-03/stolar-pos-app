@@ -12,6 +12,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
 import { useProducts } from './use-products';
+import { useRates } from './use-rates';
 
 interface InventoryItem {
   _id: string;
@@ -35,6 +36,7 @@ export default function CashierInventoryScreen() {
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
   const [sortBy, setSortBy] = useState<SortOption>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
@@ -52,6 +54,15 @@ export default function CashierInventoryScreen() {
 
   const { shopId, userId } = useActiveShop();
   const { fetchProducts, loading: productsLoading } = useProducts();
+  const { rates } = useRates();
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   const requestPassword = async (action: () => void) => {
     pendingAction.current = action;
@@ -230,10 +241,10 @@ export default function CashierInventoryScreen() {
 
   const stats = useMemo(() => {
     const totalItems = inventory.length;
-    const totalValue = inventory.reduce((acc, item) => acc + ((Number(item.price) || 0) * (Number(item.quantity) || 0)), 0);
+    const totalValue = inventory.reduce((acc, item) => acc + (convert(Number(item.price) || 0) * (Number(item.quantity) || 0)), 0);
     const lowStock = inventory.filter(i => (Number(i.quantity) || 0) < 5).length;
     return { totalItems, totalValue, lowStock };
-  }, [inventory]);
+  }, [inventory, currency, rates]);
 
   const getStockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
@@ -302,10 +313,11 @@ export default function CashierInventoryScreen() {
   const renderInventoryItem = useCallback(({ item }: { item: InventoryItem }) => {
     const qty = Number(item.quantity) || 0;
     const status = getStockStatus(qty);
-    const price = Number(item.price) || 0;
+    const price = convert(Number(item.price) || 0);
     const cost = Number(item.costPrice) || 0;
     const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
     const profit = price - cost;
+    const hasWeight = /[0-9]+(\.[0-9]+)?\s*(kg|g)$/i.test(item.name.trim());
 
     return (
       <View style={styles.card}>
@@ -315,6 +327,9 @@ export default function CashierInventoryScreen() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemName}>{item.name}</Text>
+            {!hasWeight && (
+              <Text style={{ fontSize: 10, color: '#f59e0b', marginBottom: 2 }}>⚠️ Missing Weight (e.g. 1kg)</Text>
+            )}
             <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
@@ -327,7 +342,7 @@ export default function CashierInventoryScreen() {
         <View style={styles.cardFooter}>
           <View>
             <Text style={styles.priceLabel}>Price</Text>
-            <Text style={styles.priceValue}>${price.toFixed(2)}</Text>
+            <Text style={styles.priceValue}>{symbol} {price.toFixed(2)}</Text>
           </View>
           <View>
             <Text style={styles.priceLabel}>Stock</Text>
@@ -335,8 +350,8 @@ export default function CashierInventoryScreen() {
           </View>
           <View>
             <Text style={styles.priceLabel}>Profit</Text>
-            <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
-              ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
+            <Text style={[styles.priceValue, { color: '#10b981' }]}>
+              {margin.toFixed(0)}%
             </Text>
           </View>
           
@@ -351,7 +366,7 @@ export default function CashierInventoryScreen() {
         </View>
       </View>
     );
-  }, []);
+  }, [currency, rates]);
 
   return (
     <ThemedView style={styles.container}>
@@ -376,7 +391,7 @@ export default function CashierInventoryScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>${stats.totalValue.toFixed(0)}</Text>
+            <Text style={styles.statValue}>{symbol} {stats.totalValue.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Value</Text>
           </View>
           <View style={styles.statDivider} />
@@ -417,6 +432,15 @@ export default function CashierInventoryScreen() {
       {/* Filters */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
+          <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={[styles.filterText, { color: '#1e40af' }]}>{currency}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.verticalDivider} />
+
           <TouchableOpacity 
             style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
             onPress={() => setFilter('all')}

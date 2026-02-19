@@ -250,6 +250,7 @@ const [category, setCategory] = useState('General');
               <Ionicons name="scan-outline" size={24} color={textColor} />
             </TouchableOpacity>
           </View>
+          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Must include weight (e.g. 1kg, 500g)</Text>
         </ThemedView>
 
         <ThemedView>
