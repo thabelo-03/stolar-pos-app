@@ -77,10 +77,15 @@ const [category, setCategory] = useState('General');
     }
 
     // Validate that Item Name ends with a weight (e.g., 1kg, 500g)
-    if (!/[0-9]+(\.[0-9]+)?\s*(kg|g)$/i.test(itemName.trim())) {
-      Alert.alert('Invalid Name', 'Item name must include weight at the end (e.g. "Rice 2kg" or "Spice 50g")');
+    if (!/[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(itemName.trim())) {
+      Alert.alert('Invalid Name', 'Item name must include weight/volume at the end (e.g. "Rice 2kg", "Milk 1L")');
       return;
     }
+
+    // Normalize name: Capitalize unit and remove space between number and unit
+    const finalName = itemName.trim().replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
+      return `${num}${unit.toUpperCase()}`;
+    });
 
     const numPrice = Number(price);
     const numCost = Number(costPrice);
@@ -122,7 +127,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId }),
+          body: JSON.stringify({ name: finalName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId }),
         });
 
         const data = await response.json();
@@ -236,7 +241,7 @@ const [category, setCategory] = useState('General');
               style={[styles.input, { color: textColor, flex: 1 }]}
               value={itemName}
               onChangeText={setItemName}
-              placeholder="e.g. Apple 1kg"
+              placeholder="e.g. Apple 1kg, Milk 1L"
               placeholderTextColor={placeholderColor}
             />
             <TouchableOpacity onPress={async () => {
@@ -250,7 +255,7 @@ const [category, setCategory] = useState('General');
               <Ionicons name="scan-outline" size={24} color={textColor} />
             </TouchableOpacity>
           </View>
-          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Must include weight (e.g. 1kg, 500g)</Text>
+          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Must include weight/volume (e.g. 1kg, 1L)</Text>
         </ThemedView>
 
         <ThemedView>
