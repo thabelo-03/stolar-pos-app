@@ -31,6 +31,8 @@ export default function ManagerInventoryScreen() {
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin' | 'profit'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
@@ -42,6 +44,28 @@ export default function ManagerInventoryScreen() {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [productHistory, setProductHistory] = useState<any[]>([]);
   const [selectedHistoryItemName, setSelectedHistoryItemName] = useState('');
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const url = shopId ? `${API_BASE_URL}/shops/rates/${shopId}` : `${API_BASE_URL}/shops/rates`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.rates) setRates(data.rates);
+        }
+      } catch (e) {}
+    };
+    fetchRates();
+  }, [shopId]);
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   const fetchInventory = async () => {
     try {
@@ -149,10 +173,10 @@ export default function ManagerInventoryScreen() {
 
   const stats = useMemo(() => {
     const totalItems = inventory.length;
-    const totalValue = inventory.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+    const totalValue = inventory.reduce((acc, item) => acc + (convert(Number(item.price || 0)) * Number(item.quantity || 0)), 0);
     const lowStock = inventory.filter(i => Number(i.quantity) < 5).length;
     return { totalItems, totalValue, lowStock };
-  }, [inventory]);
+  }, [inventory, currency, rates]);
 
   const getStockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
@@ -330,7 +354,7 @@ export default function ManagerInventoryScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>${stats.totalValue.toFixed(0)}</Text>
+            <Text style={styles.statValue}>{symbol} {stats.totalValue.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Value</Text>
           </View>
           <View style={styles.statDivider} />
@@ -366,6 +390,15 @@ export default function ManagerInventoryScreen() {
       {/* Filters */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
+          <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={[styles.filterText, { color: '#1e40af' }]}>{currency}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.verticalDivider} />
+
           <TouchableOpacity 
             style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
             onPress={() => setFilter('all')}
@@ -424,8 +457,8 @@ export default function ManagerInventoryScreen() {
           renderItem={({ item }) => {
             const qty = Number(item.quantity) || 0;
             const status = getStockStatus(qty);
-            const price = Number(item.price || 0);
-            const cost = Number(item.costPrice || 0);
+            const price = convert(Number(item.price || 0));
+            const cost = convert(Number(item.costPrice || 0));
             const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
             const profit = price - cost;
 
@@ -449,7 +482,7 @@ export default function ManagerInventoryScreen() {
                 <View style={styles.cardFooter}>
                   <View>
                     <Text style={styles.priceLabel}>Price / Cost</Text>
-                    <Text style={styles.priceValue}>${price.toFixed(2)} <Text style={styles.costText}>(${cost.toFixed(2)})</Text></Text>
+                    <Text style={styles.priceValue}>{symbol} {price.toFixed(2)} <Text style={styles.costText}>({symbol} {cost.toFixed(2)})</Text></Text>
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Stock</Text>
@@ -457,8 +490,8 @@ export default function ManagerInventoryScreen() {
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Profit</Text>
-                    <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
-                      ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
+                    <Text style={[styles.priceValue, { color: '#10b981' }]}>
+                      {margin.toFixed(0)}%
                     </Text>
                   </View>
                   

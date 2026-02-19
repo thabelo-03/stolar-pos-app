@@ -13,6 +13,7 @@ import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
+import { useRates } from './use-rates';
 
 export default function DailySummaryScreen() {
   const router = useRouter();
@@ -36,6 +37,16 @@ export default function DailySummaryScreen() {
   });
 
   const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const { rates } = useRates();
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   const onChange = (event: any, selectedDate?: Date) => {
     setShowPicker(Platform.OS === 'ios');
@@ -75,7 +86,7 @@ export default function DailySummaryScreen() {
           daysSales.forEach((sale: any) => {
             if (sale.refunded) return;
             const hour = new Date(sale.date).getHours();
-            hourlyTotals[hour] += (sale.total || sale.amount || 0);
+            hourlyTotals[hour] += convert(sale.total || sale.amount || 0);
           });
           chartLabels = ["8am", "10am", "12pm", "2pm", "4pm", "6pm"];
           chartDataPoints = [8, 10, 12, 14, 16, 18].map(h => hourlyTotals[h]);
@@ -106,7 +117,7 @@ export default function DailySummaryScreen() {
                 const sd = new Date(s.date);
                 return sd >= dayStart && sd <= dayEnd && !s.refunded;
               })
-              .reduce((acc: number, curr: any) => acc + (curr.total || curr.amount || 0), 0);
+              .reduce((acc: number, curr: any) => acc + convert(curr.total || curr.amount || 0), 0);
             chartDataPoints.push(daySum);
           }
         }
@@ -114,8 +125,8 @@ export default function DailySummaryScreen() {
         // 2. Calculate Totals
         const validSales = daysSales.filter((s: any) => !s.refunded);
         const refundedSales = daysSales.filter((s: any) => s.refunded);
-        const total = validSales.reduce((sum: number, item: any) => sum + (item.total || item.amount || 0), 0);
-        const refunds = refundedSales.reduce((sum: number, item: any) => sum + (item.total || item.amount || 0), 0);
+        const total = validSales.reduce((sum: number, item: any) => sum + convert(item.total || item.amount || 0), 0);
+        const refunds = refundedSales.reduce((sum: number, item: any) => sum + convert(item.total || item.amount || 0), 0);
         
         setTotalSales(total);
         setTotalRefunds(refunds);
@@ -126,7 +137,7 @@ export default function DailySummaryScreen() {
         const pStats = { cash: 0, card: 0, other: 0 };
         validSales.forEach((s: any) => {
             const method = (s.paymentMethod || 'cash').toLowerCase();
-            const amt = s.total || s.amount || 0;
+            const amt = convert(s.total || s.amount || 0);
             if (method.includes('card')) pStats.card += amt;
             else if (method.includes('cash')) pStats.cash += amt;
             else pStats.other += amt;
@@ -168,7 +179,7 @@ export default function DailySummaryScreen() {
     if (!shopLoading) {
       fetchDailySales();
     }
-  }, [date, viewMode, shopLoading, shopId]);
+  }, [date, viewMode, shopLoading, shopId, currency, rates]);
 
   const onRefresh = () => {
     fetchDailySales();
@@ -204,7 +215,7 @@ export default function DailySummaryScreen() {
           <div class="stats-container">
             <div class="stat-box">
               <div class="stat-label">Total Revenue</div>
-              <div class="stat-value">$${totalSales.toFixed(2)}</div>
+              <div class="stat-value">${symbol} ${totalSales.toFixed(2)}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label">Transactions</div>
@@ -212,11 +223,11 @@ export default function DailySummaryScreen() {
             </div>
             <div class="stat-box">
               <div class="stat-label">Avg Ticket</div>
-              <div class="stat-value">$${avgTransaction.toFixed(2)}</div>
+              <div class="stat-value">${symbol} ${avgTransaction.toFixed(2)}</div>
             </div>
             <div class="stat-box">
               <div class="stat-label" style="color: #ef4444;">Refunds</div>
-              <div class="stat-value" style="color: #ef4444;">$${totalRefunds.toFixed(2)}</div>
+              <div class="stat-value" style="color: #ef4444;">${symbol} ${totalRefunds.toFixed(2)}</div>
             </div>
           </div>
 
@@ -224,15 +235,15 @@ export default function DailySummaryScreen() {
           <table>
             <tr>
               <td>Cash</td>
-              <td class="amount">$${paymentStats.cash.toFixed(2)}</td>
+              <td class="amount">${symbol} ${paymentStats.cash.toFixed(2)}</td>
             </tr>
             <tr>
               <td>Card</td>
-              <td class="amount">$${paymentStats.card.toFixed(2)}</td>
+              <td class="amount">${symbol} ${paymentStats.card.toFixed(2)}</td>
             </tr>
             <tr>
               <td>Other</td>
-              <td class="amount">$${paymentStats.other.toFixed(2)}</td>
+              <td class="amount">${symbol} ${paymentStats.other.toFixed(2)}</td>
             </tr>
           </table>
 
@@ -270,7 +281,7 @@ export default function DailySummaryScreen() {
                   <td>${new Date(t.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
                   <td>${Array.isArray(t.items) ? t.items.length + ' items' : t.items} ${t.refunded ? '(Refunded)' : ''}</td>
                   <td>${t.paymentMethod || 'Cash'}</td>
-                  <td style="text-align: right;" class="${t.refunded ? 'refund-text' : 'amount'}">$${(t.total || t.amount || 0).toFixed(2)}</td>
+                  <td style="text-align: right;" class="${t.refunded ? 'refund-text' : 'amount'}">${symbol} ${convert(t.total || t.amount || 0).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -306,6 +317,13 @@ export default function DailySummaryScreen() {
         </View>
         
         <View style={styles.controlsRow}>
+          <TouchableOpacity 
+            style={styles.currencySelector} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={styles.dateText}>{currency}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
             <Ionicons name="calendar" size={20} color="#1e40af" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
@@ -342,7 +360,7 @@ export default function DailySummaryScreen() {
       <View style={styles.statsRow}>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Total Sales</Text>
-          <Text style={styles.statValue}>${totalSales.toFixed(2)}</Text>
+          <Text style={styles.statValue}>{symbol} {totalSales.toFixed(2)}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Count</Text>
@@ -350,11 +368,11 @@ export default function DailySummaryScreen() {
         </View>
         <View style={styles.statCard}>
           <Text style={styles.statLabel}>Avg Value</Text>
-          <Text style={styles.statValue}>${avgTransaction.toFixed(2)}</Text>
+          <Text style={styles.statValue}>{symbol} {avgTransaction.toFixed(2)}</Text>
         </View>
         <View style={styles.statCard}>
           <Text style={[styles.statLabel, { color: '#ef4444' }]}>Refunds</Text>
-          <Text style={[styles.statValue, { color: '#ef4444' }]}>${totalRefunds.toFixed(2)}</Text>
+          <Text style={[styles.statValue, { color: '#ef4444' }]}>{symbol} {totalRefunds.toFixed(2)}</Text>
         </View>
       </View>
 
@@ -365,7 +383,7 @@ export default function DailySummaryScreen() {
           data={chartData}
           width={Dimensions.get("window").width - 60}
           height={180}
-          yAxisLabel="$"
+          yAxisLabel={symbol === '$' ? '$' : ''}
           yAxisSuffix=""
           yAxisInterval={1}
           chartConfig={{
@@ -388,17 +406,17 @@ export default function DailySummaryScreen() {
         <View style={[styles.paymentCard, { backgroundColor: '#ecfdf5' }]}>
           <Ionicons name="cash-outline" size={20} color="#059669" />
           <Text style={[styles.paymentLabel, { color: '#059669' }]}>Cash</Text>
-          <Text style={[styles.paymentValue, { color: '#047857' }]}>${paymentStats.cash.toFixed(0)}</Text>
+          <Text style={[styles.paymentValue, { color: '#047857' }]}>{symbol} {paymentStats.cash.toFixed(0)}</Text>
         </View>
         <View style={[styles.paymentCard, { backgroundColor: '#eff6ff' }]}>
           <Ionicons name="card-outline" size={20} color="#2563eb" />
           <Text style={[styles.paymentLabel, { color: '#2563eb' }]}>Card</Text>
-          <Text style={[styles.paymentValue, { color: '#1d4ed8' }]}>${paymentStats.card.toFixed(0)}</Text>
+          <Text style={[styles.paymentValue, { color: '#1d4ed8' }]}>{symbol} {paymentStats.card.toFixed(0)}</Text>
         </View>
         <View style={[styles.paymentCard, { backgroundColor: '#fefce8' }]}>
           <Ionicons name="wallet-outline" size={20} color="#ca8a04" />
           <Text style={[styles.paymentLabel, { color: '#ca8a04' }]}>Other</Text>
-          <Text style={[styles.paymentValue, { color: '#a16207' }]}>${paymentStats.other.toFixed(0)}</Text>
+          <Text style={[styles.paymentValue, { color: '#a16207' }]}>{symbol} {paymentStats.other.toFixed(0)}</Text>
         </View>
       </View>
 
@@ -434,7 +452,7 @@ export default function DailySummaryScreen() {
               </View>
               <View>
                 <Text style={[styles.transAmount, item.refunded && { textDecorationLine: 'line-through', color: '#94a3b8' }]}>
-                  ${(item.total || item.amount || 0).toFixed(2)}
+                  {symbol} {convert(item.total || item.amount || 0).toFixed(2)}
                 </Text>
                 <Text style={styles.transItems}>
                   {Array.isArray(item.items) ? `${item.items.length} items` : (item.items || 'Sale')}
@@ -481,6 +499,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 14 },
+  currencySelector: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 20, marginRight: 8 },
 
   viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16 },

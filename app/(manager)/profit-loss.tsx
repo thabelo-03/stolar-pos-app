@@ -14,6 +14,9 @@ export default function ProfitLoss() {
   const [loading, setLoading] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
+  const [rawSales, setRawSales] = useState<any[]>([]);
   const [stats, setStats] = useState({
     revenue: 0,
     cogs: 0,
@@ -42,6 +45,28 @@ export default function ProfitLoss() {
     };
     loadShops();
   }, []);
+
+  useEffect(() => {
+    const fetchRates = async () => {
+      try {
+        const url = (selectedShop && selectedShop !== 'all') ? `${API_BASE_URL}/shops/rates/${selectedShop}` : `${API_BASE_URL}/shops/rates`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.rates) setRates(data.rates);
+        }
+      } catch (e) {}
+    };
+    fetchRates();
+  }, [selectedShop]);
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   useEffect(() => {
     fetchProfitData();
@@ -76,17 +101,7 @@ export default function ProfitLoss() {
           sales = sales.filter((s: any) => s.shopId && shopIds.has(s.shopId.toString()));
         }
 
-        // 1. Calculate Metrics for the SELECTED DATE only
-        const selectedDayStart = new Date(date); selectedDayStart.setHours(0,0,0,0);
-        const selectedDayEnd = new Date(date); selectedDayEnd.setHours(23,59,59,999);
-        
-        const todaysSales = sales.filter((s: any) => {
-          const d = new Date(s.date);
-          return d >= selectedDayStart && d <= selectedDayEnd;
-        });
-        
-        calculateMetrics(todaysSales);
-        prepareChartData(sales, startDate, endDate);
+        setRawSales(sales);
       }
     } catch (error) {
       console.error("Error fetching profit data:", error);
@@ -95,20 +110,41 @@ export default function ProfitLoss() {
     }
   };
 
+  useEffect(() => {
+    if (rawSales.length >= 0) {
+      const endDate = new Date(date);
+      endDate.setHours(23, 59, 59, 999);
+      const startDate = new Date(date);
+      startDate.setDate(startDate.getDate() - 6);
+      startDate.setHours(0, 0, 0, 0);
+
+      const selectedDayStart = new Date(date); selectedDayStart.setHours(0,0,0,0);
+      const selectedDayEnd = new Date(date); selectedDayEnd.setHours(23,59,59,999);
+      
+      const todaysSales = rawSales.filter((s: any) => {
+        const d = new Date(s.date);
+        return d >= selectedDayStart && d <= selectedDayEnd;
+      });
+
+      calculateMetrics(todaysSales);
+      prepareChartData(rawSales, startDate, endDate);
+    }
+  }, [rawSales, currency, rates, date]);
+
   const calculateMetrics = (sales: any[]) => {
     let totalRevenue = 0;
     let totalCOGS = 0;
 
     sales.forEach(sale => {
       // Add to Revenue (using totalUSD or total)
-      const saleTotal = sale.totalUSD || sale.total || 0;
+      const saleTotal = convert(sale.totalUSD || sale.total || 0);
       totalRevenue += saleTotal;
 
       // Calculate COGS from items
       if (Array.isArray(sale.items)) {
         sale.items.forEach((item: any) => {
           const quantity = Number(item.quantity) || 0;
-          const costPrice = Number(item.costPrice) || 0;
+          const costPrice = convert(Number(item.costPrice) || 0);
           
           if (costPrice === 0) console.log(`[DEBUG] Item ${item.name} has 0 cost price!`);
           
@@ -148,10 +184,10 @@ export default function ProfitLoss() {
       });
 
       daySales.forEach((sale: any) => {
-        const revenue = sale.totalUSD || sale.total || 0;
+        const revenue = convert(sale.totalUSD || sale.total || 0);
         let cogs = 0;
         if (Array.isArray(sale.items)) {
-          sale.items.forEach((item: any) => cogs += (Number(item.costPrice || 0) * Number(item.quantity || 0)));
+          sale.items.forEach((item: any) => cogs += (convert(Number(item.costPrice || 0)) * Number(item.quantity || 0)));
         }
         dailyProfit += (revenue - cogs);
       });
@@ -171,6 +207,13 @@ export default function ProfitLoss() {
       </View>
 
       <View style={styles.filterSection}>
+        <TouchableOpacity 
+            style={styles.currencySelector} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+        >
+            <Text style={styles.currencyText}>{currency}</Text>
+        </TouchableOpacity>
+
         <View style={styles.dateRow}>
           <Text style={styles.label}>Date:</Text>
           <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShow(true)}>
@@ -220,7 +263,7 @@ export default function ProfitLoss() {
                 data={chartData}
                 width={Dimensions.get("window").width - 80} // Adjust for padding
                 height={200}
-                yAxisLabel="$"
+                yAxisLabel={symbol === '$' ? '$' : ''}
                 chartConfig={{
                   backgroundColor: "#ffffff",
                   backgroundGradientFrom: "#ffffff",
@@ -238,7 +281,7 @@ export default function ProfitLoss() {
 
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Total Revenue</Text>
-              <Text style={[styles.statValue, { color: '#1e40af' }]}>${stats.revenue.toFixed(2)}</Text>
+              <Text style={[styles.statValue, { color: '#1e40af' }]}>{symbol} {stats.revenue.toFixed(2)}</Text>
             </View>
             
             <View style={styles.statCard}>
@@ -246,12 +289,12 @@ export default function ProfitLoss() {
                 <Text style={styles.statLabel}>COGS (Cost of Goods)</Text>
                 <Ionicons name="information-circle-outline" size={16} color="#64748b" />
               </View>
-              <Text style={[styles.statValue, { color: '#ef4444' }]}>${stats.cogs.toFixed(2)}</Text>
+              <Text style={[styles.statValue, { color: '#ef4444' }]}>{symbol} {stats.cogs.toFixed(2)}</Text>
             </View>
 
             <View style={[styles.statCard, styles.profitCard]}>
               <Text style={styles.profitLabel}>Net Profit</Text>
-              <Text style={styles.profitValue}>${stats.profit.toFixed(2)}</Text>
+              <Text style={styles.profitValue}>{symbol} {stats.profit.toFixed(2)}</Text>
               <Text style={styles.profitSubtext}>(Revenue - COGS)</Text>
             </View>
           </View>
@@ -275,6 +318,8 @@ const styles = StyleSheet.create({
   backButton: { marginRight: 15 },
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
   filterSection: { padding: 20, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  currencySelector: { alignSelf: 'flex-end', backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 10 },
+  currencyText: { color: '#0284c7', fontWeight: 'bold', fontSize: 12 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
   label: { color: '#64748b', fontWeight: 'bold', fontSize: 16 },
   datePickerBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eff6ff', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe' },
