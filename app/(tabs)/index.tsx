@@ -1,13 +1,12 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 import { useManagerAuth } from './use-manager-auth';
 import { useNotifications } from './use-notifications';
-import { useActiveShop } from './use-active-shop';
 
 
 export default function CashierHome() {
