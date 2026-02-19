@@ -9,6 +9,7 @@ import { LineChart } from 'react-native-chart-kit';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
@@ -32,9 +33,13 @@ export default function ProfitReportScreen() {
     datasets: [{ data: [0, 0, 0, 0] }]
   });
 
+  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+
   useEffect(() => {
-    fetchData();
-  }, []);
+    if (!shopLoading) {
+      fetchData();
+    }
+  }, [shopLoading, shopId]);
 
   useEffect(() => {
     if (allSales.length > 0) {
@@ -151,17 +156,6 @@ export default function ProfitReportScreen() {
 
   const fetchData = async () => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
-      let shopId = await AsyncStorage.getItem('shopId');
-      let userRole = await AsyncStorage.getItem('userRole');
-
-      if (userId && (!shopId || !userRole)) {
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-        if (!shopId) shopId = user.shopId;
-        if (!userRole) userRole = user.role;
-      }
-
       // 1. Fetch Inventory to get Cost Prices
       let productsUrl = `${API_BASE_URL}/products`;
       if (shopId) productsUrl += `?shopId=${shopId}`;

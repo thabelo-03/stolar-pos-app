@@ -12,6 +12,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 
 export default function DailySummaryScreen() {
   const router = useRouter();
@@ -34,6 +35,8 @@ export default function DailySummaryScreen() {
     datasets: [{ data: [0, 0, 0, 0, 0, 0] }]
   });
 
+  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+
   const onChange = (event: any, selectedDate?: Date) => {
     setShowPicker(Platform.OS === 'ios');
     if (selectedDate) {
@@ -42,24 +45,14 @@ export default function DailySummaryScreen() {
   };
 
   const fetchDailySales = async () => {
+    if (shopLoading) return;
     setRefreshing(true);
     try {
-      const userId = await AsyncStorage.getItem('userId');
       let queryParams = '';
       
       if (userId) {
-        let activeShopId = await AsyncStorage.getItem('shopId');
-        let role = await AsyncStorage.getItem('userRole');
-
-        if (!activeShopId || !role) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          if (!activeShopId) activeShopId = user.shopId;
-          if (!role) role = user.role;
-        }
-
-        if (activeShopId && role !== 'admin') {
-          queryParams = `?shopId=${activeShopId}`;
+        if (shopId && userRole !== 'admin') {
+          queryParams = `?shopId=${shopId}`;
         }
       }
 
@@ -172,8 +165,10 @@ export default function DailySummaryScreen() {
   };
 
   useEffect(() => {
-    fetchDailySales();
-  }, [date, viewMode]);
+    if (!shopLoading) {
+      fetchDailySales();
+    }
+  }, [date, viewMode, shopLoading, shopId]);
 
   const onRefresh = () => {
     fetchDailySales();

@@ -12,6 +12,7 @@ import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 
 export default function LastSalesScreen() {
   const router = useRouter();
@@ -36,28 +37,20 @@ export default function LastSalesScreen() {
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const insets = useSafeAreaInsets();
 
+  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+
   const fetchSales = async (pageNumber = 1) => {
+    if (shopLoading && pageNumber === 1) return;
+
     try {
       // Attempt to fetch from API
-      const userId = await AsyncStorage.getItem('userId');
       let url = `${API_BASE_URL}/sales/recent?limit=10&page=${pageNumber}`;
       
       if (userId) {
-        // Check local storage first (Manager switch support)
-        let activeShopId = await AsyncStorage.getItem('shopId');
-        let role = await AsyncStorage.getItem('userRole');
-
-        if (!activeShopId || !role) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          if (!activeShopId) activeShopId = user.shopId;
-          if (!role) role = user.role;
+        if (shopId && userRole !== 'admin') {
+          url += `&shopId=${shopId}`;
         }
-
-        if (activeShopId && role !== 'admin') {
-          url += `&shopId=${activeShopId}`;
-        }
-        if (role === 'cashier') {
+        if (userRole === 'cashier') {
           url += `&cashierId=${userId}`;
         }
       }
@@ -105,8 +98,10 @@ export default function LastSalesScreen() {
   };
 
   useEffect(() => {
-    fetchSales(1);
-  }, [showRefundedOnly, filterByDate, startDate, endDate]);
+    if (!shopLoading) {
+      fetchSales(1);
+    }
+  }, [showRefundedOnly, filterByDate, startDate, endDate, shopLoading, shopId]);
 
   const onRefresh = () => {
     setRefreshing(true);

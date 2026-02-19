@@ -23,6 +23,7 @@ import { API_BASE_URL } from './api';
 
 // IMPORT OFFLINE TOOLS
 import * as Network from 'expo-network';
+import { useActiveShop } from './use-active-shop';
 import { OfflineService } from '../services/offlineService';
 
 export default function CartScreen() {
@@ -53,24 +54,16 @@ export default function CartScreen() {
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
   const [rates, setRates] = useState<{ ZAR: number; ZiG: number; updatedAt?: string }>({ ZAR: 19.2, ZiG: 26.5 }); 
 
+  const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
+
   // --- 1. FETCH LIVE RATES FROM DATABASE ---
   useEffect(() => {
+    if (shopLoading) return;
     const fetchRates = async () => {
       try {
-        const userId = await AsyncStorage.getItem('userId');
         let endpoint = `${API_BASE_URL}/shops/rates`;
-        
-        // Check local storage first (Manager switch support)
-        let activeShopId = await AsyncStorage.getItem('shopId');
-
-        if (userId && !activeShopId) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          activeShopId = user.shopId;
-        }
-
-        if (activeShopId) {
-          endpoint = `${API_BASE_URL}/shops/rates/${activeShopId}`;
+        if (shopId) {
+          endpoint = `${API_BASE_URL}/shops/rates/${shopId}`;
         }
 
         const response = await fetch(endpoint); 
@@ -85,26 +78,16 @@ export default function CartScreen() {
       }
     };
     fetchRates();
-  }, []);
+  }, [shopLoading, shopId]);
 
   // --- 2. FETCH PRODUCTS ---
   useEffect(() => {
+    if (shopLoading) return;
     const fetchAllProducts = async () => {
       try {
-        const userId = await AsyncStorage.getItem('userId');
         if (!userId) return;
-
-        // Check local storage first (Manager switch support)
-        let activeShopId = await AsyncStorage.getItem('shopId');
-
-        if (!activeShopId) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          activeShopId = user.shopId;
-        }
-
-        if (activeShopId) {
-          const response = await fetch(`${API_BASE_URL}/products?shopId=${activeShopId}`);
+        if (shopId) {
+          const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
           if (response.ok) {
             setAllProducts(await response.json());
           }
@@ -114,7 +97,7 @@ export default function CartScreen() {
       }
     };
     fetchAllProducts();
-  }, []);
+  }, [shopLoading, shopId, userId]);
 
   // Update total whenever cart changes
   useEffect(() => {
@@ -321,22 +304,11 @@ export default function CartScreen() {
 
   const fetchRecentSales = async () => {
     try {
-      const userId = await AsyncStorage.getItem('userId');
       let url = `${API_BASE_URL}/sales/recent`;
       
       if (userId) {
-        let activeShopId = await AsyncStorage.getItem('shopId');
-        let role = await AsyncStorage.getItem('userRole');
-
-        if (!activeShopId || !role) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          if (!activeShopId) activeShopId = user.shopId;
-          if (!role) role = user.role;
-        }
-
-        if (activeShopId && role !== 'admin') {
-          url += `?shopId=${activeShopId}`;
+        if (shopId && userRole !== 'admin') {
+          url += `?shopId=${shopId}`;
         }
       }
 
@@ -380,21 +352,6 @@ export default function CartScreen() {
 
     setLoading(true);
 
-    let shopId = await AsyncStorage.getItem('shopId');
-    if (!shopId) {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          if (user.shopId) shopId = user.shopId;
-        }
-      } catch(e) {
-        console.log("Could not get shopId for sale record");
-      }
-    }
-
-    const userId = await AsyncStorage.getItem('userId');
     const tenderedVal = parseFloat(tenderedAmount || '0');
     const totalLocal = convert(totalUSD || 0);
     const changeVal = Math.max(0, tenderedVal - totalLocal);

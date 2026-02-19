@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 
 interface InventoryItem {
   _id: string;
@@ -41,13 +42,14 @@ export default function CashierInventoryScreen() {
   const [bulkModalVisible, setBulkModalVisible] = useState(false);
   const [bulkMode, setBulkMode] = useState<'fixed' | 'percent'>('percent');
   const [bulkValue, setBulkValue] = useState('');
-  const [currentShopId, setCurrentShopId] = useState<string | null>(null);
   
   // Password Protection State
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [password, setPassword] = useState('');
   const [verifying, setVerifying] = useState(false);
   const pendingAction = useRef<(() => void) | null>(null);
+
+  const { shopId, userId, loading: shopLoading } = useActiveShop();
 
   const requestPassword = async (action: () => void) => {
     pendingAction.current = action;
@@ -99,22 +101,12 @@ export default function CashierInventoryScreen() {
   };
 
   const fetchInventory = async () => {
+    if (shopLoading) return;
     try {
-      const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      // Check local storage first (Manager switch support)
-      let activeShopId = await AsyncStorage.getItem('shopId');
-      
-      if (!activeShopId) {
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-        activeShopId = user.shopId;
-      }
-      
-      if (activeShopId) {
-        setCurrentShopId(activeShopId);
-        const response = await fetch(`${API_BASE_URL}/products?shopId=${activeShopId}`);
+      if (shopId) {
+        const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
         const data: any[] = await response.json();
         if (response.ok) {
           const mappedData = data.map((item: any) => ({
@@ -137,7 +129,7 @@ export default function CashierInventoryScreen() {
   useFocusEffect(
     useCallback(() => {
       fetchInventory();
-    }, [])
+    }, [shopId, shopLoading])
   );
 
   const onRefresh = () => {
@@ -293,11 +285,10 @@ export default function CashierInventoryScreen() {
     requestPassword(async () => {
       try {
         setLoading(true);
-        const userId = await AsyncStorage.getItem('userId');
         const response = await fetch(`${API_BASE_URL}/products/batch-update`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ updates, userId, shopId: currentShopId })
+          body: JSON.stringify({ updates, userId, shopId })
         });
         const data = await response.json();
         if (response.ok) {
