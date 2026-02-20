@@ -31,68 +31,6 @@ interface SubscriptionModalProps {
 }
 
 export default function SubscriptionModal({ visible, user, onSuccess, onLogout }: SubscriptionModalProps) {
-  const [loading, setLoading] = useState(false);
-  const [pollUrl, setPollUrl] = useState<string | null>(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
-
-  const handlePayNow = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/subscription/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          userId: user.id
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        // Open Paynow and save the status URL
-        Linking.openURL(data.redirectUrl);
-        setPollUrl(data.pollUrl);
-      } else {
-        Alert.alert("Error", data.message || "Failed to initiate payment");
-      }
-    } catch (error) {
-      Alert.alert("Error", "Network error occurred");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkPaymentStatus = async () => {
-    if (!pollUrl || !user) return;
-    setCheckingStatus(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/subscription/check-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ pollUrl, userId: user.id }),
-      });
-
-      const data = await response.json();
-
-      if (data.success && (data.status === 'paid' || data.status === 'awaiting delivery')) {
-        Alert.alert("Success", "Payment received! Your subscription is active.");
-        setPollUrl(null); // Reset local state
-        onSuccess(); // Triggers the parent to refresh user profile and close modal
-      } else {
-        Alert.alert("Status", `Current status: ${data.status || 'Unpaid'}. Please wait a moment if you just paid.`);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Could not check status");
-    } finally {
-      setCheckingStatus(false);
-    }
-  };
-
   if (!user) return null;
 
   return (
@@ -109,7 +47,7 @@ export default function SubscriptionModal({ visible, user, onSuccess, onLogout }
         <View style={styles.modalContainer}>
           
           <View style={styles.header}>
-            <Ionicons name="lock-closed" size={48} color="#ef4444" />
+            <Ionicons name="lock-closed" size={40} color="#ef4444" />
             <Text style={styles.title}>Subscription Expired</Text>
             <Text style={styles.subtitle}>
               Your access is restricted. Please renew your subscription to continue managing your shop.
@@ -133,31 +71,22 @@ export default function SubscriptionModal({ visible, user, onSuccess, onLogout }
           </View>
 
           <View style={styles.actions}>
-            {!pollUrl ? (
-              <TouchableOpacity 
-                style={styles.payButton} 
-                onPress={handlePayNow}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.payButtonText}>Pay Now</Text>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity 
-                style={styles.checkButton} 
-                onPress={checkPaymentStatus}
-                disabled={checkingStatus}
-              >
-                {checkingStatus ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.checkButtonText}>I Have Paid (Check Status)</Text>
-                )}
-              </TouchableOpacity>
-            )}
+            <View style={styles.paymentInfoBox}>
+              <Text style={styles.paymentTitle}>Payment Options</Text>
+              
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>EcoCash:</Text>
+                <Text style={styles.paymentValue}>+263 777 926 123</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Name:</Text>
+                <Text style={styles.paymentValue}>Thabelo Dumani</Text>
+              </View>
+              
+              <Text style={styles.instruction}>
+                Please send proof of payment to the admin to activate your account.
+              </Text>
+            </View>
 
             <TouchableOpacity style={styles.logoutButton} onPress={onLogout}>
               <Text style={styles.logoutText}>Log Out</Text>
@@ -180,10 +109,10 @@ const styles = StyleSheet.create({
   },
   modalContainer: { 
     backgroundColor: 'white', 
-    borderRadius: 24, 
-    width: '100%', 
-    maxWidth: 400, 
-    padding: 24, 
+    borderRadius: 20, 
+    width: '85%', 
+    maxWidth: 340, 
+    padding: 20, 
     alignItems: 'center',
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
@@ -191,30 +120,37 @@ const styles = StyleSheet.create({
     shadowRadius: 4.65,
     elevation: 8,
   },
-  header: { alignItems: 'center', marginBottom: 24 },
-  title: { fontSize: 24, fontWeight: '800', color: '#1e293b', marginTop: 16 },
-  subtitle: { textAlign: 'center', color: '#64748b', marginTop: 8, fontSize: 15 },
+  header: { alignItems: 'center', marginBottom: 15 },
+  title: { fontSize: 20, fontWeight: '800', color: '#1e293b', marginTop: 10 },
+  subtitle: { textAlign: 'center', color: '#64748b', marginTop: 5, fontSize: 13 },
   
   detailsCard: { 
     width: '100%', 
     backgroundColor: '#f8fafc', 
-    padding: 16, 
-    borderRadius: 16, 
-    marginBottom: 24, 
+    padding: 12, 
+    borderRadius: 12, 
+    marginBottom: 15, 
     borderWidth: 1, 
     borderColor: '#e2e8f0' 
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
-  label: { color: '#64748b', fontSize: 14, fontWeight: '600' },
-  value: { color: '#0f172a', fontSize: 15, fontWeight: '700' },
-  amount: { color: '#1e40af', fontWeight: '800', fontSize: 20 },
-  divider: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 10 },
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6, alignItems: 'center' },
+  label: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  value: { color: '#0f172a', fontSize: 13, fontWeight: '700' },
+  amount: { color: '#1e40af', fontWeight: '800', fontSize: 18 },
+  divider: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 8 },
+
+  paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 12, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },
+  paymentTitle: { fontWeight: 'bold', color: '#166534', marginBottom: 8, fontSize: 14, textAlign: 'center' },
+  paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  paymentLabel: { color: '#15803d', fontWeight: '600', fontSize: 13 },
+  paymentValue: { color: '#14532d', fontWeight: 'bold', fontSize: 13 },
+  instruction: { marginTop: 8, fontSize: 11, color: '#166534', fontStyle: 'italic', textAlign: 'center' },
 
   actions: { width: '100%', gap: 12 },
   payButton: { backgroundColor: '#2563eb', padding: 16, borderRadius: 12, alignItems: 'center' },
   payButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   checkButton: { backgroundColor: '#059669', padding: 16, borderRadius: 12, alignItems: 'center' },
   checkButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  logoutButton: { padding: 16, alignItems: 'center' },
-  logoutText: { color: '#ef4444', fontWeight: '600' }
+  logoutButton: { padding: 10, alignItems: 'center' },
+  logoutText: { color: '#ef4444', fontWeight: '600', fontSize: 14 }
 });

@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Tabs, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
-import { Platform, StyleSheet } from 'react-native';
+import { Tabs, useRouter, useFocusEffect } from 'expo-router';
+import React, { useEffect, useState, useCallback } from 'react';
+import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -12,6 +12,7 @@ export default function TabLayout() {
   const router = useRouter();
   const colorScheme = useColorScheme();
   const [lowStockCount, setLowStockCount] = useState<number | undefined>(undefined);
+  const [isLocked, setIsLocked] = useState(false);
 
   useEffect(() => {
     const fetchLowStock = async () => {
@@ -30,8 +31,45 @@ export default function TabLayout() {
 
     fetchLowStock();
   }, []);
+  useFocusEffect(
+    useCallback(() => {
+      checkSubscriptionStatus();
+    }, [])
+  );
+
+  const checkSubscriptionStatus = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('userId');
+      if (!userId) return;
+
+      // 1. Get User to find shop
+      const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+      if (!userRes.ok) return;
+      const user = await userRes.json();
+
+      // 2. If linked to a shop, check that shop's manager
+      if (user.shopId) {
+        const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
+        if (shopRes.ok) {
+          const shop = await shopRes.json();
+          // If manager exists and is expired -> LOCK OUT
+          if (shop.manager && shop.manager.subscriptionStatus === 'expired') {
+            setIsLocked(true);
+          }
+        }
+      }
+    } catch (e) {
+      console.error("Subscription check failed", e);
+    }
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/(auth)/login');
+  };
 
   return (
+    <>
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#1e40af',
@@ -155,7 +193,32 @@ export default function TabLayout() {
         }}
       />
     </Tabs>
+
+    {/* GLOBAL LOCKOUT MODAL */}
+    <Modal visible={isLocked} transparent={false} animationType="none">
+      <View style={styles.lockoutContainer}>
+        <Ionicons name="lock-closed" size={80} color="#ef4444" />
+        <Text style={styles.lockoutTitle}>Access Denied</Text>
+        <Text style={styles.lockoutText}>
+          The Shop you are trying to access has not paid its subscription.
+        </Text>
+        <Text style={styles.lockoutSubText}>
+          Please contact your manager to renew the subscription.
+        </Text>
+        <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
+          <Text style={styles.logoutText}>Log Out</Text>
+        </TouchableOpacity>
+      </View>
+    </Modal>
+    </>
   );
 }
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  lockoutContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white', padding: 30 },
+  lockoutTitle: { fontSize: 28, fontWeight: 'bold', color: '#ef4444', marginTop: 20, marginBottom: 10 },
+  lockoutText: { fontSize: 16, color: '#1e293b', textAlign: 'center', marginBottom: 10 },
+  lockoutSubText: { fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 40 },
+  logoutBtn: { backgroundColor: '#ef4444', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
+  logoutText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+});

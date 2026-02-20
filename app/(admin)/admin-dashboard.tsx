@@ -83,19 +83,17 @@ export default function AdminDashboard() {
       const safeRecentSales = Array.isArray(recentSalesData) ? recentSalesData : [];
       const safeRecentUsers = Array.isArray(recentUsersData) ? recentUsersData : [];
 
-      // 1. Calculate Total Revenue
-      const totalRevenue = safeSales.reduce((acc: number, sale: any) => acc + (sale.total || 0), 0);
+      // 1. Calculate System Revenue (MRR) based on Manager Plans
+      const totalRevenue = safeUsers.reduce((acc: number, user: any) => {
+        if (user.role === 'manager') {
+          const count = user.shopCount || 0;
+          // Premium (2+ shops) = R400, Standard = R150
+          return acc + (count >= 2 ? 400 : 150);
+        }
+        return acc;
+      }, 0);
 
       // 2. Process Recent Activity (Combine Sales & Users)
-      const salesActivity = safeRecentSales.map((sale: any) => ({
-        _id: sale._id,
-        type: 'sale',
-        date: new Date(sale.date),
-        title: `New Sale: $${(sale.total || 0).toFixed(2)}`,
-        subtitle: `${sale.items?.length || 0} items sold`,
-        amount: sale.total
-      }));
-
       const usersActivity = safeRecentUsers.map((user: any) => ({
         _id: user._id,
         type: 'user',
@@ -105,7 +103,7 @@ export default function AdminDashboard() {
       }));
 
       // Combine and Sort by newest first
-      const combined = [...salesActivity, ...usersActivity]
+      const combined = [...usersActivity]
         .sort((a, b) => b.date.getTime() - a.date.getTime())
         .slice(0, 10); // Keep only top 10
 
@@ -159,8 +157,8 @@ export default function AdminDashboard() {
         <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
             <StatCard 
-              title="Total Revenue" 
-              value={`$${stats.sales.toFixed(2)}`} 
+              title="Monthly Revenue" 
+              value={`R${stats.sales.toFixed(2)}`} 
               icon="cash-outline" 
               gradientColors={['#059669', '#10b981']} // Green
               loading={loading}

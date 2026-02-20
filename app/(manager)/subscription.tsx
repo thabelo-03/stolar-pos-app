@@ -25,9 +25,6 @@ interface User {
 }
 
 export default function SubscriptionPage() {
-  const [loading, setLoading] = useState(false);
-  const [pollUrl, setPollUrl] = useState<string | null>(null);
-  const [checkingStatus, setCheckingStatus] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
 
@@ -56,63 +53,6 @@ export default function SubscriptionPage() {
     };
     fetchUser();
   }, []);
-
-  const handlePayNow = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/subscription/pay`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: user.email,
-          // amount is now calculated on server
-          userId: user._id
-        }),
-      });
-
-      const data = await response.json();
-
-      if (data.success) {
-        Linking.openURL(data.redirectUrl);
-        setPollUrl(data.pollUrl);
-      } else {
-        Alert.alert("Error", data.message || "Failed to initiate payment");
-      }
-    } catch (error) {
-      Alert.alert("Error", "Network error occurred");
-      console.error(error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const checkPaymentStatus = async () => {
-    if (!pollUrl || !user) return;
-    setCheckingStatus(true);
-
-    try {
-      const response = await fetch(`${API_BASE_URL}/subscription/check-status`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
-
-      const data = await response.json();
-
-      if (data.success && (data.status === 'paid' || data.status === 'awaiting delivery')) {
-        Alert.alert("Success", "Payment received! Your subscription is active.");
-        setPollUrl(null);
-        // On success, navigate to the manager dashboard
-        router.replace('/(manager)'); 
-        Alert.alert("Status", `Current status: ${data.status || 'Unpaid'}. Please wait a moment if you just paid.`);
-      }
-    } catch (error) {
-      Alert.alert("Error", "Could not check status");
-    } finally {
-      setCheckingStatus(false);
-    }
-  };
 
   const handleLogout = async () => {
     await AsyncStorage.clear();
@@ -162,31 +102,22 @@ export default function SubscriptionPage() {
         </View>
 
         <View style={styles.actions}>
-          {!pollUrl ? (
-            <TouchableOpacity 
-              style={styles.payButton} 
-              onPress={handlePayNow}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.payButtonText}>Pay Now</Text>
-              )}
-            </TouchableOpacity>
-          ) : (
-            <TouchableOpacity 
-              style={styles.checkButton} 
-              onPress={checkPaymentStatus}
-              disabled={checkingStatus}
-            >
-              {checkingStatus ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.checkButtonText}>I Have Paid (Check Status)</Text>
-              )}
-            </TouchableOpacity>
-          )}
+          <View style={styles.paymentInfoBox}>
+            <Text style={styles.paymentTitle}>Payment Options</Text>
+            
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>EcoCash:</Text>
+              <Text style={styles.paymentValue}>+263 777 926 123</Text>
+            </View>
+            <View style={styles.paymentRow}>
+              <Text style={styles.paymentLabel}>Name:</Text>
+              <Text style={styles.paymentValue}>Thabelo Dumani</Text>
+            </View>
+            
+            <Text style={styles.instruction}>
+              Please send proof of payment to the admin to activate your account.
+            </Text>
+          </View>
 
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
             <Text style={styles.logoutText}>Log Out</Text>
@@ -278,6 +209,13 @@ const styles = StyleSheet.create({
   value: { color: '#0f172a', fontSize: 16, fontWeight: '700' }, // Slightly larger font
   amount: { color: '#1e40af', fontWeight: '800', fontSize: 24 }, // Larger amount
   divider: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 15 }, // More vertical margin
+
+  paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },
+  paymentTitle: { fontWeight: 'bold', color: '#166534', marginBottom: 15, fontSize: 18, textAlign: 'center' },
+  paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+  paymentLabel: { color: '#15803d', fontWeight: '600', fontSize: 16 },
+  paymentValue: { color: '#14532d', fontWeight: 'bold', fontSize: 16 },
+  instruction: { marginTop: 15, fontSize: 14, color: '#166534', fontStyle: 'italic', textAlign: 'center' },
 
   actions: { width: '100%', gap: 15 }, // Increased gap between buttons
   payButton: { 

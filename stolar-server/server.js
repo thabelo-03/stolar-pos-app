@@ -1,14 +1,10 @@
  const dns = require('node:dns');
 dns.setServers(['8.8.8.8', '8.8.4.4']); //
-const { Paynow } = require('paynow');
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 require('dotenv').config();
-
-console.log('Paynow INTEGRATION_ID from .env:', process.env.PAYNOW_INTEGRATION_ID);
-console.log('Paynow INTEGRATION_KEY from .env:', process.env.PAYNOW_INTEGRATION_KEY);
 
 // Models
 const Shop = require('./models/Shop');
@@ -21,12 +17,6 @@ const ActionLog = require('./models/ActionLog');
 const PaymentHistory = require('./models/PaymentHistory');
 
 const app = express();
-
-// Paynow Configuration
-const paynow = new Paynow(process.env.PAYNOW_INTEGRATION_ID, process.env.PAYNOW_INTEGRATION_KEY);
-// Set result and return URLs (Replace with your actual frontend/backend URLs)
-paynow.resultUrl = 'http://localhost:5000/api/subscription/callback';
-paynow.returnUrl = 'http://localhost:5000/payment-success';
 
 // Middleware
 app.use(express.json());
@@ -287,7 +277,7 @@ app.get('/api/shops/:id', async (req, res) => {
 
     // Manually fetch manager details to handle broken references gracefully
     if (shop.manager) {
-      const manager = await User.findById(shop.manager).select('name email').lean();
+      const manager = await User.findById(shop.manager).select('name email subscriptionStatus subscriptionExpiry').lean();
       if (manager) {
         shop.manager = manager;
       } else {
@@ -870,71 +860,6 @@ app.post('/api/sales/:id/refund', async (req, res) => {
 });
 
 // --- SUBSCRIPTION & PAYMENTS ---
-
-// 1. Initiate Payment (Paynow)
-app.post('/api/subscription/pay', async (req, res) => {
-  const { email, amount, userId } = req.body; // Amount usually in USD
-  console.log(`Initiating payment for ${email}`);
-  console.log('Using Paynow INTEGRATION_ID:', process.env.PAYNOW_INTEGRATION_ID);
-  console.log('Using Paynow INTEGRATION_KEY:', process.env.PAYNOW_INTEGRATION_KEY);
-
-  try {
-    // Dynamic Pricing: R400 for 2+ shops, else R150
-    const shopCount = await Shop.countDocuments({ manager: userId });
-    const planAmount = shopCount >= 2 ? 400 : 150;
-    const finalAmount = planAmount; // Force server-calculated amount
-
-    const payment = paynow.createPayment(`Subscription-${userId}-${Date.now()}`, email);
-    payment.add(`Monthly Subscription (${shopCount >= 2 ? 'Premium' : 'Standard'})`, finalAmount);
-
-    const response = await paynow.send(payment);
-
-    if (response.success) {
-      res.json({ 
-        success: true, 
-        redirectUrl: response.redirectUrl, 
-        pollUrl: response.pollUrl 
-      });
-    } else {
-      res.status(400).json({ success: false, message: "Paynow failed to initiate" });
-    }
-  } catch (err) {
-    console.error("Payment init error:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
-
-// 2. Check Payment Status (Frontend polls this)
-app.post('/api/subscription/check-status', async (req, res) => {
-  const { pollUrl, userId } = req.body;
-  try {
-    const status = await paynow.pollTransaction(pollUrl);
-    console.log("Payment Status:", status.status);
-
-    if (status.status === 'paid' || status.status === 'awaiting delivery') {
-      // Extend Subscription by 1 Month
-      const user = await User.findById(userId);
-      if (!user) return res.status(404).json({ message: "User not found" });
-
-      const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 
-        ? new Date(user.subscriptionExpiry) 
-        : new Date();
-      
-      currentExpiry.setMonth(currentExpiry.getMonth() + 1);
-      
-      user.subscriptionExpiry = currentExpiry;
-      user.subscriptionStatus = 'active';
-      await user.save();
-
-      return res.json({ success: true, status: 'paid', newExpiry: currentExpiry });
-    }
-
-    res.json({ success: true, status: status.status });
-  } catch (err) {
-    console.error("Poll error:", err);
-    res.status(500).json({ message: err.message });
-  }
-});
 
 // 3. Admin Manual Activation (Cash Payment)
 app.post('/api/admin/activate-user', async (req, res) => {

@@ -22,6 +22,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isPasswordVisible, setIsPasswordVisible] = useState(false);
   const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const router = useRouter();
@@ -158,8 +159,11 @@ export default function LoginScreen() {
             placeholderTextColor="#94a3b8"
             value={password}
             onChangeText={setPassword}
-            secureTextEntry
+            secureTextEntry={!isPasswordVisible}
           />
+          <TouchableOpacity onPress={() => setIsPasswordVisible(!isPasswordVisible)} style={{ padding: 5 }}>
+            <MaterialCommunityIcons name={isPasswordVisible ? "eye-off" : "eye"} size={20} color="#64748b" />
+          </TouchableOpacity>
         </View>
 
         <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>

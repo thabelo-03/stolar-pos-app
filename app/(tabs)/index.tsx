@@ -84,7 +84,7 @@ export default function CashierHome() {
     useCallback(() => {
       refreshShop();
       fetchUnreadCount();
-    }, [refreshShop, fetchUnreadCount])
+    }, [])
   );
 
   const handleLogout = () => {

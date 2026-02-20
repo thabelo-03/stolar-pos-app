@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -47,6 +47,7 @@ export default function MyShopScreen() {
   const [shops, setShops] = useState<any[]>([]);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
+  const [lockoutVisible, setLockoutVisible] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -112,6 +113,11 @@ export default function MyShopScreen() {
           setShop(shopData);
           setPendingRequest(null);
           saveToRecent({ name: shopData.name, branchCode: shopData.branchCode });
+
+          // CHECK MANAGER SUBSCRIPTION
+          if (shopData.manager && shopData.manager.subscriptionStatus === 'expired') {
+            setLockoutVisible(true);
+          }
         }
       } else {
         setShop(null);
@@ -268,6 +274,11 @@ export default function MyShopScreen() {
     setShopSelectionVisible(false);
     Alert.alert("Success", `Switched to ${selectedShop.name}`);
     fetchShopDetails(); // Refresh current screen
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/(auth)/login');
   };
 
   if (loading) {
@@ -495,6 +506,25 @@ export default function MyShopScreen() {
                     <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
             </View>
+        </View>
+      </Modal>
+
+      {/* LOCKOUT MODAL */}
+      <Modal visible={lockoutVisible} transparent={false} animationType="fade">
+        <View style={[styles.modalOverlay, { backgroundColor: 'white' }]}>
+          <View style={[styles.modalContainer, { elevation: 0, shadowOpacity: 0 }]}>
+            <Ionicons name="lock-closed" size={80} color="#ef4444" style={{ alignSelf: 'center', marginBottom: 20 }} />
+            <Text style={[styles.modalTitle, { color: '#ef4444' }]}>Access Denied</Text>
+            <Text style={styles.modalText}>
+              The Shop you are trying to access has not paid its subscription.
+            </Text>
+            <Text style={[styles.modalText, { fontWeight: 'bold', color: '#1e293b' }]}>
+              Please contact your manager.
+            </Text>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn, { width: '100%', marginTop: 30, paddingVertical: 15 }]} onPress={handleLogout}>
+              <Text style={styles.confirmBtnText}>Log Out</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
     </View>
