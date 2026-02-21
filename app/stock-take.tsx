@@ -16,6 +16,8 @@ export default function StockTakeScreen() {
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
   const [userRole, setUserRole] = useState<string>('manager');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR'>('USD');
+  const [rates, setRates] = useState({ ZAR: 19.2 });
   
   // Metrics
   const [metrics, setMetrics] = useState({
@@ -37,6 +39,24 @@ export default function StockTakeScreen() {
         calculateStockTake();
     }
   }, [date, selectedShop, shops]);
+
+  useEffect(() => {
+    if (selectedShop !== 'all') {
+      fetch(`${API_BASE_URL}/shops/rates/${selectedShop}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.rates) setRates(data.rates);
+        })
+        .catch(e => console.log("Rates fetch error", e));
+    }
+  }, [selectedShop]);
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * (rates.ZAR || 19.2);
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : 'R';
 
   const fetchUserAndShops = async () => {
     try {
@@ -171,6 +191,7 @@ export default function StockTakeScreen() {
   const handleExportPDF = async () => {
     const shopName = selectedShop === 'all' ? 'All Shops' : shops.find(s => s._id === selectedShop)?.name || 'Unknown Shop';
     const dateStr = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const s = symbol;
 
     const html = `
       <html>
@@ -197,7 +218,7 @@ export default function StockTakeScreen() {
             <h3>Cash Flow</h3>
             <div class="row">
               <span class="label">Monthly Cash Sales</span>
-              <span class="value">$${metrics.totalSalesCash.toFixed(2)}</span>
+              <span class="value">${s}${convert(metrics.totalSalesCash).toFixed(2)}</span>
             </div>
             
             <div class="divider"></div>
@@ -205,18 +226,18 @@ export default function StockTakeScreen() {
             <h3>Stock Inventory (Cost Basis)</h3>
             <div class="row">
                <span class="label">Items Sold (${metrics.itemsSold} units)</span>
-               <span class="value">$${metrics.soldCost.toFixed(2)}</span>
+               <span class="value">${s}${convert(metrics.soldCost).toFixed(2)}</span>
             </div>
             <div class="row">
                <span class="label">Available Stock (${metrics.itemsInStock} units)</span>
-               <span class="value">$${metrics.inventoryCost.toFixed(2)}</span>
+               <span class="value">${s}${convert(metrics.inventoryCost).toFixed(2)}</span>
             </div>
           </div>
 
           <div class="summary-box">
             <div class="row total-row">
                <span class="label">Total Stock Managed</span>
-               <span class="value">$${metrics.totalStockManaged.toFixed(2)}</span>
+               <span class="value">${s}${convert(metrics.totalStockManaged).toFixed(2)}</span>
             </div>
             <div style="text-align: right; font-size: 12px; color: #64748b; margin-top: 5px;">(Sold + Available)</div>
           </div>
@@ -247,13 +268,22 @@ export default function StockTakeScreen() {
 
       {/* Filters */}
       <View style={styles.filterSection}>
-        <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
-          <Ionicons name="calendar" size={20} color="#1e40af" />
-          <Text style={styles.dateText}>
-            {date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-          </Text>
-          <Ionicons name="chevron-down" size={16} color="#64748b" />
-        </TouchableOpacity>
+        <View style={{flexDirection: 'row'}}>
+          <TouchableOpacity 
+              style={styles.currencySelector} 
+              onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
+          >
+              <Text style={styles.currencyText}>{currency}</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
+            <Ionicons name="calendar" size={20} color="#1e40af" />
+            <Text style={styles.dateText}>
+              {date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+            </Text>
+            <Ionicons name="chevron-down" size={16} color="#64748b" />
+          </TouchableOpacity>
+        </View>
 
         {/* Only show shop selector if user is manager and has multiple shops */}
         {userRole === 'manager' && shops.length > 0 && (
@@ -301,7 +331,7 @@ export default function StockTakeScreen() {
                 <Text style={styles.sectionHeader}>Cash Flow</Text>
                 <View style={styles.row}>
                   <Text style={styles.rowLabel}>Monthly Cash Sales</Text>
-                  <Text style={styles.rowValue}>${metrics.totalSalesCash.toFixed(2)}</Text>
+                  <Text style={styles.rowValue}>{symbol}{convert(metrics.totalSalesCash).toFixed(2)}</Text>
                 </View>
               </View>
 
@@ -316,7 +346,7 @@ export default function StockTakeScreen() {
                     <Text style={styles.rowLabel}>Items Sold</Text>
                     <Text style={styles.rowSub}>{metrics.itemsSold} units</Text>
                   </View>
-                  <Text style={styles.rowValue}>${metrics.soldCost.toFixed(2)}</Text>
+                  <Text style={styles.rowValue}>{symbol}{convert(metrics.soldCost).toFixed(2)}</Text>
                 </View>
 
                 <View style={[styles.row, { marginTop: 15 }]}>
@@ -324,7 +354,7 @@ export default function StockTakeScreen() {
                     <Text style={styles.rowLabel}>Available Stock</Text>
                     <Text style={styles.rowSub}>{metrics.itemsInStock} units</Text>
                   </View>
-                  <Text style={styles.rowValue}>${metrics.inventoryCost.toFixed(2)}</Text>
+                  <Text style={styles.rowValue}>{symbol}{convert(metrics.inventoryCost).toFixed(2)}</Text>
                 </View>
               </View>
 
@@ -333,7 +363,7 @@ export default function StockTakeScreen() {
               {/* 3. Total Stock */}
               <View style={styles.totalSection}>
                 <Text style={styles.totalLabel}>Total Stock Managed</Text>
-                <Text style={styles.totalValue}>${metrics.totalStockManaged.toFixed(2)}</Text>
+                <Text style={styles.totalValue}>{symbol}{convert(metrics.totalStockManaged).toFixed(2)}</Text>
                 <Text style={styles.totalSub}>(Sold + Available)</Text>
               </View>
             </View>
@@ -359,7 +389,7 @@ const styles = StyleSheet.create({
   headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
   
   filterSection: { padding: 20, paddingBottom: 10 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 12, borderRadius: 12, alignSelf: 'flex-start', marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0' },
+  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 12, borderRadius: 12, alignSelf: 'flex-start', marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0', marginRight: 10 },
   dateText: { marginHorizontal: 8, fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
   shopScroll: { flexDirection: 'row' },
   shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0' },
@@ -388,4 +418,6 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 14, color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold' },
   totalValue: { fontSize: 32, fontWeight: 'bold', color: '#1e3a8a', marginVertical: 5 },
   totalSub: { fontSize: 12, color: '#94a3b8' },
+  currencySelector: { backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginRight: 10, justifyContent: 'center', marginBottom: 15 },
+  currencyText: { color: '#1e40af', fontWeight: 'bold', fontSize: 16 },
 });

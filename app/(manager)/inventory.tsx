@@ -33,6 +33,8 @@ export default function ManagerInventoryScreen() {
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin' | 'profit'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR'>('USD');
+  const [rates, setRates] = useState({ ZAR: 19.2 });
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
   
@@ -79,6 +81,24 @@ export default function ManagerInventoryScreen() {
   useEffect(() => {
     fetchInventory();
   }, [shopId]);
+
+  useEffect(() => {
+    if (shopId) {
+      fetch(`${API_BASE_URL}/shops/rates/${shopId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.rates) setRates(data.rates);
+        })
+        .catch(e => console.log("Rates fetch error", e));
+    }
+  }, [shopId]);
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * (rates.ZAR || 19.2);
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : 'R';
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -449,6 +469,15 @@ export default function ManagerInventoryScreen() {
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
           <TouchableOpacity 
+            style={styles.filterChip} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
+          >
+            <Text style={[styles.filterText, { color: '#1e40af' }]}>{currency}</Text>
+          </TouchableOpacity>
+
+          <View style={styles.verticalDivider} />
+
+          <TouchableOpacity 
             style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
             onPress={() => setFilter('all')}
           >
@@ -506,9 +535,11 @@ export default function ManagerInventoryScreen() {
           renderItem={({ item }) => {
             const qty = Number(item.quantity) || 0;
             const status = getStockStatus(qty);
-            const price = Number(item.price || 0);
-            const cost = Number(item.costPrice || 0);
-            const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+            const rawPrice = Number(item.price || 0);
+            const rawCost = Number(item.costPrice || 0);
+            const price = convert(rawPrice);
+            const cost = convert(rawCost);
+            const margin = rawPrice > 0 ? ((rawPrice - rawCost) / rawPrice) * 100 : 0;
             const profit = price - cost;
 
             return (
@@ -531,7 +562,7 @@ export default function ManagerInventoryScreen() {
                 <View style={styles.cardFooter}>
                   <View>
                     <Text style={styles.priceLabel}>Price / Cost</Text>
-                    <Text style={styles.priceValue}>${price.toFixed(2)} <Text style={styles.costText}>(${cost.toFixed(2)})</Text></Text>
+                    <Text style={styles.priceValue}>{symbol}{price.toFixed(2)} <Text style={styles.costText}>({symbol}{cost.toFixed(2)})</Text></Text>
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Stock</Text>
@@ -540,7 +571,7 @@ export default function ManagerInventoryScreen() {
                   <View>
                     <Text style={styles.priceLabel}>Profit</Text>
                     <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
-                      ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
+                      {symbol}{profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
                     </Text>
                   </View>
                   

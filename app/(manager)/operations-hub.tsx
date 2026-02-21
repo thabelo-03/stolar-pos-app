@@ -37,7 +37,7 @@ export default function OperationHub() {
   const [isLoading, setIsLoading] = useState(false);
 
   // --- MULTI-CURRENCY & RATES STATE ---
-  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [displayCurrency, setDisplayCurrency] = useState<'USD' | 'ZAR'>('USD');
   const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
   const [tempZar, setTempZar] = useState('19.2'); 
   const [tempZig, setTempZig] = useState('26.5');
@@ -129,7 +129,6 @@ export default function OperationHub() {
 
   const formatValue = (val: number) => {
     if (displayCurrency === 'ZAR') return `R ${(val * rates.ZAR).toFixed(2)}`;
-    if (displayCurrency === 'ZiG') return `ZiG ${(val * rates.ZiG).toFixed(2)}`;
     return `$ ${val.toFixed(2)}`;
   };
 
@@ -197,7 +196,7 @@ export default function OperationHub() {
         <View style={styles.currencyToggleRow}>
             <Text style={styles.sectionHeader}>View Stats In:</Text>
             <View style={styles.toggleContainer}>
-                {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+                {(['USD', 'ZAR'] as const).map((curr) => (
                     <TouchableOpacity 
                         key={curr} 
                         onPress={() => setDisplayCurrency(curr)}
