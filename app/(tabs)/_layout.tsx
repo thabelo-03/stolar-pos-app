@@ -159,6 +159,12 @@ export default function TabLayout() {
         }}
       />
       
+      {/* Hide Stock Take Tab */}
+      <Tabs.Screen
+        name="stock-take"
+        options={{ href: null }}
+      />
+      
       {/* New: Profit Report Tab */}
       <Tabs.Screen
         name="profit-report"
