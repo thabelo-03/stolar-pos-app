@@ -7,9 +7,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from '../../components/themed-text';
-import { ThemedView } from '../../components/themed-view';
-import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
 import { useRates } from './use-rates';
@@ -36,8 +33,7 @@ const [category, setCategory] = useState('General');
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
-  const textColor = useThemeColor({}, 'text');
-  const placeholderColor = '#888';
+  const placeholderColor = '#94a3b8';
 
   const { shopId, userId, loading: shopLoading } = useActiveShop();
   const { rates } = useRates();
@@ -311,159 +307,184 @@ const [category, setCategory] = useState('General');
   };
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={{ flex: 1 }}
       >
-      <View style={[styles.header, { marginTop: 10 }]}>
+      <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
+          <Ionicons name="arrow-back" size={24} color="#1e293b" />
         </TouchableOpacity>
-        <ThemedText type="title" style={styles.title}>{isEditMode ? 'Edit Stock' : 'Add Stock'}</ThemedText>
+        <Text style={styles.headerTitle}>{isEditMode ? 'Edit Stock' : 'Add New Stock'}</Text>
+        <View style={{ width: 40 }} />
       </View>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Item Name</ThemedText>
-          <View style={styles.barcodeRow}>
-            <TextInput 
-              ref={itemNameInputRef}
-              style={[styles.input, { color: textColor, flex: 1 }]}
-              value={itemName}
-              onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
-              placeholder="e.g. Apple 1kg, Milk 1L"
-              placeholderTextColor={placeholderColor}
-            />
-            <TouchableOpacity onPress={async () => {
-              if (!permission?.granted) {
-                const { granted } = await requestPermission();
-                if (granted) setActiveScanField('name');
-              } else {
-                setActiveScanField('name');
-              }
-            }} style={styles.scanButton}>
-              <Ionicons name="scan-outline" size={24} color={textColor} />
-            </TouchableOpacity>
-          </View>
-          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Must include weight/volume (e.g. 1kg, 1L)</Text>
-        </ThemedView>
+        
+        {/* Card 1: Basic Info */}
+        <View style={styles.card}>
+            <Text style={styles.cardTitle}>Product Details</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Item Name</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="cube-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        ref={itemNameInputRef}
+                        style={styles.input}
+                        value={itemName}
+                        onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
+                        placeholder="e.g. Apple 1kg"
+                        placeholderTextColor={placeholderColor}
+                    />
+                    <TouchableOpacity onPress={async () => {
+                        if (!permission?.granted) {
+                            const { granted } = await requestPermission();
+                            if (granted) setActiveScanField('name');
+                        } else {
+                            setActiveScanField('name');
+                        }
+                    }} style={styles.scanIconBtn}>
+                        <Ionicons name="scan-outline" size={20} color="#1e40af" />
+                    </TouchableOpacity>
+                </View>
+                <Text style={styles.helperText}>Must include weight/volume (e.g. 1kg, 1L)</Text>
+            </View>
 
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Category</ThemedText>
-          <TextInput 
-            style={[styles.input, { color: textColor }]}
-            value={category}
-            onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
-            placeholder="e.g. Groceries"
-            placeholderTextColor={placeholderColor}
-          />
-          {existingCategories.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
-              {existingCategories.map((cat, index) => (
-                <TouchableOpacity 
-                  key={index} 
-                  style={styles.categoryChip} 
-                  onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
-                >
-                  <Text style={styles.categoryText}>{cat}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </ThemedView>
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Category</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="grid-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={category}
+                        onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
+                        placeholder="e.g. Groceries"
+                        placeholderTextColor={placeholderColor}
+                    />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                    {existingCategories.map((cat, index) => (
+                        <TouchableOpacity 
+                            key={index} 
+                            style={[styles.chip, category === cat && styles.activeChip]} 
+                            onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
+                        >
+                            <Text style={[styles.chipText, category === cat && styles.activeChipText]}>{cat}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
 
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Barcode</ThemedText>
-          <View style={styles.barcodeRow}>
-            <TextInput 
-              style={[styles.input, { color: textColor, flex: 1 }]}
-              value={barcode}
-              onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
-              placeholder="Scan or enter barcode"
-              placeholderTextColor={placeholderColor}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity onPress={async () => {
-              if (!permission?.granted) {
-                const { granted } = await requestPermission();
-                if (granted) setActiveScanField('barcode');
-              } else {
-                setActiveScanField('barcode');
-              }
-            }} style={styles.scanButton}>
-              <Ionicons name="barcode-outline" size={24} color={textColor} />
-            </TouchableOpacity>
-          </View>
-        </ThemedView>
-
-        <View style={styles.currencyRow}>
-          <Text style={styles.label}>Currency</Text>
-          <View style={styles.currencyToggle}>
-            {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
-              <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
-                <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Barcode</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="barcode-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={barcode}
+                        onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
+                        placeholder="Scan or enter barcode"
+                        placeholderTextColor={placeholderColor}
+                        keyboardType="numeric"
+                    />
+                    <TouchableOpacity onPress={async () => {
+                        if (!permission?.granted) {
+                            const { granted } = await requestPermission();
+                            if (granted) setActiveScanField('barcode');
+                        } else {
+                            setActiveScanField('barcode');
+                        }
+                    }} style={styles.scanIconBtn}>
+                        <Ionicons name="camera-outline" size={20} color="#1e40af" />
+                    </TouchableOpacity>
+                </View>
+            </View>
         </View>
 
-        <View style={styles.row}>
-          <View style={styles.halfInput}>
-            <ThemedText type="defaultSemiBold">Price</ThemedText>
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              value={price}
-              onChangeText={(text) => handleCurrencyChange(text, setPrice)}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
+        {/* Card 2: Pricing & Stock */}
+        <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>Pricing & Stock</Text>
+                <View style={styles.currencyToggle}>
+                    {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+                    <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
+                        <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
+                    </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
 
-          <View style={styles.halfInput}>
-            <ThemedText type="defaultSemiBold">Cost Price</ThemedText>
-            <TextInput 
-              style={[styles.input, { color: textColor }]}
-              value={costPrice}
-              onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
-              keyboardType="numeric"
-              placeholder="0.00"
-              placeholderTextColor={placeholderColor}
-            />
-          </View>
+            <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Selling Price</Text>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'Z'}</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={price}
+                            onChangeText={(text) => handleCurrencyChange(text, setPrice)}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={placeholderColor}
+                        />
+                    </View>
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Cost Price</Text>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'Z'}</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={costPrice}
+                            onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={placeholderColor}
+                        />
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.marginContainer}>
+                <Text style={styles.marginLabel}>Profit Margin</Text>
+                <View style={[styles.marginBadge, { backgroundColor: calculateMargin() >= 20 ? '#dcfce7' : calculateMargin() > 0 ? '#fef3c7' : '#fee2e2' }]}>
+                    <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#16a34a' : calculateMargin() > 0 ? '#d97706' : '#dc2626' }]}>
+                        {calculateMargin().toFixed(1)}%
+                    </Text>
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Quantity</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="layers-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={quantity}
+                        onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                    />
+                </View>
+            </View>
         </View>
-
-        <View style={styles.marginContainer}>
-          <Text style={styles.marginLabel}>Profit Margin:</Text>
-          <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#10b981' : calculateMargin() > 0 ? '#f59e0b' : '#ef4444' }]}>
-            {calculateMargin().toFixed(1)}%
-          </Text>
-        </View>
-
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Quantity</ThemedText>
-          <TextInput 
-            style={[styles.input, { color: textColor }]}
-            value={quantity}
-            onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor={placeholderColor}
-          />
-        </ThemedView>
 
         {loading || shopLoading ? (
-          <ActivityIndicator size="large" color={textColor} />
+          <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 20 }} />
         ) : (
-          <View style={{ gap: 12, marginTop: 20 }}>
+          <View style={styles.actionContainer}>
             {!isEditMode && (
-              <TouchableOpacity style={[styles.saveButton, { marginTop: 0, backgroundColor: '#0f172a' }]} onPress={() => handleSave(true)} disabled={shopLoading}>
-                <Text style={styles.saveButtonText}>Save & Add Another</Text>
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => handleSave(true)} disabled={shopLoading}>
+                <Ionicons name="duplicate-outline" size={20} color="#1e40af" style={{ marginRight: 8 }} />
+                <Text style={styles.secondaryButtonText}>Save & Add Another</Text>
               </TouchableOpacity>
             )}
-            <TouchableOpacity style={[styles.saveButton, { marginTop: 0 }]} onPress={() => handleSave(false)} disabled={shopLoading}>
-              <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>
+            <TouchableOpacity style={styles.primaryButton} onPress={() => handleSave(false)} disabled={shopLoading}>
+              <Ionicons name="checkmark-circle-outline" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>{isEditMode ? "Update Item" : "Save Item"}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -493,74 +514,93 @@ const [category, setCategory] = useState('General');
           </View>
         </CameraView>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-  },
+  container: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    backgroundColor: '#f8fafc',
   },
-  backButton: {
-    padding: 8,
-    marginRight: 10,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-  },
-  form: {
-    gap: 20,
-    paddingBottom: 120,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: 'rgba(150, 150, 150, 0.08)',
-    padding: 15,
-    borderRadius: 12,
-    marginTop: 8,
-    fontSize: 16,
-  },
-  barcodeRow: { flexDirection: 'row', gap: 10 },
-  scanButton: {
-    backgroundColor: 'rgba(150, 150, 150, 0.15)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    width: 54,
-    borderRadius: 12,
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-  },
+  backButton: { padding: 8, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
+  
+  form: { padding: 20, gap: 20, paddingBottom: 120 },
+  
+  card: { backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 20 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+
+  inputGroup: { marginBottom: 15 },
+  label: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 8 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', height: 50 },
+  inputIcon: { marginLeft: 15, marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+  helperText: { fontSize: 12, color: '#94a3b8', marginTop: 5, marginLeft: 5 },
+  scanIconBtn: { padding: 10, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' },
+  
+  chipScroll: { marginTop: 10, flexDirection: 'row' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  activeChip: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
+  chipText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  activeChipText: { color: '#1e40af' },
+
+  currencyToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 10, padding: 3 },
+  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  currTextActive: { color: '#1e40af' },
+  currencySymbol: { fontSize: 18, fontWeight: 'bold', color: '#64748b', marginLeft: 15, marginRight: 5 },
+
   row: { flexDirection: 'row', gap: 15 },
-  halfInput: { flex: 1 },
-  saveButton: {
+  
+  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f8fafc', padding: 12, borderRadius: 12 },
+  marginLabel: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+  marginBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  marginValue: { fontSize: 14, fontWeight: 'bold' },
+
+  actionContainer: { gap: 12, marginTop: 10 },
+  primaryButton: {
     backgroundColor: '#1e40af',
-    paddingVertical: 18,
-    borderRadius: 15,
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
-    marginTop: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 8,
     elevation: 4,
   },
-  saveButtonText: {
+  primaryButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  categoriesContainer: { marginTop: 10, flexDirection: 'row' },
-  categoryChip: { backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#bae6fd' },
-  categoryText: { color: '#0284c7', fontSize: 12, fontWeight: '600' },
+  secondaryButton: {
+    backgroundColor: '#e0f2fe',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  secondaryButtonText: {
+    color: '#1e40af',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
@@ -570,17 +610,3 @@ const styles = StyleSheet.create({
   shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
   shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'black' },
 });
-
-const extraStyles = StyleSheet.create({
-  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  currencyToggle: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 8, padding: 2 },
-  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
-  currTextActive: { color: '#1e40af' },
-  marginContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 5, marginBottom: 10 },
-  marginLabel: { fontSize: 14, color: '#64748b', marginRight: 5 },
-  marginValue: { fontSize: 16, fontWeight: 'bold' },
-});
-
-Object.assign(styles, extraStyles);
