@@ -182,43 +182,24 @@ export default function CashierHome() {
 
       <ScrollView contentContainerStyle={styles.scrollContent}>
         
-        {/* 2. Large Start Selling Button */}
-        <TouchableOpacity
-          style={styles.heroButton}
-          onPress={() => router.push('/(tabs)/scan')}
-          activeOpacity={0.9}
-        >
-          <View style={styles.heroContent}>
-            <View style={styles.heroIconCircle}>
-              <MaterialCommunityIcons name="barcode-scan" size={32} color="white" />
-            </View>
-            <View style={styles.heroTextContainer}>
-              <Text style={styles.heroTitle}>Start Selling</Text>
-              <Text style={styles.heroSubtitle}>Scan or Search Items</Text>
-            </View>
-          </View>
-          <Ionicons name="arrow-forward" size={24} color="white" style={{ opacity: 0.8 }} />
-        </TouchableOpacity>
-
-        <View style={styles.mainGrid}>
-          {/* 3. Left Side: Start Selling Card */}
-          <View style={[styles.card, styles.leftCard]}>
-             <TouchableOpacity 
-               style={styles.miniHeroButton}
-               onPress={() => router.push('/(tabs)/scan')}
-             >
-                <MaterialCommunityIcons name="barcode-scan" size={24} color="white" />
-                <Text style={styles.miniHeroTitle}>START SELLING</Text>
-                <Text style={styles.miniHeroSub}>SCAN / SEARCH</Text>
-             </TouchableOpacity>
-          </View>
-
-          {/* 4. Right Side: Quick Actions & Add Stock */}
-          <View style={styles.rightColumn}>
+        <View style={styles.contentContainer}>
             
             {/* Quick Actions Card */}
             <View style={styles.card}>
               <Text style={styles.sectionLabel}>Quick Actions</Text>
+
+              <AnimatedCard style={[styles.actionRow, styles.primaryActionRow]} onPress={() => router.push('/(tabs)/scan')}>
+                  <View style={[styles.iconBox, styles.primaryIconBox]}>
+                    <MaterialCommunityIcons name="barcode-scan" size={24} color="white" />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[styles.actionTitle, { color: '#064e3b', fontSize: 16 }]}>Start Selling</Text>
+                    <Text style={[styles.actionSub, { color: '#059669' }]}>Scan or Search Items</Text>
+                  </View>
+                  <View style={styles.primaryArrow}>
+                     <Ionicons name="arrow-forward" size={18} color="white" />
+                  </View>
+              </AnimatedCard>
 
               {userRole === 'manager' && (
                 <AnimatedCard style={styles.actionRow} onPress={() => router.replace('/(manager)')}>
@@ -285,18 +266,20 @@ export default function CashierHome() {
               )}
             </View>
 
-            {/* Add Stock Card */}
+
+
+            {/* Inventory Management Card */}
             <View style={[styles.card, !isLinked && { opacity: 0.6 }]}>
-              <Text style={styles.sectionLabel}>Add Stock</Text>
+              <Text style={styles.sectionLabel}>Inventory Management</Text>
               <AnimatedCard 
-                style={[styles.addStockBtn, !isLinked && { backgroundColor: '#e2e8f0' }]} 
+                style={[styles.actionRow, !isLinked && { backgroundColor: '#f1f5f9' }]} 
                 onPress={() => router.push('/(tabs)/add-stock')}
                 disabled={!isLinked}
               >
-                <View style={styles.addStockIcon}>
-                   <Ionicons name="add-circle" size={24} color={isLinked ? "#059669" : "#94a3b8"} />
+                <View style={[styles.iconBox, { backgroundColor: isLinked ? '#dcfce7' : '#e2e8f0' }]}>
+                   <Ionicons name="add-circle" size={24} color={isLinked ? "#16a34a" : "#94a3b8"} />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                   <Text style={[styles.actionTitle, !isLinked && { color: '#64748b' }]}>Add Stock</Text>
                   <Text style={styles.actionSub}>{isLinked ? 'Adjust Inventory' : 'Link Shop Required'}</Text>
                 </View>
@@ -304,7 +287,6 @@ export default function CashierHome() {
               </AnimatedCard>
             </View>
 
-          </View>
         </View>
       </ScrollView>
 
@@ -420,55 +402,26 @@ const styles = StyleSheet.create({
   notificationBadge: { position: 'absolute', top: -5, right: -5, backgroundColor: '#ef4444', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#1e40af' },
   badgeText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
   
-  scrollContent: { padding: 20, marginTop: -40, paddingBottom: 120 },
+  scrollContent: { paddingHorizontal: 20, marginTop: -40, paddingBottom: 120 },
+  contentContainer: { width: '100%' },
   
-  heroButton: { 
-    backgroundColor: '#059669', 
-    borderRadius: 24, 
-    padding: 20, 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between',
-    shadowColor: '#059669',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 16,
-    elevation: 10,
-    marginBottom: 25,
-  },
-  heroContent: { flexDirection: 'row', alignItems: 'center' },
-  heroIconCircle: {
-    width: 56, height: 56, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.2)',
-    justifyContent: 'center', alignItems: 'center', marginRight: 16
-  },
-  heroTextContainer: { justifyContent: 'center' },
-  heroTitle: { color: 'white', fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
-  heroSubtitle: { color: '#d1fae5', fontSize: 13, fontWeight: '600', marginTop: 2 },
-
-  mainGrid: { flexDirection: 'row', justifyContent: 'space-between' },
-  leftCard: { width: '45%', justifyContent: 'center', alignItems: 'center', minHeight: 400 },
-  miniHeroButton: { backgroundColor: '#10b981', borderRadius: 20, padding: 15, width: '90%', alignItems: 'center' },
-  miniHeroTitle: { color: 'white', fontWeight: 'bold', fontSize: 14, textAlign: 'center', marginTop: 5 },
-  miniHeroSub: { color: 'white', fontSize: 10, opacity: 0.8 },
-
-  rightColumn: { width: '52%' },
-  card: { backgroundColor: 'white', borderRadius: 25, padding: 15, marginBottom: 15, elevation: 2 },
+  card: { backgroundColor: 'white', borderRadius: 24, padding: 20, marginBottom: 20, elevation: 4, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 8 },
   sectionLabel: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 15 },
   
   actionRow: { 
     flexDirection: 'row', alignItems: 'center', padding: 12, 
-    backgroundColor: '#f8fafc', borderRadius: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#f1f5f9'
+    backgroundColor: '#f8fafc', borderRadius: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: '#f1f5f9',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.03, shadowRadius: 2, elevation: 1
   },
-  iconBox: { width: 44, height: 44, borderRadius: 14, justifyContent: 'center', alignItems: 'center', marginRight: 14 },
+  primaryActionRow: { backgroundColor: '#ecfdf5', borderColor: '#a7f3d0', borderWidth: 1, paddingVertical: 16 },
+  iconBox: { width: 48, height: 48, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  primaryIconBox: { backgroundColor: '#10b981', shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 6, elevation: 4 },
+  primaryArrow: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#10b981', justifyContent: 'center', alignItems: 'center' },
+  
   actionTitle: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
   actionSub: { fontSize: 12, color: '#64748b' },
 
-  addStockBtn: { 
-    backgroundColor: '#f0fdf4', padding: 12, borderRadius: 16, flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1, borderColor: '#dcfce7'
-  },
-  addStockIcon: { marginRight: 10 },
   lockRow: { flexDirection: 'row', alignItems: 'center', marginTop: 10, paddingLeft: 5 },
   lockText: { fontSize: 11, color: '#64748b', marginLeft: 5 },
 

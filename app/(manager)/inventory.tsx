@@ -1,8 +1,10 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useMemo, useState } from 'react';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
@@ -82,9 +84,11 @@ export default function ManagerInventoryScreen() {
     }
   };
 
-  useEffect(() => {
-    fetchInventory();
-  }, [shopId]);
+  useFocusEffect(
+    useCallback(() => {
+      fetchInventory();
+    }, [shopId])
+  );
 
   useEffect(() => {
     if (shopId) {
@@ -391,6 +395,76 @@ export default function ManagerInventoryScreen() {
     }
   };
 
+  const handleExportPDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
+            h1 { text-align: center; color: #1e3a8a; margin-bottom: 10px; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f1f5f9; color: #1e3a8a; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; }
+            .total-row { font-weight: bold; background-color: #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <h1>Inventory Report</h1>
+          <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Barcode</th>
+                <th style="text-align: right;">Stock</th>
+                <th style="text-align: right;">Price</th>
+                <th style="text-align: right;">Value</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredInventory.map(item => {
+                const qty = Number(item.quantity) || 0;
+                const price = convert(Number(item.price || 0));
+                const value = price * qty;
+                return `
+                  <tr>
+                    <td>${item.name}</td>
+                    <td>${item.barcode || '-'}</td>
+                    <td style="text-align: right;">${qty}</td>
+                    <td style="text-align: right;">${symbol}${price.toFixed(2)}</td>
+                    <td style="text-align: right;">${symbol}${value.toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('')}
+              <tr class="total-row">
+                <td colspan="2">TOTAL</td>
+                <td style="text-align: right;">${stats.totalItems} items</td>
+                <td></td>
+                <td style="text-align: right;">${symbol}${stats.totalValue.toFixed(2)}</td>
+              </tr>
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Stolar POS System
+          </div>
+        </body>
+      </html>
+    `;
+
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) {
+      Alert.alert('Error', 'Failed to generate PDF');
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
@@ -400,12 +474,18 @@ export default function ManagerInventoryScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manager Inventory</Text>
-          <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={() => router.push({ pathname: '/stock-take', params: { shopId } })}>
-            <Ionicons name="clipboard-outline" size={24} color="#1e40af" />
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
-            <Ionicons name="add" size={24} color="#1e40af" />
-          </TouchableOpacity>
+          
+          <View style={{ flexDirection: 'row' }}>
+            <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={handleExportPDF}>
+              <Ionicons name="share-outline" size={24} color="#1e40af" />
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={() => router.push({ pathname: '/stock-take', params: { shopId } })}>
+              <Ionicons name="clipboard-outline" size={24} color="#1e40af" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
+              <Ionicons name="add" size={24} color="#1e40af" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Stats Row */}

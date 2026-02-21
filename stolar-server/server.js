@@ -387,7 +387,13 @@ app.get('/api/products', async (req, res) => {
   try {
     const { shopId } = req.query;
     let query = {};
-    if (shopId) query.shopId = shopId;
+    if (shopId) {
+      if (mongoose.Types.ObjectId.isValid(shopId)) {
+        query.shopId = { $in: [new mongoose.Types.ObjectId(shopId), shopId] };
+      } else {
+        query.shopId = shopId;
+      }
+    }
 
     const products = await Product.find(query).sort({ updatedAt: -1 });
     res.json(products);
@@ -473,7 +479,13 @@ app.post('/api/products/add', async (req, res) => {
   const { name, barcode, category, price, costPrice, quantity, shopId, userId } = req.body; 
   try {
     // Check for product in THIS specific shop
-    let product = await Product.findOne({ barcode, shopId });
+    let query = { barcode };
+    if (shopId && mongoose.Types.ObjectId.isValid(shopId)) {
+      query.shopId = { $in: [new mongoose.Types.ObjectId(shopId), shopId] };
+    } else {
+      query.shopId = shopId;
+    }
+    let product = await Product.findOne(query);
     const addQty = Number(quantity) || 0;
 
     if (product) {

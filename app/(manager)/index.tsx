@@ -6,7 +6,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { LineChart, PieChart } from 'react-native-chart-kit';
+import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
@@ -47,8 +47,10 @@ const ManagerIndex = () => {
   const [pieChartData, setPieChartData] = useState<any[]>([]);
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [lowStockItems, setLowStockItems] = useState<any[]>([]);
-  const [date, setDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 6)));
+  const [endDate, setEndDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [datePickerMode, setDatePickerMode] = useState<'start' | 'end'>('start');
   const [allSales, setAllSales] = useState<any[]>([]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -145,14 +147,16 @@ const ManagerIndex = () => {
   useEffect(() => {
     if (allSales.length === 0) return;
 
-    const last7Days = new Array(7).fill(0);
     const labels = [];
-    const endDate = new Date(date);
+    const dataPoints = [];
     
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(endDate);
-      d.setDate(endDate.getDate() - i);
-      labels.push(d.toLocaleDateString('en-US', { weekday: 'short' }));
+    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
+
+    for (let i = 0; i < diffDays; i++) {
+      const d = new Date(startDate);
+      d.setDate(startDate.getDate() + i);
+      labels.push(d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
       
       const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
       const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
@@ -164,13 +168,20 @@ const ManagerIndex = () => {
         })
         .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
         
-      last7Days[6 - i] = dailyTotal;
+      dataPoints.push(dailyTotal);
     }
-    setChartData({ labels, datasets: [{ data: last7Days }] });
+    
+    if (dataPoints.length > 0) {
+      let finalLabels = labels;
+      if (diffDays > 10) {
+        const step = Math.ceil(diffDays / 6);
+        finalLabels = labels.map((l, i) => (i % step === 0) ? l : '');
+      }
+      setChartData({ labels: finalLabels, datasets: [{ data: dataPoints }] });
+    }
 
-    // Filter for Pie Chart (same 7 day window)
-    const windowStart = new Date(endDate);
-    windowStart.setDate(endDate.getDate() - 6);
+    // Filter for Pie Chart (use selected range)
+    const windowStart = new Date(startDate);
     windowStart.setHours(0,0,0,0);
     const windowEnd = new Date(endDate);
     windowEnd.setHours(23,59,59,999);
@@ -214,12 +225,18 @@ const ManagerIndex = () => {
       .slice(0, 5);
 
     setTopProducts(sortedProducts);
-  }, [allSales, date, shops]);
+  }, [allSales, startDate, endDate, shops]);
 
   const onChangeDate = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
     if (selectedDate) {
-      setDate(selectedDate);
+      if (datePickerMode === 'start') {
+        setStartDate(selectedDate);
+        if (selectedDate > endDate) setEndDate(selectedDate);
+      } else {
+        setEndDate(selectedDate);
+        if (selectedDate < startDate) setStartDate(selectedDate);
+      }
     }
   };
 
@@ -364,31 +381,61 @@ const ManagerIndex = () => {
       <View style={styles.chartContainer}>
         <View style={styles.chartHeader}>
           <Text style={styles.chartTitle}>Sales Performance</Text>
-          <TouchableOpacity onPress={() => setShowDatePicker(true)} style={styles.dateButton}>
-            <Ionicons name="calendar-outline" size={16} color="#1e40af" />
-            <Text style={styles.dateButtonText}>{date.toLocaleDateString()}</Text>
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            <TouchableOpacity onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }} style={styles.dateButton}>
+              <Ionicons name="calendar-outline" size={16} color="#1e40af" />
+              <Text style={styles.dateButtonText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+            </TouchableOpacity>
+            <Text style={{ color: '#94a3b8' }}>-</Text>
+            <TouchableOpacity onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }} style={styles.dateButton}>
+              <Ionicons name="calendar-outline" size={16} color="#1e40af" />
+              <Text style={styles.dateButtonText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-        <LineChart
-          data={chartData}
-          width={Dimensions.get("window").width - 40}
-          height={180}
-          yAxisLabel="$"
-          yAxisSuffix=""
-          yAxisInterval={1}
-          chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
-            decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-            style: { borderRadius: 16 },
-            propsForDots: { r: "5", strokeWidth: "2", stroke: "#1e3a8a" }
-          }}
-          bezier
-          style={{ marginVertical: 8, borderRadius: 16 }}
-        />
+        {Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 > 10 ? (
+          <LineChart
+            data={chartData}
+            width={Dimensions.get("window").width - 40}
+            height={220}
+            yAxisLabel="$"
+            yAxisSuffix=""
+            chartConfig={{
+              backgroundColor: "#ffffff",
+              backgroundGradientFrom: "#ffffff",
+              backgroundGradientTo: "#ffffff",
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+              style: { borderRadius: 16 },
+              propsForDots: { r: "4", strokeWidth: "2", stroke: "#1e40af" }
+            }}
+            bezier
+            style={{ marginVertical: 8, borderRadius: 16 }}
+            fromZero
+          />
+        ) : (
+          <BarChart
+            data={chartData}
+            width={Dimensions.get("window").width - 40}
+            height={220}
+            yAxisLabel="$"
+            yAxisSuffix=""
+            chartConfig={{
+              backgroundColor: "#ffffff",
+              backgroundGradientFrom: "#ffffff",
+              backgroundGradientTo: "#ffffff",
+              decimalPlaces: 0,
+              color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
+              labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+              style: { borderRadius: 16 },
+              barPercentage: 0.5,
+            }}
+            style={{ marginVertical: 8, borderRadius: 16 }}
+            showValuesOnTopOfBars
+            fromZero
+          />
+        )}
         
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
             <TouchableOpacity style={styles.compactActionBtn} onPress={() => router.push('/(manager)/profit-loss')}>
@@ -409,7 +456,7 @@ const ManagerIndex = () => {
 
       {showDatePicker && (
         <DateTimePicker
-          value={date}
+          value={datePickerMode === 'start' ? startDate : endDate}
           mode="date"
           display="default"
           onChange={onChangeDate}
