@@ -11,7 +11,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import { API_BASE_URL } from '../config';
 
@@ -88,7 +89,7 @@ export default function LinkShopScreen() {
     >
       <View style={styles.card}>
         <View style={styles.iconContainer}>
-          <Ionicons name="link-outline" size={50} color="#1e40af" />
+          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={{ width: 60, height: 60, resizeMode: 'contain' }} />
         </View>
         
         <Text style={styles.title}>Join a Shop Branch</Text>

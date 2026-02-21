@@ -10,7 +10,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import { API_BASE_URL } from '../(tabs)/api';
 
@@ -109,7 +110,7 @@ export default function Signup() {
     <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.header}>
         <View style={styles.logoBox}>
-          <Ionicons name="storefront" size={40} color="white" />
+          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={{ width: 50, height: 50, resizeMode: 'contain' }} />
         </View>
         <Text style={styles.title}>Stolar POS</Text>
         <Text style={styles.subtitle}>Create Rural Staff Account</Text>

@@ -14,7 +14,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import { API_BASE_URL } from './config';
 
@@ -128,9 +129,8 @@ export default function LoginScreen() {
       
       <View style={styles.logoContainer}>
         <View style={styles.iconCircle}>
-          <MaterialCommunityIcons name="point-of-sale" size={60} color="#1e3a8a" />
+          <Image source={require('../assets/images/stolar-logo.jpeg')} style={{ width: '100%', height: '100%', borderRadius: 90, resizeMode: 'cover' }} />
         </View>
-        <Text style={styles.appName}>Stolar POS</Text>
         <Text style={styles.tagline}>Smart Management & Sales Tracking</Text>
       </View>
 
@@ -229,10 +229,10 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
   },
   iconCircle: {
-    width: 100,
-    height: 100,
+    width: 180,
+    height: 180,
     backgroundColor: 'white',
-    borderRadius: 50,
+    borderRadius: 90,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 15,

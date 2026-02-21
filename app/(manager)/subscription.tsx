@@ -10,7 +10,8 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import { API_BASE_URL } from '../config';
 
@@ -78,7 +79,7 @@ export default function SubscriptionPage() {
       <View style={styles.contentContainer}>
         
         <View style={styles.header}>
-          <Ionicons name="card-outline" size={60} color="#1e40af" /> 
+          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={{ width: 80, height: 80, resizeMode: 'contain', marginBottom: 10 }} />
           <Text style={styles.title}>Subscription Required</Text>
           <Text style={styles.subtitle}>
             Your access to manager features is currently restricted. Please renew your subscription to continue managing your shop and access all functionalities.

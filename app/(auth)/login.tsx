@@ -14,7 +14,8 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
 import { API_BASE_URL } from '../config';
 
@@ -140,9 +141,8 @@ export default function Login() {
     >
       <View style={styles.headerSection}>
         <View style={styles.iconCircle}>
-          <Ionicons name="business" size={40} color="#1e40af" />
+          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={{ width: '100%', height: '100%', borderRadius: 80, resizeMode: 'cover' }} />
         </View>
-        <Text style={styles.title}>Stolar POS</Text>
         <Text style={styles.subtitle}>Management & Retail System</Text>
       </View>
 
@@ -295,7 +295,7 @@ export default function Login() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFFFFF', padding: 30, justifyContent: 'center' },
   headerSection: { alignItems: 'center', marginBottom: 50 },
-  iconCircle: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+  iconCircle: { width: 160, height: 160, borderRadius: 80, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   title: { fontSize: 32, fontWeight: 'bold', color: '#1e3a8a' },
   subtitle: { color: '#64748b', fontSize: 16 },
   form: { width: '100%' },

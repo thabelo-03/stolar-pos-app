@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
-import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
 import { API_BASE_URL } from '../(tabs)/api';
 
 export default function ForgotPassword() {
@@ -46,7 +46,7 @@ export default function ForgotPassword() {
 
       <View style={styles.header}>
         <View style={styles.iconCircle}>
-          <Ionicons name="key-outline" size={40} color="#1e40af" />
+          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={{ width: 50, height: 50, resizeMode: 'contain' }} />
         </View>
         <Text style={styles.title}>Forgot Password?</Text>
         <Text style={styles.subtitle}>Enter your email to reset your password</Text>
