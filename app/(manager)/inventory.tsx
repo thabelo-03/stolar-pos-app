@@ -542,6 +542,11 @@ export default function ManagerInventoryScreen() {
             const margin = rawPrice > 0 ? ((rawPrice - rawCost) / rawPrice) * 100 : 0;
             const profit = price - cost;
 
+            const hasWeight = /[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(item.name.trim());
+            const displayName = item.name.replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
+              return `${num}${unit.toUpperCase()}`;
+            });
+
             return (
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
@@ -549,7 +554,10 @@ export default function ManagerInventoryScreen() {
                     <MaterialCommunityIcons name="cube-outline" size={24} color="#1e40af" />
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.itemName}>{item.name}</Text>
+                    <Text style={styles.itemName}>{displayName}</Text>
+                    {!hasWeight && (
+                      <Text style={{ fontSize: 10, color: '#f59e0b', marginBottom: 2 }}>⚠️ Missing Weight/Volume (e.g. 1kg, 1L)</Text>
+                    )}
                     <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
                   </View>
                   <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>

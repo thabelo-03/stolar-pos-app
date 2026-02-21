@@ -88,6 +88,17 @@ export default function ManagerAddStockScreen() {
       return;
     }
 
+    // Validate that Item Name ends with a weight (e.g., 1kg, 500g)
+    if (!/[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(itemName.trim())) {
+      Alert.alert('Invalid Name', 'Item name must include weight/volume at the end (e.g. "Rice 2kg", "Milk 1L")');
+      return;
+    }
+
+    // Normalize name: Capitalize unit and remove space between number and unit
+    const finalName = itemName.trim().replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
+      return `${num}${unit.toUpperCase()}`;
+    });
+
     const numPrice = Number(price);
     const numCost = Number(costPrice);
 
@@ -110,7 +121,7 @@ export default function ManagerAddStockScreen() {
         
         // Prepare safe payload
         const payload = {
-          name: itemName,
+          name: finalName,
           quantity: Number(quantity) || 0,
           barcode,
           price: Number(price) || 0,
@@ -235,6 +246,7 @@ export default function ManagerAddStockScreen() {
               placeholder="e.g. Apple"
               placeholderTextColor={placeholderColor}
             />
+            <Text style={{ fontSize: 11, color: '#64748b', position: 'absolute', bottom: -18, left: 5 }}>Must include weight/volume (e.g. 1kg, 1L)</Text>
             <TouchableOpacity onPress={async () => {
               if (!permission?.granted) {
                 const { granted } = await requestPermission();
