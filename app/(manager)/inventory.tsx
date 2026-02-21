@@ -19,6 +19,7 @@ interface InventoryItem {
   stockQuantity?: number;
   price?: number | string;
   costPrice?: number | string;
+  category?: string;
 }
 
 export default function ManagerInventoryScreen() {
@@ -31,6 +32,7 @@ export default function ManagerInventoryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin' | 'profit'>('name');
+  const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
   const [currency, setCurrency] = useState<'USD' | 'ZAR'>('USD');
@@ -45,6 +47,8 @@ export default function ManagerInventoryScreen() {
   const [historyModalVisible, setHistoryModalVisible] = useState(false);
   const [productHistory, setProductHistory] = useState<any[]>([]);
   const [selectedHistoryItemName, setSelectedHistoryItemName] = useState('');
+  const [manageModalVisible, setManageModalVisible] = useState(false);
+  const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
 
   // Transfer State
   const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -105,8 +109,18 @@ export default function ManagerInventoryScreen() {
     fetchInventory();
   };
 
+  const categories = useMemo(() => {
+    const unique = Array.from(new Set(inventory.map(i => i.category || 'General')));
+    return ['All', ...unique.sort()];
+  }, [inventory]);
+
   const filteredInventory = useMemo(() => {
     let data = [...inventory];
+
+    if (selectedCategory !== 'All') {
+      data = data.filter(i => (i.category || 'General') === selectedCategory);
+    }
+
     if (filter === 'low') data = data.filter(i => Number(i.quantity) > 0 && Number(i.quantity) < 5);
     if (filter === 'out') data = data.filter(i => Number(i.quantity) === 0);
 
@@ -152,7 +166,7 @@ export default function ManagerInventoryScreen() {
     });
 
     return data;
-  }, [inventory, filter, searchQuery, sortBy, sortOrder]);
+  }, [inventory, filter, searchQuery, sortBy, sortOrder, selectedCategory]);
 
   const deleteItem = async (id: string) => {
     try {
@@ -186,10 +200,10 @@ export default function ManagerInventoryScreen() {
 
   const stats = useMemo(() => {
     const totalItems = inventory.length;
-    const totalValue = inventory.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
+    const totalValue = inventory.reduce((acc, item) => acc + (convert(Number(item.price || 0)) * Number(item.quantity || 0)), 0);
     const lowStock = inventory.filter(i => Number(i.quantity) < 5).length;
     return { totalItems, totalValue, lowStock };
-  }, [inventory]);
+  }, [inventory, currency, rates]);
 
   const getStockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
@@ -229,38 +243,8 @@ export default function ManagerInventoryScreen() {
   };
 
   const handleItemPress = (item: InventoryItem) => {
-    const itemId = item._id || item.id;
-    if (!itemId) {
-      Alert.alert('Error', 'Item ID is missing');
-      return;
-    }
-
-    Alert.alert(
-      'Manage Item',
-      `Choose an action for ${item.name}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Transfer Stock',
-          onPress: () => {
-            setTransferItem(item);
-            setTransferQty('');
-            setTargetShopId('');
-            setTransferModalVisible(true);
-            fetchShops();
-          }
-        },
-        { 
-          text: 'Edit', 
-          onPress: () => handleEdit(item)
-        },
-        { 
-          text: 'Delete', 
-          style: 'destructive', 
-          onPress: () => confirmDelete(item) 
-        },
-      ]
-    );
+    setSelectedItem(item);
+    setManageModalVisible(true);
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
@@ -432,7 +416,7 @@ export default function ManagerInventoryScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>${stats.totalValue.toFixed(0)}</Text>
+            <Text style={styles.statValue}>{symbol}{stats.totalValue.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Value</Text>
           </View>
           <View style={styles.statDivider} />
@@ -465,8 +449,23 @@ export default function ManagerInventoryScreen() {
         </View>
       </View>
 
+      {/* Category Filter */}
+      <View style={{ marginTop: 15, height: 40 }}>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
+          {categories.map(cat => (
+            <TouchableOpacity 
+              key={cat} 
+              style={[styles.filterChip, selectedCategory === cat && styles.activeFilterChip]} 
+              onPress={() => setSelectedCategory(cat)}
+            >
+              <Text style={[styles.filterText, selectedCategory === cat && styles.activeFilterText]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+
       {/* Filters */}
-      <View style={styles.filterContainer}>
+      <View style={[styles.filterContainer, { marginTop: 10 }]}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
           <TouchableOpacity 
             style={styles.filterChip} 
@@ -645,6 +644,89 @@ export default function ManagerInventoryScreen() {
         </View>
       </Modal>
 
+      {/* Manage Item Modal */}
+      <Modal visible={manageModalVisible} transparent animationType="fade" onRequestClose={() => setManageModalVisible(false)}>
+        <TouchableOpacity 
+          style={styles.modalOverlay} 
+          activeOpacity={1} 
+          onPress={() => setManageModalVisible(false)}
+        >
+          <View style={styles.modalContainer} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { marginBottom: 0, textAlign: 'left' }]}>Manage Item</Text>
+              <TouchableOpacity onPress={() => setManageModalVisible(false)}>
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+            
+            {selectedItem && (
+              <View style={{marginBottom: 20, alignItems: 'center'}}>
+                <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b'}}>{selectedItem.name}</Text>
+                <Text style={{fontSize: 14, color: '#64748b'}}>{selectedItem.barcode || 'No Barcode'}</Text>
+              </View>
+            )}
+
+            <View style={{gap: 12}}>
+              <TouchableOpacity 
+                style={styles.actionOption} 
+                onPress={() => {
+                  setManageModalVisible(false);
+                  if (selectedItem) {
+                    setTransferItem(selectedItem);
+                    setTransferQty('');
+                    setTargetShopId('');
+                    setTransferModalVisible(true);
+                    fetchShops();
+                  }
+                }}
+              >
+                <View style={[styles.actionIcon, {backgroundColor: '#e0f2fe'}]}>
+                  <MaterialCommunityIcons name="truck-delivery-outline" size={24} color="#0284c7" />
+                </View>
+                <View style={{flex: 1}}>
+                  <Text style={styles.actionTitle}>Transfer Stock</Text>
+                  <Text style={styles.actionSub}>Move items to another shop</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.actionOption} 
+                onPress={() => {
+                  setManageModalVisible(false);
+                  if (selectedItem) handleEdit(selectedItem);
+                }}
+              >
+                <View style={[styles.actionIcon, {backgroundColor: '#f0fdf4'}]}>
+                  <MaterialCommunityIcons name="pencil-outline" size={24} color="#16a34a" />
+                </View>
+                <View style={{flex: 1}}>
+                  <Text style={styles.actionTitle}>Edit Details</Text>
+                  <Text style={styles.actionSub}>Update price, cost, or name</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
+              </TouchableOpacity>
+
+              <TouchableOpacity 
+                style={styles.actionOption} 
+                onPress={() => {
+                  setManageModalVisible(false);
+                  if (selectedItem) confirmDelete(selectedItem);
+                }}
+              >
+                <View style={[styles.actionIcon, {backgroundColor: '#fef2f2'}]}>
+                  <MaterialCommunityIcons name="trash-can-outline" size={24} color="#dc2626" />
+                </View>
+                <View style={{flex: 1}}>
+                  <Text style={[styles.actionTitle, {color: '#dc2626'}]}>Delete Item</Text>
+                  <Text style={styles.actionSub}>Remove permanently</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
       {/* History Modal */}
       <Modal visible={historyModalVisible} transparent animationType="fade" onRequestClose={() => setHistoryModalVisible(false)}>
         <View style={styles.modalOverlay}>
@@ -818,6 +900,40 @@ const styles = StyleSheet.create({
   cancelBtn: { backgroundColor: '#f1f5f9' },
   confirmBtn: { backgroundColor: '#1e40af' },
   btnText: { fontWeight: 'bold' },
+
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 15,
+    width: '100%',
+  },
+  actionOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  actionIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+  },
+  actionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  actionSub: {
+    fontSize: 12,
+    color: '#64748b',
+  },
 
   historyItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
