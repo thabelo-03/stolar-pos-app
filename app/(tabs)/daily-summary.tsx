@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -23,6 +23,9 @@ export default function DailySummaryScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [viewMode, setViewMode] = useState<'daily' | 'weekly'>('daily');
   const insets = useSafeAreaInsets();
+  
+  const flatListRef = useRef<FlatList>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
   
   const [transactions, setTransactions] = useState<any[]>([]);
   const [totalSales, setTotalSales] = useState(0);
@@ -441,6 +444,7 @@ export default function DailySummaryScreen() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
+        ref={flatListRef}
         data={transactions}
         keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         ListHeaderComponent={renderHeader}
@@ -469,7 +473,18 @@ export default function DailySummaryScreen() {
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
+        onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 300)}
+        scrollEventThrottle={16}
       />
+
+      {showScrollTop && (
+        <TouchableOpacity 
+          style={styles.scrollTopButton} 
+          onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
+        >
+          <Ionicons name="arrow-up" size={24} color="white" />
+        </TouchableOpacity>
+      )}
     </ThemedView>
   );
 }
@@ -544,4 +559,17 @@ const styles = StyleSheet.create({
   transAmount: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
   transItems: { fontSize: 12, color: '#64748b' },
   transTime: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+  scrollTopButton: {
+    position: 'absolute',
+    bottom: 110,
+    right: 20,
+    backgroundColor: '#1e40af',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
+  },
 });
