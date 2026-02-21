@@ -9,8 +9,10 @@ import { API_BASE_URL } from '../config';
 
 export default function ProfitLoss() {
   const router = useRouter();
-  const [date, setDate] = useState(new Date());
+  const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 6)));
+  const [endDate, setEndDate] = useState(new Date());
   const [show, setShow] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
   const [loading, setLoading] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
@@ -29,7 +31,20 @@ export default function ProfitLoss() {
 
   const onChange = (event: any, selectedDate?: Date) => {
     setShow(Platform.OS === 'ios');
-    if (selectedDate) setDate(selectedDate);
+    if (selectedDate) {
+      if (pickerMode === 'start') {
+        setStartDate(selectedDate);
+        if (selectedDate > endDate) setEndDate(selectedDate);
+      } else {
+        setEndDate(selectedDate);
+        if (selectedDate < startDate) setStartDate(selectedDate);
+      }
+    }
+  };
+
+  const openPicker = (mode: 'start' | 'end') => {
+    setPickerMode(mode);
+    setShow(true);
   };
 
   useEffect(() => {
@@ -70,20 +85,17 @@ export default function ProfitLoss() {
 
   useEffect(() => {
     fetchProfitData();
-  }, [date, selectedShop, shops]); // Re-fetch when date, shop selection, or shop list changes
+  }, [startDate, endDate, selectedShop, shops]); // Re-fetch when date, shop selection, or shop list changes
 
   const fetchProfitData = async () => {
     setLoading(true);
     try {
-      // Fetch last 7 days to populate graph, then filter "today" for the cards
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
 
-      const startDate = new Date(date);
-      startDate.setDate(startDate.getDate() - 6); // Go back 6 days (total 7 days)
-      startDate.setHours(0, 0, 0, 0);
-
-      let url = `${API_BASE_URL}/sales/recent?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}&limit=1000`;
+      let url = `${API_BASE_URL}/sales/recent?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=2000`;
       
       if (selectedShop !== 'all') {
         url += `&shopId=${selectedShop}`;
@@ -112,24 +124,20 @@ export default function ProfitLoss() {
 
   useEffect(() => {
     if (rawSales.length >= 0) {
-      const endDate = new Date(date);
-      endDate.setHours(23, 59, 59, 999);
-      const startDate = new Date(date);
-      startDate.setDate(startDate.getDate() - 6);
-      startDate.setHours(0, 0, 0, 0);
-
-      const selectedDayStart = new Date(date); selectedDayStart.setHours(0,0,0,0);
-      const selectedDayEnd = new Date(date); selectedDayEnd.setHours(23,59,59,999);
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      const start = new Date(startDate);
+      start.setHours(0, 0, 0, 0);
       
-      const todaysSales = rawSales.filter((s: any) => {
+      const rangeSales = rawSales.filter((s: any) => {
         const d = new Date(s.date);
-        return d >= selectedDayStart && d <= selectedDayEnd;
+        return d >= start && d <= end;
       });
 
-      calculateMetrics(todaysSales);
-      prepareChartData(rawSales, startDate, endDate);
+      calculateMetrics(rangeSales);
+      prepareChartData(rawSales, start, end);
     }
-  }, [rawSales, currency, rates, date]);
+  }, [rawSales, currency, rates, startDate, endDate]);
 
   const calculateMetrics = (sales: any[]) => {
     let totalRevenue = 0;
@@ -144,7 +152,7 @@ export default function ProfitLoss() {
       if (Array.isArray(sale.items)) {
         sale.items.forEach((item: any) => {
           const quantity = Number(item.quantity) || 0;
-          const costPrice = convert(Number(item.costPrice) || 0);
+          const costPrice = Number(item.costPrice) || 0;
           
           if (costPrice === 0) console.log(`[DEBUG] Item ${item.name} has 0 cost price!`);
           
@@ -165,16 +173,17 @@ export default function ProfitLoss() {
     const labels: string[] = [];
     const dataPoints: number[] = [];
     
-    // Iterate through the last 7 days
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(startDate);
-      d.setDate(d.getDate() + i);
-      
-      const dayLabel = d.toLocaleDateString('en-US', { weekday: 'short' });
+    let current = new Date(startDate);
+    current.setHours(0,0,0,0);
+    const end = new Date(endDate);
+    end.setHours(23,59,59,999);
+
+    while (current <= end) {
+      const dayLabel = current.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
       labels.push(dayLabel);
 
-      const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
-      const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+      const dayStart = new Date(current); dayStart.setHours(0,0,0,0);
+      const dayEnd = new Date(current); dayEnd.setHours(23,59,59,999);
 
       // Calculate Profit for this day
       let dailyProfit = 0;
@@ -193,6 +202,7 @@ export default function ProfitLoss() {
       });
 
       dataPoints.push(dailyProfit);
+      current.setDate(current.getDate() + 1);
     }
     setChartData({ labels, datasets: [{ data: dataPoints }] });
   };
@@ -215,11 +225,16 @@ export default function ProfitLoss() {
         </TouchableOpacity>
 
         <View style={styles.dateRow}>
-          <Text style={styles.label}>Date:</Text>
-          <TouchableOpacity style={styles.datePickerBtn} onPress={() => setShow(true)}>
-            <Ionicons name="calendar" size={20} color="#1e40af" />
-            <Text style={styles.dateText}>{date.toDateString()}</Text>
-          </TouchableOpacity>
+          <Text style={styles.label}>Date Range:</Text>
+          <View style={{flexDirection: 'row', alignItems: 'center'}}>
+            <TouchableOpacity style={styles.datePickerBtn} onPress={() => openPicker('start')}>
+                <Text style={styles.dateText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+            </TouchableOpacity>
+            <Text style={{marginHorizontal: 5, color: '#64748b'}}>-</Text>
+            <TouchableOpacity style={styles.datePickerBtn} onPress={() => openPicker('end')}>
+                <Text style={styles.dateText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopFilterContainer}>
@@ -243,7 +258,7 @@ export default function ProfitLoss() {
 
       {show && (
         <DateTimePicker
-          value={date}
+          value={pickerMode === 'start' ? startDate : endDate}
           mode="date"
           display="default"
           onChange={onChange}
@@ -258,7 +273,7 @@ export default function ProfitLoss() {
             
             {/* Profit Trend Chart */}
             <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>7-Day Profit Trend</Text>
+              <Text style={styles.chartTitle}>Profit Trend</Text>
               <LineChart
                 data={chartData}
                 width={Dimensions.get("window").width - 80} // Adjust for padding
