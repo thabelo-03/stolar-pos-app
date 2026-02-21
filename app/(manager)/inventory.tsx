@@ -2,8 +2,8 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
