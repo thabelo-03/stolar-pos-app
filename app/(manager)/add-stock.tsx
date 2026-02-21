@@ -14,7 +14,8 @@ export default function ManagerAddStockScreen() {
   const router = useRouter();
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
-  const shopId = params.shopId;
+  const rawShopId = params.shopId;
+  const shopId = Array.isArray(rawShopId) ? rawShopId[0] : rawShopId;
 
   const [itemName, setItemName] = useState('');
   const [barcode, setBarcode] = useState('');

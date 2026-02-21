@@ -30,7 +30,29 @@ app.use((req, res, next) => {
 
 // Database Connection
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log("✅ MongoDB Connected: Stolar POS Database"))
+  .then(async () => {
+    console.log("✅ MongoDB Connected: Stolar POS Database");
+    
+    // FIX: Ensure barcode uniqueness is scoped to shopId, not global
+    try {
+      const db = mongoose.connection.db;
+      const products = db.collection('products');
+      const indexes = await products.indexes();
+      
+      // Look for the problematic index: unique on 'barcode' only
+      const globalBarcodeIndex = indexes.find(idx => idx.key.barcode === 1 && Object.keys(idx.key).length === 1 && idx.unique === true);
+
+      if (globalBarcodeIndex) {
+        console.log("⚠️ Detected global unique index on 'barcode'. Fixing...");
+        await products.dropIndex(globalBarcodeIndex.name);
+        console.log("✅ Dropped global index. Creating compound index { barcode: 1, shopId: 1 }...");
+        await products.createIndex({ barcode: 1, shopId: 1 }, { unique: true });
+        console.log("✅ Database indexes updated successfully.");
+      }
+    } catch (e) {
+      console.log("ℹ️ Index check skipped or failed:", e.message);
+    }
+  })
   .catch(err => console.log("❌ DB Connection Error:", err));
 
 // --- SHOP RATES & CONFIGURATION ROUTES ---
@@ -509,6 +531,74 @@ app.post('/api/products/add', async (req, res) => {
   } catch (err) {
     console.error("Product add/update error:", err);
     res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/products/transfer', async (req, res) => {
+  console.log('Transferring stock:', req.body);
+  const { sourceShopId, targetShopId, productId, quantity, userId } = req.body;
+
+  try {
+    const qty = Number(quantity);
+    if (qty <= 0) return res.status(400).json({ message: "Invalid quantity" });
+
+    const sourceProduct = await Product.findOne({ _id: productId, shopId: sourceShopId });
+    if (!sourceProduct) return res.status(404).json({ message: "Source product not found" });
+
+    if ((sourceProduct.stockQuantity || 0) < qty) {
+      return res.status(400).json({ message: `Insufficient stock. Available: ${sourceProduct.stockQuantity}` });
+    }
+
+    // Find or create target product
+    let targetProduct = await Product.findOne({ barcode: sourceProduct.barcode, shopId: targetShopId });
+
+    if (targetProduct) {
+      targetProduct.stockQuantity = (targetProduct.stockQuantity || 0) + qty;
+      // We don't overwrite price/cost to respect target shop's pricing strategies
+      await targetProduct.save();
+    } else {
+      // Create new product in target shop if it doesn't exist
+      const productData = sourceProduct.toObject();
+      delete productData._id;
+      delete productData.createdAt;
+      delete productData.updatedAt;
+      delete productData.__v;
+      
+      targetProduct = new Product({
+        ...productData,
+        shopId: targetShopId,
+        stockQuantity: qty
+      });
+      await targetProduct.save();
+    }
+
+    // Deduct from source
+    sourceProduct.stockQuantity -= qty;
+    await sourceProduct.save();
+
+    // Log action
+    if (userId) {
+      const user = await User.findById(userId);
+      const sourceShop = await Shop.findById(sourceShopId);
+      const targetShop = await Shop.findById(targetShopId);
+      
+      await new ActionLog({
+        action: 'TRANSFER_STOCK',
+        details: `Transferred ${qty} x ${sourceProduct.name} from ${sourceShop?.name} to ${targetShop?.name}`,
+        userId,
+        userName: user ? user.name : 'Unknown',
+        shopId: sourceShopId,
+        relatedId: sourceProduct._id
+      }).save();
+    }
+
+    res.json({ success: true, message: "Stock transferred successfully" });
+  } catch (err) {
+    console.error("Transfer error:", err);
+    if (err.code === 11000) {
+      return res.status(409).json({ message: "System Error: Barcode index conflict. Please restart the server to auto-fix database indexes." });
+    }
+    res.status(500).json({ message: err.message });
   }
 });
 

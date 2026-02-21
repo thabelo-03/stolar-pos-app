@@ -23,7 +23,8 @@ interface InventoryItem {
 
 export default function ManagerInventoryScreen() {
   const router = useRouter();
-  const { shopId } = useLocalSearchParams();
+  const { shopId: rawShopId } = useLocalSearchParams();
+  const shopId = Array.isArray(rawShopId) ? rawShopId[0] : rawShopId;
   const [inventory, setInventory] = useState<InventoryItem[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
@@ -31,8 +32,6 @@ export default function ManagerInventoryScreen() {
   const [filter, setFilter] = useState<'all' | 'low' | 'out'>('all');
   const [sortBy, setSortBy] = useState<'name' | 'price' | 'quantity' | 'margin' | 'profit'>('name');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
-  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
   const textColor = useThemeColor({}, 'text');
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);
@@ -45,29 +44,20 @@ export default function ManagerInventoryScreen() {
   const [productHistory, setProductHistory] = useState<any[]>([]);
   const [selectedHistoryItemName, setSelectedHistoryItemName] = useState('');
 
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const url = shopId ? `${API_BASE_URL}/shops/rates/${shopId}` : `${API_BASE_URL}/shops/rates`;
-        const res = await fetch(url);
-        if (res.ok) {
-          const data = await res.json();
-          if (data.rates) setRates(data.rates);
-        }
-      } catch (e) {}
-    };
-    fetchRates();
-  }, [shopId]);
-
-  const convert = (amount: number) => {
-    if (currency === 'ZAR') return amount * rates.ZAR;
-    if (currency === 'ZiG') return amount * rates.ZiG;
-    return amount;
-  };
-
-  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
+  // Transfer State
+  const [transferModalVisible, setTransferModalVisible] = useState(false);
+  const [transferItem, setTransferItem] = useState<InventoryItem | null>(null);
+  const [transferQty, setTransferQty] = useState('');
+  const [targetShopId, setTargetShopId] = useState('');
+  const [availableShops, setAvailableShops] = useState<any[]>([]);
 
   const fetchInventory = async () => {
+    if (!shopId) {
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
       const data = await response.json();
@@ -88,7 +78,7 @@ export default function ManagerInventoryScreen() {
 
   useEffect(() => {
     fetchInventory();
-  }, []);
+  }, [shopId]);
 
   const onRefresh = () => {
     setRefreshing(true);
@@ -106,12 +96,15 @@ export default function ManagerInventoryScreen() {
     }
 
     data.sort((a, b) => {
-      let valA: any = a[sortBy];
-      let valB: any = b[sortBy];
+      let valA: number | string = 0;
+      let valB: number | string = 0;
 
-      if (sortBy === 'price' || sortBy === 'quantity') {
-        valA = Number(valA) || 0;
-        valB = Number(valB) || 0;
+      if (sortBy === 'price') {
+        valA = Number(a.price) || 0;
+        valB = Number(b.price) || 0;
+      } else if (sortBy === 'quantity') {
+        valA = Number(a.quantity) || 0;
+        valB = Number(b.quantity) || 0;
       } else if (sortBy === 'margin') {
         const priceA = Number(a.price) || 0;
         const costA = Number(a.costPrice) || 0;
@@ -129,8 +122,8 @@ export default function ManagerInventoryScreen() {
         const costB = Number(b.costPrice) || 0;
         valB = priceB - costB;
       } else {
-        valA = (valA || '').toString().toLowerCase();
-        valB = (valB || '').toString().toLowerCase();
+        valA = (a.name || '').toString().toLowerCase();
+        valB = (b.name || '').toString().toLowerCase();
       }
 
       if (valA < valB) return sortOrder === 'asc' ? -1 : 1;
@@ -173,10 +166,10 @@ export default function ManagerInventoryScreen() {
 
   const stats = useMemo(() => {
     const totalItems = inventory.length;
-    const totalValue = inventory.reduce((acc, item) => acc + (convert(Number(item.price || 0)) * Number(item.quantity || 0)), 0);
+    const totalValue = inventory.reduce((acc, item) => acc + (Number(item.price || 0) * Number(item.quantity || 0)), 0);
     const lowStock = inventory.filter(i => Number(i.quantity) < 5).length;
     return { totalItems, totalValue, lowStock };
-  }, [inventory, currency, rates]);
+  }, [inventory]);
 
   const getStockStatus = (qty: number) => {
     if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
@@ -191,14 +184,28 @@ export default function ManagerInventoryScreen() {
       params: { 
         id: itemId, 
         name: item.name, 
-        quantity: item.quantity, 
+        quantity: String(item.quantity), 
         barcode: (item.barcode !== undefined && item.barcode !== null) ? String(item.barcode) : '', 
-        price: item.price, 
-        costPrice: item.costPrice, 
+        price: item.price ? String(item.price) : '', 
+        costPrice: item.costPrice ? String(item.costPrice) : '', 
         mode: 'edit', 
         shopId 
       }
     });
+  };
+
+  const fetchShops = async () => {
+    const userId = await AsyncStorage.getItem('userId');
+    if (userId) {
+        try {
+            const res = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
+            const data = await res.json();
+            if (Array.isArray(data)) {
+                // Filter out current shop
+                setAvailableShops(data.filter((s: any) => s._id !== shopId));
+            }
+        } catch (e) {}
+    }
   };
 
   const handleItemPress = (item: InventoryItem) => {
@@ -213,6 +220,16 @@ export default function ManagerInventoryScreen() {
       `Choose an action for ${item.name}`,
       [
         { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Transfer Stock',
+          onPress: () => {
+            setTransferItem(item);
+            setTransferQty('');
+            setTargetShopId('');
+            setTransferModalVisible(true);
+            fetchShops();
+          }
+        },
         { 
           text: 'Edit', 
           onPress: () => handleEdit(item)
@@ -329,6 +346,47 @@ export default function ManagerInventoryScreen() {
     );
   };
 
+  const submitTransfer = async () => {
+    if (!transferItem || !targetShopId || !transferQty || !shopId) {
+        Alert.alert("Error", "Please select a shop and enter quantity.");
+        return;
+    }
+
+    const qty = Number(transferQty);
+    const currentStock = Number(transferItem.stockQuantity !== undefined ? transferItem.stockQuantity : transferItem.quantity);
+    
+    if (isNaN(qty) || qty <= 0) {
+        Alert.alert("Error", "Invalid quantity.");
+        return;
+    }
+    if (qty > currentStock) {
+        Alert.alert("Error", `Insufficient stock. Max transfer: ${currentStock}`);
+        return;
+    }
+
+    setLoading(true);
+    try {
+        const userId = await AsyncStorage.getItem('userId');
+        const response = await fetch(`${API_BASE_URL}/products/transfer`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sourceShopId: shopId, targetShopId, productId: transferItem._id || transferItem.id, quantity: qty, userId })
+        });
+        const data = await response.json();
+        if (response.ok) {
+            Alert.alert("Success", data.message);
+            setTransferModalVisible(false);
+            fetchInventory();
+        } else {
+            Alert.alert("Error", data.message || "Transfer failed");
+        }
+    } catch (e) {
+        Alert.alert("Error", "Network error");
+    } finally {
+        setLoading(false);
+    }
+  };
+
   return (
     <ThemedView style={styles.container}>
       {/* Header */}
@@ -354,7 +412,7 @@ export default function ManagerInventoryScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={styles.statValue}>{symbol} {stats.totalValue.toFixed(0)}</Text>
+            <Text style={styles.statValue}>${stats.totalValue.toFixed(0)}</Text>
             <Text style={styles.statLabel}>Value</Text>
           </View>
           <View style={styles.statDivider} />
@@ -390,15 +448,6 @@ export default function ManagerInventoryScreen() {
       {/* Filters */}
       <View style={styles.filterContainer}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{gap: 10, paddingRight: 20}}>
-          <TouchableOpacity 
-            style={styles.filterChip} 
-            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
-          >
-            <Text style={[styles.filterText, { color: '#1e40af' }]}>{currency}</Text>
-          </TouchableOpacity>
-
-          <View style={styles.verticalDivider} />
-
           <TouchableOpacity 
             style={[styles.filterChip, filter === 'all' && styles.activeFilterChip]} 
             onPress={() => setFilter('all')}
@@ -437,7 +486,7 @@ export default function ManagerInventoryScreen() {
       </View>
 
       <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
-        <CameraView style={styles.camera} facing="back" onBarcodeScanned={handleBarcodeScanned}>
+        <CameraView style={styles.camera} facing="back" onBarcodeScanned={handleBarcodeScanned} barcodeScannerSettings={{ barcodeTypes: ["qr", "ean13", "code128"] }}>
           <View style={styles.cameraOverlay}>
             <TouchableOpacity style={styles.closeButton} onPress={() => setIsScanning(false)}>
               <Ionicons name="close" size={30} color="white" />
@@ -457,8 +506,8 @@ export default function ManagerInventoryScreen() {
           renderItem={({ item }) => {
             const qty = Number(item.quantity) || 0;
             const status = getStockStatus(qty);
-            const price = convert(Number(item.price || 0));
-            const cost = convert(Number(item.costPrice || 0));
+            const price = Number(item.price || 0);
+            const cost = Number(item.costPrice || 0);
             const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
             const profit = price - cost;
 
@@ -482,7 +531,7 @@ export default function ManagerInventoryScreen() {
                 <View style={styles.cardFooter}>
                   <View>
                     <Text style={styles.priceLabel}>Price / Cost</Text>
-                    <Text style={styles.priceValue}>{symbol} {price.toFixed(2)} <Text style={styles.costText}>({symbol} {cost.toFixed(2)})</Text></Text>
+                    <Text style={styles.priceValue}>${price.toFixed(2)} <Text style={styles.costText}>(${cost.toFixed(2)})</Text></Text>
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Stock</Text>
@@ -490,8 +539,8 @@ export default function ManagerInventoryScreen() {
                   </View>
                   <View>
                     <Text style={styles.priceLabel}>Profit</Text>
-                    <Text style={[styles.priceValue, { color: '#10b981' }]}>
-                      {margin.toFixed(0)}%
+                    <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
+                      ${profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
                     </Text>
                   </View>
                   
@@ -593,6 +642,53 @@ export default function ManagerInventoryScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Transfer Modal */}
+      <Modal visible={transferModalVisible} transparent animationType="fade" onRequestClose={() => setTransferModalVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <Text style={styles.modalTitle}>Transfer Stock</Text>
+            <Text style={styles.modalSubtitle}>Moving: {transferItem?.name}</Text>
+
+            <Text style={styles.label}>Quantity to Transfer</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="Enter Qty"
+              keyboardType="numeric"
+              value={transferQty}
+              onChangeText={setTransferQty}
+            />
+
+            <Text style={styles.label}>Destination Shop</Text>
+            <ScrollView style={{ maxHeight: 150, marginBottom: 20 }}>
+                {availableShops.length === 0 ? (
+                    <Text style={{ textAlign: 'center', color: '#94a3b8', padding: 10 }}>No other shops available.</Text>
+                ) : (
+                    availableShops.map(shop => (
+                        <TouchableOpacity 
+                            key={shop._id} 
+                            style={[styles.shopOption, targetShopId === shop._id && styles.shopOptionActive]}
+                            onPress={() => setTargetShopId(shop._id)}
+                        >
+                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#1e40af' : '#64748b'} />
+                            <Text style={[styles.shopOptionText, targetShopId === shop._id && styles.shopOptionTextActive]}>{shop.name}</Text>
+                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#1e40af" style={{marginLeft: 'auto'}} />}
+                        </TouchableOpacity>
+                    ))
+                )}
+            </ScrollView>
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setTransferModalVisible(false)}>
+                <Text style={styles.btnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={submitTransfer}>
+                <Text style={[styles.btnText, {color: 'white'}]}>Transfer</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </ThemedView>
   );
 }
@@ -671,6 +767,7 @@ const styles = StyleSheet.create({
   modalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 350 },
   modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, textAlign: 'center' },
   modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, textAlign: 'center' },
+  label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
   tabRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 4, marginBottom: 20 },
   tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
   activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
@@ -691,4 +788,8 @@ const styles = StyleSheet.create({
   historyDetails: { fontSize: 13, color: '#475569' },
   restoreBtn: { backgroundColor: '#f0f9ff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#bae6fd' },
   restoreText: { fontSize: 10, color: '#0284c7', fontWeight: 'bold' },
+  shopOption: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 8, backgroundColor: '#f8fafc' },
+  shopOptionActive: { borderColor: '#1e40af', backgroundColor: '#eff6ff' },
+  shopOptionText: { marginLeft: 10, fontSize: 14, color: '#64748b', fontWeight: '500' },
+  shopOptionTextActive: { color: '#1e40af', fontWeight: 'bold' },
 });

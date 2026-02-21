@@ -42,14 +42,20 @@ export default function TabLayout() {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      // 1. Get User to find shop
-      const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-      if (!userRes.ok) return;
-      const user = await userRes.json();
+      // 1. Determine Active Shop ID (AsyncStorage priority for Managers)
+      let activeShopId = await AsyncStorage.getItem('shopId');
+
+      if (!activeShopId) {
+        // Fallback: Get User to find shop (Cashier linked in DB)
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        if (!userRes.ok) return;
+        const user = await userRes.json();
+        activeShopId = user.shopId;
+      }
 
       // 2. If linked to a shop, check that shop's manager
-      if (user.shopId) {
-        const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
+      if (activeShopId) {
+        const shopRes = await fetch(`${API_BASE_URL}/shops/${activeShopId}`);
         if (shopRes.ok) {
           const shop = await shopRes.json();
           // If manager exists and is expired -> LOCK OUT
