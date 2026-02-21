@@ -37,7 +37,7 @@ export default function ManagerAddStockScreen() {
   const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
   const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('USD');
   const textColor = useThemeColor({}, 'text');
-  const placeholderColor = '#888';
+  const placeholderColor = '#94a3b8';
 
   useEffect(() => {
     const loadUser = async () => {
@@ -165,7 +165,7 @@ export default function ManagerAddStockScreen() {
     router.replace('/(auth)/login');
   };
 
-  const handleSave = async () => {
+  const handleSave = async (clearAndStay = false) => {
     if (!itemName || !quantity || !price || !costPrice) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -239,15 +239,19 @@ export default function ManagerAddStockScreen() {
               [{ text: 'OK', onPress: () => router.back() }]
             );
           } else {
-            Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => {
-              setItemName('');
-              setBarcode('');
-              setQuantity('');
-              setPrice('');
-              setCostPrice('');
-              setCategory('General');
-              itemNameInputRef.current?.focus();
-            }}]);
+            if (clearAndStay) {
+              Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => {
+                setItemName('');
+                setBarcode('');
+                setQuantity('');
+                setPrice('');
+                setCostPrice('');
+                setCategory('General');
+                itemNameInputRef.current?.focus();
+              }}]);
+            } else {
+              Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => router.back() }]);
+            }
           }
         } else if (response.status === 409) {
           Alert.alert('Duplicate Item', 'An item with this name already exists.');
@@ -321,149 +325,183 @@ export default function ManagerAddStockScreen() {
         style={{ flex: 1 }}
       >
       <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.title}>{isEditMode ? 'Edit Stock' : 'Add Stock'}</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Ionicons name="log-out-outline" size={24} color="white" />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{isEditMode ? 'Edit Stock' : 'Add New Stock'}</Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
         </TouchableOpacity>
       </View>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
-        <View>
-          <Text style={styles.label}>Item Name</Text>
-          <View style={styles.inputContainer}>
-            <TextInput 
-              ref={itemNameInputRef}
-              style={styles.input}
-              value={itemName}
-              onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
-              placeholder="e.g. Apple"
-              placeholderTextColor={placeholderColor}
-            />
-            <Text style={{ fontSize: 11, color: '#64748b', position: 'absolute', bottom: -18, left: 5 }}>Must include weight/volume (e.g. 1kg, 1L)</Text>
-            <TouchableOpacity onPress={async () => {
-              if (!permission?.granted) {
-                const { granted } = await requestPermission();
-                if (granted) setActiveScanField('name');
-              } else {
-                setActiveScanField('name');
-              }
-            }} style={styles.iconButton}>
-              <Ionicons name="scan-outline" size={24} color="#1e40af" />
-            </TouchableOpacity>
-          </View>
+        
+        {/* Card 1: Basic Info */}
+        <View style={styles.card}>
+            <Text style={styles.cardTitle}>Product Details</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Item Name</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="cube-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        ref={itemNameInputRef}
+                        style={styles.input}
+                        value={itemName}
+                        onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
+                        placeholder="e.g. Apple 1kg"
+                        placeholderTextColor={placeholderColor}
+                    />
+                    <TouchableOpacity onPress={async () => {
+                        if (!permission?.granted) {
+                            const { granted } = await requestPermission();
+                            if (granted) setActiveScanField('name');
+                        } else {
+                            setActiveScanField('name');
+                        }
+                    }} style={styles.scanIconBtn}>
+                        <Ionicons name="scan-outline" size={20} color="#1e40af" />
+                    </TouchableOpacity>
+                </View>
+                <Text style={styles.helperText}>Must include weight/volume (e.g. 1kg, 1L)</Text>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Category</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="grid-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={category}
+                        onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
+                        placeholder="e.g. Groceries"
+                        placeholderTextColor={placeholderColor}
+                    />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                    {existingCategories.map((cat, index) => (
+                        <TouchableOpacity 
+                            key={index} 
+                            style={[styles.chip, category === cat && styles.activeChip]} 
+                            onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
+                        >
+                            <Text style={[styles.chipText, category === cat && styles.activeChipText]}>{cat}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Barcode</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="barcode-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={barcode}
+                        onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
+                        placeholder="Scan or enter barcode"
+                        placeholderTextColor={placeholderColor}
+                        keyboardType="numeric"
+                    />
+                    <TouchableOpacity onPress={async () => {
+                        if (!permission?.granted) {
+                            const { granted } = await requestPermission();
+                            if (granted) setActiveScanField('barcode');
+                        } else {
+                            setActiveScanField('barcode');
+                        }
+                    }} style={styles.scanIconBtn}>
+                        <Ionicons name="camera-outline" size={20} color="#1e40af" />
+                    </TouchableOpacity>
+                </View>
+            </View>
         </View>
 
-        <View>
-          <Text style={styles.label}>Barcode</Text>
-          <View style={styles.inputContainer}>
-            <TextInput 
-              style={styles.input}
-              value={barcode}
-              onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
-              placeholder="Scan or enter barcode"
-              placeholderTextColor={placeholderColor}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity onPress={async () => {
-              if (!permission?.granted) {
-                const { granted } = await requestPermission();
-                if (granted) setActiveScanField('barcode');
-              } else {
-                setActiveScanField('barcode');
-              }
-            }} style={styles.iconButton}>
-              <Ionicons name="barcode-outline" size={24} color="#1e40af" />
-            </TouchableOpacity>
-          </View>
+        {/* Card 2: Pricing & Stock */}
+        <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>Pricing & Stock</Text>
+                <View style={styles.currencyToggle}>
+                    {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+                    <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
+                        <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
+                    </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
+
+            <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Selling Price</Text>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'Z'}</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={price}
+                            onChangeText={(text) => handleCurrencyChange(text, setPrice)}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={placeholderColor}
+                        />
+                    </View>
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Cost Price</Text>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'Z'}</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={costPrice}
+                            onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={placeholderColor}
+                        />
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.marginContainer}>
+                <Text style={styles.marginLabel}>Profit Margin</Text>
+                <View style={[styles.marginBadge, { backgroundColor: calculateMargin() >= 20 ? '#dcfce7' : calculateMargin() > 0 ? '#fef3c7' : '#fee2e2' }]}>
+                    <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#16a34a' : calculateMargin() > 0 ? '#d97706' : '#dc2626' }]}>
+                        {calculateMargin().toFixed(1)}%
+                    </Text>
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Quantity</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="layers-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={quantity}
+                        onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                    />
+                </View>
+            </View>
         </View>
 
-        <View>
-          <Text style={styles.label}>Category</Text>
-          <TextInput 
-            style={styles.input}
-            value={category}
-            onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
-            placeholder="e.g. Groceries"
-            placeholderTextColor={placeholderColor}
-          />
-          {existingCategories.length > 0 && (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoriesContainer}>
-              {existingCategories.map((cat, index) => (
-                <TouchableOpacity 
-                  key={index} 
-                  style={styles.categoryChip} 
-                  onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
-                >
-                  <Text style={styles.categoryText}>{cat}</Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-          )}
-        </View>
-
-        <View style={styles.currencyRow}>
-          <Text style={styles.label}>Currency</Text>
-          <View style={styles.currencyToggle}>
-            {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
-              <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
-                <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 20 }} />
+        ) : (
+          <View style={styles.actionContainer}>
+            {!isEditMode && (
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => handleSave(true)} disabled={loading}>
+                <Ionicons name="duplicate-outline" size={20} color="#1e40af" style={{ marginRight: 8 }} />
+                <Text style={styles.secondaryButtonText}>Save & Add Another</Text>
               </TouchableOpacity>
-            ))}
+            )}
+            <TouchableOpacity style={styles.primaryButton} onPress={() => handleSave(false)} disabled={loading}>
+              <Ionicons name="checkmark-circle-outline" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>{isEditMode ? "Update Item" : "Save Item"}</Text>
+            </TouchableOpacity>
           </View>
-        </View>
-
-        <View style={styles.row}>
-            <View style={styles.halfInput}>
-                <Text style={styles.label}>Price</Text>
-                <TextInput 
-                    style={styles.input}
-                    value={price}
-                    onChangeText={(text) => handleCurrencyChange(text, setPrice)}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                    placeholderTextColor={placeholderColor}
-                />
-            </View>
-            <View style={styles.halfInput}>
-                <Text style={styles.label}>Cost Price</Text>
-                <TextInput 
-                    style={styles.input}
-                    value={costPrice}
-                    onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                    placeholderTextColor={placeholderColor}
-                />
-            </View>
-        </View>
-
-        <View style={styles.marginContainer}>
-          <Text style={styles.marginLabel}>Profit Margin:</Text>
-          <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#10b981' : calculateMargin() > 0 ? '#f59e0b' : '#ef4444' }]}>
-            {calculateMargin().toFixed(1)}%
-          </Text>
-        </View>
-
-        <View>
-          <Text style={styles.label}>Quantity</Text>
-          <TextInput 
-            style={styles.input}
-            value={quantity}
-            onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor={placeholderColor}
-          />
-        </View>
-
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>}
-        </TouchableOpacity>
+        )}
       </ScrollView>
       </KeyboardAvoidingView>
 
@@ -497,54 +535,85 @@ export default function ManagerAddStockScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   header: {
-    backgroundColor: '#1e3a8a',
-    padding: 25,
-    paddingTop: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 15,
+    backgroundColor: '#f8fafc',
   },
-  headerLeft: { flexDirection: 'row', alignItems: 'center' },
-  backButton: { marginRight: 15 },
-  title: {
+  backButton: { padding: 8, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
+  logoutButton: { padding: 8, backgroundColor: '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: '#fecaca' },
+  
+  form: { padding: 20, gap: 20, paddingBottom: 120 },
+  
+  card: { backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
+  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 20 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+
+  inputGroup: { marginBottom: 15 },
+  label: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 8 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', height: 50 },
+  inputIcon: { marginLeft: 15, marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+  helperText: { fontSize: 12, color: '#94a3b8', marginTop: 5, marginLeft: 5 },
+  scanIconBtn: { padding: 10, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' },
+  
+  chipScroll: { marginTop: 10, flexDirection: 'row' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: '#e2e8f0' },
+  activeChip: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
+  chipText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
+  activeChipText: { color: '#1e40af' },
+
+  currencyToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 10, padding: 3 },
+  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  currTextActive: { color: '#1e40af' },
+  currencySymbol: { fontSize: 18, fontWeight: 'bold', color: '#64748b', marginLeft: 15, marginRight: 5 },
+
+  row: { flexDirection: 'row', gap: 15 },
+  
+  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f8fafc', padding: 12, borderRadius: 12 },
+  marginLabel: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+  marginBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  marginValue: { fontSize: 14, fontWeight: 'bold' },
+
+  actionContainer: { gap: 12, marginTop: 10 },
+  primaryButton: {
+    backgroundColor: '#1e40af',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: {
     color: 'white',
-    fontSize: 22,
+    fontSize: 16,
     fontWeight: 'bold',
   },
-  form: { padding: 20, gap: 20, paddingBottom: 120 },
-  label: {
-    fontSize: 16,
-    color: '#1e3a8a',
-    marginBottom: 10,
-  },
-  inputContainer: {
-    flexDirection: 'row',
+  secondaryButton: {
+    backgroundColor: '#e0f2fe',
+    paddingVertical: 16,
+    borderRadius: 16,
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#bae6fd',
   },
-  input: {
-    flex: 1,
-    padding: 15,
+  secondaryButtonText: {
+    color: '#1e40af',
     fontSize: 16,
+    fontWeight: 'bold',
   },
-  iconButton: {
-    padding: 15,
-  },
-  row: { flexDirection: 'row', gap: 15 },
-  halfInput: { flex: 1 },
-  saveButton: { backgroundColor: '#10b981', padding: 20, borderRadius: 15, alignItems: 'center', marginTop: 20 },
-  saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  categoriesContainer: { marginTop: 10, flexDirection: 'row' },
-  categoryChip: { backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginRight: 8, borderWidth: 1, borderColor: '#bae6fd' },
-  categoryText: { color: '#0284c7', fontSize: 12, fontWeight: '600' },
   
   // Camera Modal Styles
   camera: { flex: 1 },
@@ -555,13 +624,4 @@ const styles = StyleSheet.create({
   scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
   shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
   shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#1e3a8a' },
-  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  currencyToggle: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 8, padding: 2 },
-  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
-  currTextActive: { color: '#1e40af' },
-  marginContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 5, marginBottom: 10 },
-  marginLabel: { fontSize: 14, color: '#64748b', marginRight: 5 },
-  marginValue: { fontSize: 16, fontWeight: 'bold' },
 });
