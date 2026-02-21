@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { API_BASE_URL } from './api';
 
 export function useActiveShop() {
@@ -9,7 +9,7 @@ export function useActiveShop() {
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const fetchActiveShop = async () => {
+  const fetchActiveShop = useCallback(async () => {
     setLoading(true);
     try {
       const storedUserId = await AsyncStorage.getItem('userId');
@@ -50,11 +50,11 @@ export function useActiveShop() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchActiveShop();
-  }, []);
+  }, [fetchActiveShop]);
 
   return { shopId, shopName, userRole, userId, loading, refreshShop: fetchActiveShop };
 }

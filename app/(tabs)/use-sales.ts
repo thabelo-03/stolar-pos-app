@@ -22,7 +22,7 @@ export function useSales() {
 
     const { 
       page = 1, 
-      limit = 10, 
+      limit = 20, 
       startDate, 
       endDate, 
       refunded, 
