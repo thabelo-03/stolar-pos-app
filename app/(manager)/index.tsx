@@ -393,49 +393,26 @@ const ManagerIndex = () => {
             </TouchableOpacity>
           </View>
         </View>
-        {Math.ceil(Math.abs(endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1 > 10 ? (
-          <LineChart
-            data={chartData}
-            width={Dimensions.get("window").width - 40}
-            height={220}
-            yAxisLabel="$"
-            yAxisSuffix=""
-            chartConfig={{
-              backgroundColor: "#ffffff",
-              backgroundGradientFrom: "#ffffff",
-              backgroundGradientTo: "#ffffff",
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-              style: { borderRadius: 16 },
-              propsForDots: { r: "4", strokeWidth: "2", stroke: "#1e40af" }
-            }}
-            bezier
-            style={{ marginVertical: 8, borderRadius: 16 }}
-            fromZero
-          />
-        ) : (
-          <BarChart
-            data={chartData}
-            width={Dimensions.get("window").width - 40}
-            height={220}
-            yAxisLabel="$"
-            yAxisSuffix=""
-            chartConfig={{
-              backgroundColor: "#ffffff",
-              backgroundGradientFrom: "#ffffff",
-              backgroundGradientTo: "#ffffff",
-              decimalPlaces: 0,
-              color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
-              labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-              style: { borderRadius: 16 },
-              barPercentage: 0.5,
-            }}
-            style={{ marginVertical: 8, borderRadius: 16 }}
-            showValuesOnTopOfBars
-            fromZero
-          />
-        )}
+        <BarChart
+          data={chartData}
+          width={Dimensions.get("window").width - 40}
+          height={220}
+          yAxisLabel="$"
+          yAxisSuffix=""
+          chartConfig={{
+            backgroundColor: "#ffffff",
+            backgroundGradientFrom: "#ffffff",
+            backgroundGradientTo: "#ffffff",
+            decimalPlaces: 0,
+            color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+            style: { borderRadius: 16 },
+            barPercentage: 0.5,
+          }}
+          style={{ marginVertical: 8, borderRadius: 16 }}
+          showValuesOnTopOfBars
+          fromZero
+        />
         
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
             <TouchableOpacity style={styles.compactActionBtn} onPress={() => router.push('/(manager)/profit-loss')}>
