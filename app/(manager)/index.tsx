@@ -147,34 +147,58 @@ const ManagerIndex = () => {
   useEffect(() => {
     if (allSales.length === 0) return;
 
-    const labels = [];
-    const dataPoints = [];
+    let labels: string[] = [];
+    let dataPoints: number[] = [];
     
     const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
 
-    for (let i = 0; i < diffDays; i++) {
-      const d = new Date(startDate);
-      d.setDate(startDate.getDate() + i);
-      labels.push(d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
-      
-      const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
-      const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
-      
-      const dailyTotal = allSales
-        .filter((s: any) => {
-          const saleDate = new Date(s.date);
-          return saleDate >= dayStart && saleDate <= dayEnd;
-        })
-        .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
+    if (diffDays <= 14) {
+      for (let i = 0; i < diffDays; i++) {
+        const d = new Date(startDate);
+        d.setDate(startDate.getDate() + i);
+        labels.push(d.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' }));
         
-      dataPoints.push(dailyTotal);
+        const dayStart = new Date(d); dayStart.setHours(0,0,0,0);
+        const dayEnd = new Date(d); dayEnd.setHours(23,59,59,999);
+        
+        const dailyTotal = allSales
+          .filter((s: any) => {
+            const saleDate = new Date(s.date);
+            return saleDate >= dayStart && saleDate <= dayEnd;
+          })
+          .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
+          
+        dataPoints.push(dailyTotal);
+      }
+    } else {
+      let currentStart = new Date(startDate);
+      while (currentStart <= endDate) {
+        let currentEnd = new Date(currentStart);
+        currentEnd.setDate(currentStart.getDate() + 6);
+        if (currentEnd > endDate) currentEnd = new Date(endDate);
+
+        labels.push(`${currentStart.getDate()}/${currentStart.getMonth() + 1}`);
+
+        const chunkStart = new Date(currentStart); chunkStart.setHours(0,0,0,0);
+        const chunkEnd = new Date(currentEnd); chunkEnd.setHours(23,59,59,999);
+
+        const chunkTotal = allSales
+          .filter((s: any) => {
+            const d = new Date(s.date);
+            return d >= chunkStart && d <= chunkEnd;
+          })
+          .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
+        
+        dataPoints.push(chunkTotal);
+        currentStart.setDate(currentStart.getDate() + 7);
+      }
     }
     
     if (dataPoints.length > 0) {
       let finalLabels = labels;
-      if (diffDays > 10) {
-        const step = Math.ceil(diffDays / 6);
+      if (labels.length > 6) {
+        const step = Math.ceil(labels.length / 6);
         finalLabels = labels.map((l, i) => (i % step === 0) ? l : '');
       }
       setChartData({ labels: finalLabels, datasets: [{ data: dataPoints }] });
