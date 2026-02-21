@@ -4,7 +4,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '../../components/themed-text';
@@ -12,6 +12,7 @@ import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
+import { useRates } from './use-rates';
 
 export default function AddStockScreen() {
   const router = useRouter();
@@ -39,6 +40,9 @@ const [category, setCategory] = useState('General');
   const placeholderColor = '#888';
 
   const { shopId, userId, loading: shopLoading } = useActiveShop();
+  const { rates } = useRates();
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('USD');
 
   useEffect(() => {
     if (isEditMode) {
@@ -58,6 +62,31 @@ const [category, setCategory] = useState('General');
     }
     setHasUnsavedChanges(false);
   }, [params.mode, params.id, params.name, params.quantity, params.barcode, params.price, params.costPrice, params.category]);
+
+  useEffect(() => {
+    if (currency !== prevCurrency.current) {
+      const convertVal = (valStr: string) => {
+        const val = parseFloat(valStr);
+        if (isNaN(val)) return '';
+        
+        const zarRate = rates?.ZAR || 1;
+        const zigRate = rates?.ZiG || 1;
+
+        let usdVal = val;
+        if (prevCurrency.current === 'ZAR') usdVal = val / zarRate;
+        else if (prevCurrency.current === 'ZiG') usdVal = val / zigRate;
+        
+        let newVal = usdVal;
+        if (currency === 'ZAR') newVal = usdVal * zarRate;
+        else if (currency === 'ZiG') newVal = usdVal * zigRate;
+        
+        return newVal.toFixed(2);
+      };
+      setPrice(p => convertVal(p));
+      setCostPrice(c => convertVal(c));
+      prevCurrency.current = currency;
+    }
+  }, [currency, rates]);
 
   useEffect(() => {
     const unsubscribe = navigation.addListener('beforeRemove', (e) => {
@@ -122,8 +151,16 @@ const [category, setCategory] = useState('General');
       return `${num}${unit.toUpperCase()}`;
     });
 
-    const numPrice = Number(price);
-    const numCost = Number(costPrice);
+    let numPrice = Number(price);
+    let numCost = Number(costPrice);
+
+    if (currency === 'ZAR') {
+      numPrice /= (rates.ZAR || 1);
+      numCost /= (rates.ZAR || 1);
+    } else if (currency === 'ZiG') {
+      numPrice /= (rates.ZiG || 1);
+      numCost /= (rates.ZiG || 1);
+    }
 
     if (numPrice <= numCost) {
       Alert.alert('Invalid Price', 'Selling price must be greater than cost price.');
@@ -162,7 +199,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: finalName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId }),
+          body: JSON.stringify({ name: finalName, quantity: Number(quantity), barcode, price: numPrice, costPrice: numCost, category: category, shopId, userId }),
         });
 
         const data = await response.json();
@@ -266,8 +303,19 @@ const [category, setCategory] = useState('General');
     setFunction(numberValue.toFixed(2));
   };
 
+  const calculateMargin = () => {
+    const p = parseFloat(price) || 0;
+    const c = parseFloat(costPrice) || 0;
+    if (p === 0) return 0;
+    return ((p - c) / p) * 100;
+  };
+
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       <View style={[styles.header, { marginTop: 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color={textColor} />
@@ -349,6 +397,17 @@ const [category, setCategory] = useState('General');
           </View>
         </ThemedView>
 
+        <View style={styles.currencyRow}>
+          <Text style={styles.label}>Currency</Text>
+          <View style={styles.currencyToggle}>
+            {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+              <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
+                <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
         <View style={styles.row}>
           <View style={styles.halfInput}>
             <ThemedText type="defaultSemiBold">Price</ThemedText>
@@ -373,6 +432,13 @@ const [category, setCategory] = useState('General');
               placeholderTextColor={placeholderColor}
             />
           </View>
+        </View>
+
+        <View style={styles.marginContainer}>
+          <Text style={styles.marginLabel}>Profit Margin:</Text>
+          <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#10b981' : calculateMargin() > 0 ? '#f59e0b' : '#ef4444' }]}>
+            {calculateMargin().toFixed(1)}%
+          </Text>
         </View>
 
         <ThemedView>
@@ -402,6 +468,7 @@ const [category, setCategory] = useState('General');
           </View>
         )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={!!activeScanField} animationType="slide" onRequestClose={() => setActiveScanField(null)}>
         <CameraView 
@@ -450,7 +517,7 @@ const styles = StyleSheet.create({
   },
   form: {
     gap: 20,
-    paddingBottom: 40,
+    paddingBottom: 120,
   },
   input: {
     borderWidth: 1,
@@ -503,3 +570,17 @@ const styles = StyleSheet.create({
   shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
   shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'black' },
 });
+
+const extraStyles = StyleSheet.create({
+  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  currencyToggle: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 8, padding: 2 },
+  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  currTextActive: { color: '#1e40af' },
+  marginContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 5, marginBottom: 10 },
+  marginLabel: { fontSize: 14, color: '#64748b', marginRight: 5 },
+  marginValue: { fontSize: 16, fontWeight: 'bold' },
+});
+
+Object.assign(styles, extraStyles);

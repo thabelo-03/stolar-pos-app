@@ -3,15 +3,16 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
 
 export default function ManagerAddStockScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
   const rawShopId = params.shopId;
@@ -24,6 +25,7 @@ export default function ManagerAddStockScreen() {
   const [costPrice, setCostPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   const [category, setCategory] = useState('General');
   const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
@@ -31,6 +33,9 @@ export default function ManagerAddStockScreen() {
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
+  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('USD');
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = '#888';
 
@@ -42,14 +47,83 @@ export default function ManagerAddStockScreen() {
     loadUser();
 
     if (isEditMode) {
-      setItemName(params.name as string);
+      setItemName(params.name as string || '');
       setQuantity(params.quantity ? String(params.quantity) : '');
       setBarcode(params.barcode ? String(params.barcode) : '');
       setPrice(params.price ? Number(params.price).toFixed(2) : '');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
       if (params.category) setCategory(params.category as string);
+    } else {
+      setItemName('');
+      setBarcode('');
+      setQuantity('');
+      setPrice('');
+      setCostPrice('');
+      setCategory('General');
     }
-  }, []);
+    setHasUnsavedChanges(false);
+  }, [params.mode, params.id, params.name, params.quantity, params.barcode, params.price, params.costPrice, params.category]);
+
+  useEffect(() => {
+    if (shopId) {
+      fetch(`${API_BASE_URL}/shops/rates/${shopId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.rates) setRates(data.rates);
+        })
+        .catch(e => console.log("Rates fetch error", e));
+    }
+  }, [shopId]);
+
+  useEffect(() => {
+    if (currency !== prevCurrency.current) {
+      const convertVal = (valStr: string) => {
+        const val = parseFloat(valStr);
+        if (isNaN(val)) return '';
+        
+        const zarRate = rates?.ZAR || 1;
+        const zigRate = rates?.ZiG || 1;
+
+        let usdVal = val;
+        if (prevCurrency.current === 'ZAR') usdVal = val / zarRate;
+        else if (prevCurrency.current === 'ZiG') usdVal = val / zigRate;
+        
+        let newVal = usdVal;
+        if (currency === 'ZAR') newVal = usdVal * zarRate;
+        else if (currency === 'ZiG') newVal = usdVal * zigRate;
+        
+        return newVal.toFixed(2);
+      };
+      setPrice(p => convertVal(p));
+      setCostPrice(c => convertVal(c));
+      prevCurrency.current = currency;
+    }
+  }, [currency, rates]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!hasUnsavedChanges) {
+        return;
+      }
+
+      e.preventDefault();
+
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Are you sure you want to discard them?',
+        [
+          { text: "Stay", style: 'cancel', onPress: () => {} },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedChanges]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -68,6 +142,7 @@ export default function ManagerAddStockScreen() {
   }, []);
 
   const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
+    setHasUnsavedChanges(true);
     const cleanText = text.replace(/[^0-9]/g, '');
     if (cleanText === '') {
       setFunction('');
@@ -77,7 +152,15 @@ export default function ManagerAddStockScreen() {
     setFunction(numberValue.toFixed(2));
   };
 
+  const calculateMargin = () => {
+    const p = parseFloat(price) || 0;
+    const c = parseFloat(costPrice) || 0;
+    if (p === 0) return 0;
+    return ((p - c) / p) * 100;
+  };
+
   const handleLogout = async () => {
+    setHasUnsavedChanges(false);
     await AsyncStorage.clear();
     router.replace('/(auth)/login');
   };
@@ -99,8 +182,16 @@ export default function ManagerAddStockScreen() {
       return `${num}${unit.toUpperCase()}`;
     });
 
-    const numPrice = Number(price);
-    const numCost = Number(costPrice);
+    let numPrice = Number(price);
+    let numCost = Number(costPrice);
+
+    if (currency === 'ZAR') {
+      numPrice /= (rates.ZAR || 1);
+      numCost /= (rates.ZAR || 1);
+    } else if (currency === 'ZiG') {
+      numPrice /= (rates.ZiG || 1);
+      numCost /= (rates.ZiG || 1);
+    }
 
     if (numPrice <= numCost) {
       Alert.alert('Invalid Price', 'Selling price must be greater than cost price.');
@@ -124,8 +215,8 @@ export default function ManagerAddStockScreen() {
           name: finalName,
           quantity: Number(quantity) || 0,
           barcode,
-          price: Number(price) || 0,
-          costPrice: Number(costPrice) || 0,
+          price: numPrice || 0,
+          costPrice: numCost || 0,
           category: category,
           shopId,
           userId: currentUserId
@@ -140,6 +231,7 @@ export default function ManagerAddStockScreen() {
         const data = await response.json();
 
         if (response.ok) {
+          setHasUnsavedChanges(false);
           if (isEditMode) {
             Alert.alert(
               'Success',
@@ -186,6 +278,7 @@ export default function ManagerAddStockScreen() {
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     if (activeScanField === 'barcode') {
       setBarcode(data);
+      setHasUnsavedChanges(true);
       setActiveScanField(null);
     }
   };
@@ -211,6 +304,7 @@ export default function ManagerAddStockScreen() {
           const result = await TextRecognition.recognize(uriToRecognize);
           if (result.text) {
             setItemName(result.text.trim());
+            setHasUnsavedChanges(true);
           } else {
             Alert.alert("No Text", "Could not detect text in the image.");
           }
@@ -221,7 +315,11 @@ export default function ManagerAddStockScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container]}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
       <View style={styles.header}>
         <View style={styles.headerLeft}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
@@ -242,7 +340,7 @@ export default function ManagerAddStockScreen() {
               ref={itemNameInputRef}
               style={styles.input}
               value={itemName}
-              onChangeText={setItemName}
+              onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
               placeholder="e.g. Apple"
               placeholderTextColor={placeholderColor}
             />
@@ -266,7 +364,7 @@ export default function ManagerAddStockScreen() {
             <TextInput 
               style={styles.input}
               value={barcode}
-              onChangeText={setBarcode}
+              onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
               placeholder="Scan or enter barcode"
               placeholderTextColor={placeholderColor}
               keyboardType="numeric"
@@ -289,7 +387,7 @@ export default function ManagerAddStockScreen() {
           <TextInput 
             style={styles.input}
             value={category}
-            onChangeText={setCategory}
+            onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
             placeholder="e.g. Groceries"
             placeholderTextColor={placeholderColor}
           />
@@ -299,13 +397,24 @@ export default function ManagerAddStockScreen() {
                 <TouchableOpacity 
                   key={index} 
                   style={styles.categoryChip} 
-                  onPress={() => setCategory(cat)}
+                  onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
                 >
                   <Text style={styles.categoryText}>{cat}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
           )}
+        </View>
+
+        <View style={styles.currencyRow}>
+          <Text style={styles.label}>Currency</Text>
+          <View style={styles.currencyToggle}>
+            {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+              <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
+                <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
 
         <View style={styles.row}>
@@ -333,12 +442,19 @@ export default function ManagerAddStockScreen() {
             </View>
         </View>
 
+        <View style={styles.marginContainer}>
+          <Text style={styles.marginLabel}>Profit Margin:</Text>
+          <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#10b981' : calculateMargin() > 0 ? '#f59e0b' : '#ef4444' }]}>
+            {calculateMargin().toFixed(1)}%
+          </Text>
+        </View>
+
         <View>
           <Text style={styles.label}>Quantity</Text>
           <TextInput 
             style={styles.input}
             value={quantity}
-            onChangeText={setQuantity}
+            onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor={placeholderColor}
@@ -349,6 +465,7 @@ export default function ManagerAddStockScreen() {
             {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>}
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       <Modal visible={!!activeScanField} animationType="slide" onRequestClose={() => setActiveScanField(null)}>
         <CameraView 
@@ -396,7 +513,7 @@ const styles = StyleSheet.create({
     fontSize: 22,
     fontWeight: 'bold',
   },
-  form: { padding: 20, gap: 20, paddingBottom: 40 },
+  form: { padding: 20, gap: 20, paddingBottom: 120 },
   label: {
     fontSize: 16,
     color: '#1e3a8a',
@@ -438,4 +555,13 @@ const styles = StyleSheet.create({
   scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
   shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
   shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#1e3a8a' },
+  currencyRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
+  currencyToggle: { flexDirection: 'row', backgroundColor: '#e2e8f0', borderRadius: 8, padding: 2 },
+  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  currTextActive: { color: '#1e40af' },
+  marginContainer: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', marginTop: 5, marginBottom: 10 },
+  marginLabel: { fontSize: 14, color: '#64748b', marginRight: 5 },
+  marginValue: { fontSize: 16, fontWeight: 'bold' },
 });
