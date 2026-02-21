@@ -1,12 +1,11 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './api';
 import { useActiveShop } from './use-active-shop';
+import { useManagerAuth } from './use-manager-auth';
 import { useNotifications } from './use-notifications';
 
 const AnimatedCard = ({ onPress, children, style, disabled }: { onPress: () => void, children: React.ReactNode, style?: any, disabled?: boolean }) => {
@@ -44,71 +43,29 @@ export default function CashierHome() {
   const router = useRouter();
   const { name, role, shopName: initialShopName } = useLocalSearchParams();
   const [cashierName, setCashierName] = useState(Array.isArray(name) ? name[0] : name);
-  const [userRole, setUserRole] = useState<string | null>(null);
+  const [shopName, setShopName] = useState(initialShopName ? (Array.isArray(initialShopName) ? initialShopName[0] : initialShopName) : 'Loading...');
   const [isLinked, setIsLinked] = useState(false);
   const [hasPendingRequest, setHasPendingRequest] = useState(false);
-  const [shopName, setShopName] = useState(initialShopName ? (Array.isArray(initialShopName) ? initialShopName[0] : initialShopName) : 'Loading...');
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [shopDetails, setShopDetails] = useState<any>(null);
   const [infoModalVisible, setInfoModalVisible] = useState(false);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const { unreadCount, fetchUnreadCount } = useNotifications();
   const insets = useSafeAreaInsets();
 
   const { shopId, shopName: hookShopName, userRole: hookUserRole, userId, loading: shopLoading, refreshShop } = useActiveShop();
 
-  // Password Protection
-  const [passwordVisible, setPasswordVisible] = useState(false);
-  const [password, setPassword] = useState('');
-  const [verifying, setVerifying] = useState(false);
-  const pendingAction = useRef<(() => void) | null>(null);
-
-  const requestPassword = async (action: () => void) => {
-    pendingAction.current = action;
-    setPassword('');
-    setVerifying(false);
-
-    // Try Biometrics First
-    const bioEnabled = await AsyncStorage.getItem('biometricEnabled');
-    if (bioEnabled === 'true') {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const isEnrolled = await LocalAuthentication.isEnrolledAsync();
-      if (hasHardware && isEnrolled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: 'Manager Approval Required',
-          fallbackLabel: 'Use Password',
-        });
-        if (result.success) return action();
-      }
-    }
-
-    setPasswordVisible(true);
-  };
-
-  const handlePasswordSubmit = async () => {
-    if (!password) return;
-    setVerifying(true);
-    try {
-      const userId = await AsyncStorage.getItem('userId');
-      const response = await fetch(`${API_BASE_URL}/auth/verify-manager`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cashierId: userId, password }),
-      });
-      
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setPasswordVisible(false);
-        setTimeout(() => {
-          pendingAction.current?.();
-        }, 100);
-      } else {
-        Alert.alert("Error", data.message || "Incorrect Password");
-      }
-    } catch (e) {
-      Alert.alert("Error", "Network error");
-    } finally {
-      setVerifying(false);
-    }
-  };
+  // Password Protection Hook
+  const {
+    passwordVisible,
+    setPasswordVisible,
+    password,
+    setPassword,
+    verifying,
+    requestPassword,
+    handlePasswordSubmit,
+    pendingAction
+  } = useManagerAuth();
 
   useEffect(() => {
     if (hookUserRole) setUserRole(hookUserRole);
@@ -137,11 +94,6 @@ export default function CashierHome() {
           try {
             const shopRes = await fetch(`${API_BASE_URL}/shops/${shopId}`);
             if (shopRes.ok) {
-              const shopData = await shopRes.json();
-              setShopName(shopData.name || 'Unknown Shop');
-              setShopDetails(shopData);
-            } else {
-              setShopName('Shop Not Found');
             }
           } catch (e) { setShopName('Offline'); }
         } else {
@@ -185,6 +137,23 @@ export default function CashierHome() {
     );
   };
 
+  const handleOpenShopInfo = async () => {
+    if (!shopId) return;
+    setInfoModalVisible(true);
+    
+    if (!shopDetails) {
+      setLoadingDetails(true);
+      try {
+        const res = await fetch(`${API_BASE_URL}/shops/${shopId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setShopDetails(data);
+        }
+      } catch (e) {}
+      setLoadingDetails(false);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1e40af" />
@@ -194,10 +163,8 @@ export default function CashierHome() {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.brandTitle}>Stolar POS</Text>
-            <TouchableOpacity onPress={() => shopDetails && setInfoModalVisible(true)} disabled={!shopDetails}>
+            <TouchableOpacity onPress={handleOpenShopInfo} disabled={!isLinked}>
               <Text style={styles.statusSub}> • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={12} color="#4ade80" /> </Text>
-              {/* <Text style={styles.statusSub}>{cashierName || 'CASHIER'} • Shop: {shopName} <Ionicons name="information-circle-outline" size={14} color="#bfdbfe" /> <Ionicons name="checkmark-circle" size={14} color="#4ade80" /> Online</Text> */}
-
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row' }}>
@@ -297,26 +264,6 @@ export default function CashierHome() {
                 <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
               </AnimatedCard>
 
-              <AnimatedCard style={styles.actionRow} onPress={() => {
-                if (userRole === 'manager') {
-                  router.push('/(tabs)/profit-report');
-                } else {
-                  requestPassword(() => router.push('/(tabs)/profit-report'));
-                }
-              }}>
-                <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
-                  <Ionicons name="trending-up" size={20} color="#16a34a" />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 2 }}>
-                    <Text style={styles.actionTitle}>Profit Report</Text>
-                    <Ionicons name="lock-closed" size={12} color="#f59e0b" style={{ marginLeft: 4 }} />
-                  </View>
-                  <Text style={styles.actionSub}>Margins & Revenue</Text>
-                </View>
-                <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
-              </AnimatedCard>
-
               <AnimatedCard style={styles.actionRow} onPress={() => router.push('/(tabs)/last-sales')}>
                 <View style={[styles.iconBox, { backgroundColor: '#fffbeb' }]}>
                   <Ionicons name="receipt" size={20} color="#f59e0b" />
@@ -327,6 +274,19 @@ export default function CashierHome() {
                 </View>
                 <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
               </AnimatedCard>
+
+              {userRole === 'manager' && (
+                <AnimatedCard style={styles.actionRow} onPress={() => router.push('/(tabs)/profit-report')}>
+                  <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                    <Ionicons name="trending-up" size={20} color="#16a34a" />
+                  </View>
+                  <View>
+                    <Text style={styles.actionTitle}>Profit Report</Text>
+                    <Text style={styles.actionSub}>Margins & Revenue</Text>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{ marginLeft: 'auto' }} />
+                </AnimatedCard>
+              )}
             </View>
 
             {/* Add Stock Card */}
@@ -390,7 +350,9 @@ export default function CashierHome() {
               </TouchableOpacity>
             </View>
             
-            {shopDetails && (
+            {loadingDetails ? (
+              <ActivityIndicator size="large" color="#1e40af" style={{ marginVertical: 20 }} />
+            ) : shopDetails ? (
               <View style={styles.infoContent}>
                 <View style={styles.infoRow}>
                   <View style={styles.infoIconBox}><Ionicons name="storefront" size={20} color="#1e40af" /></View>
@@ -434,6 +396,8 @@ export default function CashierHome() {
                   </View>
                 </View>
               </View>
+            ) : (
+              <Text style={{ textAlign: 'center', color: '#64748b', marginVertical: 20 }}>Could not load details.</Text>
             )}
           </View>
         </View>
@@ -450,6 +414,8 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 40, 
     borderBottomRightRadius: 40,
     paddingHorizontal: 25,
+    zIndex: 10,
+    elevation: 5,
   },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   brandTitle: { color: 'white', fontSize: 32, fontWeight: 'bold' },
