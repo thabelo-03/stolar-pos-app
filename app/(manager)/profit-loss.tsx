@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import { LineChart } from 'react-native-chart-kit';
+import { BarChart } from 'react-native-chart-kit';
 import { API_BASE_URL } from '../config';
 
 export default function ProfitLoss() {
@@ -28,6 +28,7 @@ export default function ProfitLoss() {
     labels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
     datasets: [{ data: [0, 0, 0, 0, 0, 0, 0] }]
   });
+  const [chartView, setChartView] = useState<'profit' | 'revenue'>('profit');
 
   const onChange = (event: any, selectedDate?: Date) => {
     setShow(Platform.OS === 'ios');
@@ -137,7 +138,7 @@ export default function ProfitLoss() {
       calculateMetrics(rangeSales);
       prepareChartData(rawSales, start, end);
     }
-  }, [rawSales, currency, rates, startDate, endDate]);
+  }, [rawSales, currency, rates, startDate, endDate, chartView]);
 
   const calculateMetrics = (sales: any[]) => {
     let totalRevenue = 0;
@@ -179,14 +180,14 @@ export default function ProfitLoss() {
     end.setHours(23,59,59,999);
 
     while (current <= end) {
-      const dayLabel = current.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' });
+      const dayLabel = current.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
       labels.push(dayLabel);
 
       const dayStart = new Date(current); dayStart.setHours(0,0,0,0);
       const dayEnd = new Date(current); dayEnd.setHours(23,59,59,999);
 
-      // Calculate Profit for this day
-      let dailyProfit = 0;
+      // Calculate Value for this day
+      let dailyValue = 0;
       const daySales = sales.filter((s: any) => {
         const saleDate = new Date(s.date);
         return saleDate >= dayStart && saleDate <= dayEnd;
@@ -194,14 +195,19 @@ export default function ProfitLoss() {
 
       daySales.forEach((sale: any) => {
         const revenue = convert(sale.totalUSD || sale.total || 0);
-        let cogs = 0;
-        if (Array.isArray(sale.items)) {
-          sale.items.forEach((item: any) => cogs += (convert(Number(item.costPrice || 0)) * Number(item.quantity || 0)));
+        
+        if (chartView === 'revenue') {
+          dailyValue += revenue;
+        } else {
+          let cogs = 0;
+          if (Array.isArray(sale.items)) {
+            sale.items.forEach((item: any) => cogs += (convert(Number(item.costPrice || 0)) * Number(item.quantity || 0)));
+          }
+          dailyValue += (revenue - cogs);
         }
-        dailyProfit += (revenue - cogs);
       });
 
-      dataPoints.push(dailyProfit);
+      dataPoints.push(Number(dailyValue.toFixed(2)));
       current.setDate(current.getDate() + 1);
     }
     setChartData({ labels, datasets: [{ data: dataPoints }] });
@@ -273,25 +279,49 @@ export default function ProfitLoss() {
             
             {/* Profit Trend Chart */}
             <View style={styles.chartCard}>
-              <Text style={styles.chartTitle}>Profit Trend</Text>
-              <LineChart
+              <View style={styles.chartHeader}>
+                <Text style={styles.chartTitle}>{chartView === 'profit' ? 'Profit Trend' : 'Revenue Trend'}</Text>
+                <View style={styles.toggleContainer}>
+                  <TouchableOpacity 
+                    style={[styles.toggleBtn, chartView === 'profit' && styles.toggleBtnActive]} 
+                    onPress={() => setChartView('profit')}
+                  >
+                    <Text style={[styles.toggleText, chartView === 'profit' && styles.toggleTextActive]}>Profit</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={[styles.toggleBtn, chartView === 'revenue' && styles.toggleBtnActive]} 
+                    onPress={() => setChartView('revenue')}
+                  >
+                    <Text style={[styles.toggleText, chartView === 'revenue' && styles.toggleTextActive]}>Revenue</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <BarChart
                 data={chartData}
-                width={Dimensions.get("window").width - 80} // Adjust for padding
-                height={200}
+                width={Math.max(Dimensions.get("window").width - 60, chartData.labels.length * 60)}
+                height={250}
                 yAxisLabel={symbol === '$' ? '$' : ''}
+                yAxisSuffix=""
                 chartConfig={{
                   backgroundColor: "#ffffff",
                   backgroundGradientFrom: "#ffffff",
                   backgroundGradientTo: "#ffffff",
-                  decimalPlaces: 0,
-                  color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`, // Green line
+                  decimalPlaces: 2,
+                  color: (opacity = 1) => chartView === 'profit' ? `rgba(16, 185, 129, ${opacity})` : `rgba(37, 99, 235, ${opacity})`,
                   labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-                  style: { borderRadius: 16 },
-                  propsForDots: { r: "4", strokeWidth: "2", stroke: "#059669" }
+                  barPercentage: 0.7,
+                  propsForBackgroundLines: {
+                    strokeWidth: 1,
+                    stroke: "#f1f5f9",
+                    strokeDasharray: "", // solid lines
+                  },
                 }}
-                bezier
-                style={{ marginVertical: 8, borderRadius: 16 }}
+                style={{ marginVertical: 8, borderRadius: 16, paddingRight: 40 }}
+                showValuesOnTopOfBars={chartData.datasets[0].data.length < 15}
+                fromZero
               />
+              </ScrollView>
             </View>
 
             <View style={styles.statCard}>
@@ -346,12 +376,18 @@ const styles = StyleSheet.create({
   activeShopChipText: { color: 'white' },
   reportContainer: { padding: 20 },
   statCard: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 15, elevation: 2 },
-  chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 15, marginBottom: 20, elevation: 2, alignItems: 'center' },
-  chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 10, alignSelf: 'flex-start' },
+  chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 15, marginBottom: 20, elevation: 2 },
+  chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
   statLabel: { color: '#64748b', fontSize: 14 },
   statValue: { fontSize: 24, fontWeight: 'bold', marginTop: 5 },
   profitCard: { backgroundColor: '#10b981' },
   profitLabel: { color: '#ecfdf5', fontSize: 14 },
   profitValue: { color: 'white', fontSize: 28, fontWeight: 'bold', marginTop: 5 },
-  profitSubtext: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 }
+  profitSubtext: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  toggleContainer: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 2 },
+  toggleBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
+  toggleBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  toggleText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
+  toggleTextActive: { color: '#1e40af' },
 });
