@@ -47,6 +47,9 @@ export default function CashierInventoryScreen() {
   const [bulkMode, setBulkMode] = useState<'fixed' | 'percent'>('percent');
   const [bulkValue, setBulkValue] = useState('');
   
+  const flatListRef = useRef<FlatList>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
+
   // Password Protection State
   const [passwordVisible, setPasswordVisible] = useState(false);
   const [password, setPassword] = useState('');
@@ -499,13 +502,25 @@ export default function CashierInventoryScreen() {
         <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
+          ref={flatListRef}
           data={filteredInventory}
           keyExtractor={(item) => item._id}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
           contentContainerStyle={styles.listContent}
           renderItem={renderInventoryItem}
           ListEmptyComponent={<Text style={styles.empty}>No products found.</Text>}
+          onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 300)}
+          scrollEventThrottle={16}
         />
+      )}
+
+      {showScrollTop && (
+        <TouchableOpacity 
+          style={styles.scrollTopButton} 
+          onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
+        >
+          <Ionicons name="arrow-up" size={24} color="white" />
+        </TouchableOpacity>
       )}
 
       <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
@@ -631,7 +646,7 @@ const styles = StyleSheet.create({
   activeFilterText: { color: 'white' },
   verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
 
-  listContent: { padding: 20, gap: 15, paddingBottom: 40 },
+  listContent: { padding: 20, gap: 15, paddingBottom: 120 },
   card: { backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
@@ -677,4 +692,17 @@ const styles = StyleSheet.create({
   modalInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center' },
   modalActions: { flexDirection: 'row', gap: 10 },
   modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+  scrollTopButton: {
+    position: 'absolute',
+    bottom: 110,
+    right: 20,
+    backgroundColor: '#1e40af',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
+  },
 });

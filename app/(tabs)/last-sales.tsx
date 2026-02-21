@@ -4,7 +4,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -36,6 +36,9 @@ export default function LastSalesScreen() {
   const [detailsModalVisible, setDetailsModalVisible] = useState(false);
   const [selectedSale, setSelectedSale] = useState<any>(null);
   const insets = useSafeAreaInsets();
+
+  const flatListRef = useRef<FlatList>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
   const { shopId, loading: shopLoading } = useActiveShop();
@@ -367,6 +370,7 @@ export default function LastSalesScreen() {
         <ActivityIndicator size="large" color={textColor} style={{ marginTop: 20 }} />
       ) : (
         <FlatList
+          ref={flatListRef}
           data={filteredSales}
           keyExtractor={(item) => item.id || item._id || Math.random().toString()}
           refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
@@ -420,7 +424,18 @@ export default function LastSalesScreen() {
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.2}
           ListFooterComponent={renderFooter}
+          onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 300)}
+          scrollEventThrottle={16}
         />
+      )}
+
+      {showScrollTop && (
+        <TouchableOpacity 
+          style={styles.scrollTopButton} 
+          onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
+        >
+          <Ionicons name="arrow-up" size={24} color="white" />
+        </TouchableOpacity>
       )}
 
       <Modal visible={showRefundModal} animationType="fade" transparent onRequestClose={() => setShowRefundModal(false)}>
@@ -583,7 +598,7 @@ const styles = StyleSheet.create({
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
 
-  list: { padding: 20, gap: 12, paddingBottom: 40 },
+  list: { padding: 20, gap: 12, paddingBottom: 120 },
   
   card: {
     backgroundColor: 'white',
@@ -643,5 +658,18 @@ const styles = StyleSheet.create({
     color: 'white', 
     fontWeight: 'bold', 
     fontSize: 16 
+  },
+  scrollTopButton: {
+    position: 'absolute',
+    bottom: 110,
+    right: 20,
+    backgroundColor: '#1e40af',
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
   },
 });

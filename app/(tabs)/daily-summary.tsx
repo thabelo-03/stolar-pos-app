@@ -527,7 +527,7 @@ const styles = StyleSheet.create({
   topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '500' },
   topItemQty: { fontSize: 12, color: '#64748b' },
 
-  listContent: { paddingBottom: 40 },
+  listContent: { paddingBottom: 120 },
   transactionCard: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 

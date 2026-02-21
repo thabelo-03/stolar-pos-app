@@ -424,7 +424,7 @@ const styles = StyleSheet.create({
   notificationBadge: { position: 'absolute', top: -5, right: -5, backgroundColor: '#ef4444', borderRadius: 10, width: 20, height: 20, justifyContent: 'center', alignItems: 'center', borderWidth: 2, borderColor: '#1e40af' },
   badgeText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
   
-  scrollContent: { padding: 20, marginTop: -40 },
+  scrollContent: { padding: 20, marginTop: -40, paddingBottom: 120 },
   
   heroButton: { 
     backgroundColor: '#059669', 
