@@ -1,5 +1,4 @@
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
@@ -12,6 +11,7 @@ import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from './api';
+import { useActiveShop } from './use-active-shop';
 
 export default function AddStockScreen() {
   const router = useRouter();
@@ -29,14 +29,14 @@ export default function AddStockScreen() {
   const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   // Add this near your other useState hooks
 const [category, setCategory] = useState('General');
-  const [shopId, setShopId] = useState<string | null>(null);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
   const textColor = useThemeColor({}, 'text');
   const placeholderColor = '#888';
+
+  const { shopId, userId, loading: shopLoading } = useActiveShop();
 
   useEffect(() => {
     if (isEditMode) {
@@ -47,29 +47,6 @@ const [category, setCategory] = useState('General');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
       if (params.category) setCategory(params.category as string);
     }
-  }, []);
-
-  useEffect(() => {
-    const fetchUserShop = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
-          setCurrentUserId(userId);
-          
-          // FIX: Check AsyncStorage for active shop first (Manager in POS mode)
-          const activeShopId = await AsyncStorage.getItem('shopId');
-          if (activeShopId) {
-            setShopId(activeShopId);
-          } else {
-            // Fallback to DB user record (for linked Cashiers)
-            const response = await fetch(`${API_BASE_URL}/users/${userId}`);
-            const userData = await response.json();
-            if (userData.shopId) setShopId(userData.shopId);
-          }
-        }
-      } catch (e) { console.log("Error fetching shop ID", e); }
-    };
-    fetchUserShop();
   }, []);
 
   useEffect(() => {
@@ -98,6 +75,17 @@ const [category, setCategory] = useState('General');
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
+
+    // Validate that Item Name ends with a weight (e.g., 1kg, 500g)
+    if (!/[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(itemName.trim())) {
+      Alert.alert('Invalid Name', 'Item name must include weight/volume at the end (e.g. "Rice 2kg", "Milk 1L")');
+      return;
+    }
+
+    // Normalize name: Capitalize unit and remove space between number and unit
+    const finalName = itemName.trim().replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
+      return `${num}${unit.toUpperCase()}`;
+    });
 
     const numPrice = Number(price);
     const numCost = Number(costPrice);
@@ -139,7 +127,7 @@ const [category, setCategory] = useState('General');
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId: currentUserId }),
+          body: JSON.stringify({ name: finalName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId, userId }),
         });
 
         const data = await response.json();
@@ -253,7 +241,7 @@ const [category, setCategory] = useState('General');
               style={[styles.input, { color: textColor, flex: 1 }]}
               value={itemName}
               onChangeText={setItemName}
-              placeholder="e.g. Apple"
+              placeholder="e.g. Apple 1kg, Milk 1L"
               placeholderTextColor={placeholderColor}
             />
             <TouchableOpacity onPress={async () => {
@@ -267,6 +255,7 @@ const [category, setCategory] = useState('General');
               <Ionicons name="scan-outline" size={24} color={textColor} />
             </TouchableOpacity>
           </View>
+          <Text style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>Must include weight/volume (e.g. 1kg, 1L)</Text>
         </ThemedView>
 
         <ThemedView>
@@ -355,10 +344,10 @@ const [category, setCategory] = useState('General');
           />
         </ThemedView>
 
-        {loading ? (
+        {loading || shopLoading ? (
           <ActivityIndicator size="large" color={textColor} />
         ) : (
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
+          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={shopLoading}>
             <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>
           </TouchableOpacity>
         )}

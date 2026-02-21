@@ -14,6 +14,7 @@ import { useActiveShop } from './use-active-shop';
 import { useProducts } from './use-products';
 import { useRates } from './use-rates';
 
+
 interface InventoryItem {
   _id: string;
   name: string;
@@ -339,6 +340,7 @@ export default function CashierInventoryScreen() {
             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
+        
 
         <View style={styles.cardDivider} />
 
