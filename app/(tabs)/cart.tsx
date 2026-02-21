@@ -897,7 +897,7 @@ const styles = StyleSheet.create({
   qtyBox: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   qtyText: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', minWidth: 20, textAlign: 'center' },
 
-  footer: { padding: 25, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  footer: { padding: 25, paddingBottom: 120, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   totalLabel: { fontSize: 18, color: '#64748b', fontWeight: '600' },
   totalValue: { fontSize: 26, fontWeight: '900', color: '#1e293b' },
