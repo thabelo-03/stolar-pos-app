@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import { useCallback, useEffect, useState } from 'react';
@@ -133,6 +134,11 @@ export default function AdminDashboard() {
     fetchStats();
   };
 
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/(auth)/login');
+  };
+
   return (
     <ScrollView 
       style={styles.container}
@@ -146,8 +152,13 @@ export default function AdminDashboard() {
           <Text style={styles.headerSubtitle}>System Overview</Text>
           <Text style={styles.headerTitle}>Master Console</Text>
         </View>
-        <View style={styles.headerIcon}>
-           <Ionicons name="shield-checkmark" size={32} color="#60a5fa" />
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <View style={styles.headerIcon}>
+             <Ionicons name="shield-checkmark" size={28} color="#60a5fa" />
+          </View>
+          <TouchableOpacity onPress={handleLogout} style={[styles.headerIcon, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
+             <Ionicons name="log-out-outline" size={28} color="#fca5a5" />
+          </TouchableOpacity>
         </View>
       </View>
 
