@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { Tabs, useRouter, useFocusEffect } from 'expo-router';
-import React, { useEffect, useState, useCallback } from 'react';
-import { Modal, View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { Tabs, useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -79,23 +79,31 @@ export default function TabLayout() {
     <Tabs
       screenOptions={{
         tabBarActiveTintColor: '#1e40af',
-        tabBarInactiveTintColor: '#64748b',
+        tabBarInactiveTintColor: '#94a3b8',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarShowLabel: true,
         tabBarStyle: {
+          position: 'absolute',
+          bottom: 25,
+          left: 20,
+          right: 20,
+          borderRadius: 24,
           height: 70,
-          paddingBottom: 5,
+          paddingBottom: 10,
           paddingTop: 10,
           backgroundColor: '#ffffff',
-          borderTopWidth: 1,
-          borderTopColor: '#e2e8f0',
-          elevation: 10,
+          borderTopWidth: 0,
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.15,
+          shadowRadius: 12,
         },
         tabBarLabelStyle: {
-          fontSize: 12,
+          fontSize: 10,
           fontWeight: '600',
-          marginBottom: 2,
+          marginBottom: 0,
         },
       }}>
       <Tabs.Screen
