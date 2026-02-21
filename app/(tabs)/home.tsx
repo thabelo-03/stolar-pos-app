@@ -97,10 +97,6 @@ export default function CashierHome() {
           if (userRes.ok) {
             const userData = await userRes.json();
             if (userData.name) setCashierName(userData.name);
-            // If user is manager, they are redirected elsewhere, but if cashier:
-            if (userData.role === 'manager' && userData.subscriptionStatus === 'expired') {
-               // Manager logic handled in manager layout usually, but good to have
-            }
           }
         } catch (e) {}
 
@@ -140,7 +136,7 @@ export default function CashierHome() {
     useCallback(() => {
       refreshShop();
       fetchUnreadCount();
-    }, [])
+    }, [refreshShop, fetchUnreadCount])
   );
 
   const handleLogout = () => {
@@ -261,7 +257,13 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionRow} onPress={() => requestPassword(() => router.push('/(tabs)/profit-report'))}>
+              <TouchableOpacity style={styles.actionRow} onPress={() => {
+                if (userRole === 'manager') {
+                  router.push('/(tabs)/profit-report');
+                } else {
+                  requestPassword(() => router.push('/(tabs)/profit-report'));
+                }
+              }}>
                 <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
                   <Ionicons name="trending-up" size={20} color="#16a34a" />
                 </View>

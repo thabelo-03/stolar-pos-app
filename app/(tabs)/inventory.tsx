@@ -53,7 +53,7 @@ export default function CashierInventoryScreen() {
   const [verifying, setVerifying] = useState(false);
   const pendingAction = useRef<(() => void) | null>(null);
 
-  const { shopId, userId } = useActiveShop();
+  const { shopId, userId, userRole } = useActiveShop();
   const { fetchProducts, loading: productsLoading } = useProducts();
   const { rates } = useRates();
 
@@ -142,7 +142,7 @@ export default function CashierInventoryScreen() {
   };
 
   const handleDelete = (id: string, name: string) => {
-    requestPassword(() => {
+    const action = () => {
       Alert.alert(
       "Delete Product",
       `Are you sure you want to delete "${name}"?`,
@@ -167,11 +167,17 @@ export default function CashierInventoryScreen() {
         }
       ]
     );
-    });
+    };
+
+    if (userRole === 'manager') {
+      action();
+    } else {
+      requestPassword(action);
+    }
   };
 
   const handleEdit = (item: InventoryItem) => {
-    requestPassword(() => {
+    const action = () => {
       router.push({
         pathname: '/(tabs)/add-stock',
         params: {
@@ -185,7 +191,13 @@ export default function CashierInventoryScreen() {
           category: item.category || ''
         }
       });
-    });
+    };
+
+    if (userRole === 'manager') {
+      action();
+    } else {
+      requestPassword(action);
+    }
   };
 
   const filteredInventory = useMemo(() => {
