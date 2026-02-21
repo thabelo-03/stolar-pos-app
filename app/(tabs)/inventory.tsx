@@ -392,8 +392,8 @@ export default function CashierInventoryScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Inventory</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity onPress={() => requestPassword(() => setBulkModalVisible(true))} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="layers-outline" size={24} color="white" />
+            <TouchableOpacity onPress={() => router.push({ pathname: '/stock-take', params: { shopId: shopId || '' } })} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
+              <Ionicons name="clipboard-outline" size={24} color="white" />
             </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/(tabs)/recent-actions')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
               <Ionicons name="time-outline" size={24} color="white" />

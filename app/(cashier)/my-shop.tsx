@@ -101,13 +101,19 @@ export default function MyShopScreen() {
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
-      // 1. Get User to find their shopId
-      const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-      const user = await userRes.json();
+      // 1. Check AsyncStorage first (Manager selection or active session)
+      let activeShopId = await AsyncStorage.getItem('shopId');
 
-      if (user.shopId) {
-        // 2. Get Shop details
-        const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
+      if (!activeShopId) {
+        // 2. Fallback: Get User to find their shopId (Cashier linked in DB)
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        activeShopId = user.shopId;
+      }
+
+      if (activeShopId) {
+        // 3. Get Shop details
+        const shopRes = await fetch(`${API_BASE_URL}/shops/${activeShopId}`);
         if (shopRes.ok) {
           const shopData = await shopRes.json();
           setShop(shopData);

@@ -2,16 +2,19 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { API_BASE_URL } from './config';
 
 export default function StockTakeScreen() {
   const router = useRouter();
-  const [date, setDate] = useState(new Date());
+  const { shopId } = useLocalSearchParams();
+  const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+  const [endDate, setEndDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
   const [showDatePicker, setShowDatePicker] = useState(false);
+  const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
   const [loading, setLoading] = useState(true);
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
@@ -35,10 +38,16 @@ export default function StockTakeScreen() {
   }, []);
 
   useEffect(() => {
+    if (shopId) {
+      setSelectedShop(Array.isArray(shopId) ? shopId[0] : shopId);
+    }
+  }, [shopId]);
+
+  useEffect(() => {
     if (shops.length > 0 || userRole === 'cashier') {
         calculateStockTake();
     }
-  }, [date, selectedShop, shops]);
+  }, [startDate, endDate, selectedShop, shops]);
 
   useEffect(() => {
     if (selectedShop !== 'all') {
@@ -90,11 +99,11 @@ export default function StockTakeScreen() {
     setLoading(true);
     try {
       // 1. Define Month Range
-      const startOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-      const endOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59);
+      const start = new Date(startDate); start.setHours(0, 0, 0, 0);
+      const end = new Date(endDate); end.setHours(23, 59, 59, 999);
 
       // 2. Fetch Sales for the Month
-      let salesUrl = `${API_BASE_URL}/sales/recent?startDate=${startOfMonth.toISOString()}&endDate=${endOfMonth.toISOString()}&limit=5000`;
+      let salesUrl = `${API_BASE_URL}/sales/recent?startDate=${start.toISOString()}&endDate=${end.toISOString()}&limit=5000`;
       
       // If specific shop selected (or forced for cashier), filter by it
       if (selectedShop !== 'all') salesUrl += `&shopId=${selectedShop}`;
@@ -185,12 +194,25 @@ export default function StockTakeScreen() {
 
   const onDateChange = (event: any, selectedDate?: Date) => {
     setShowDatePicker(Platform.OS === 'ios');
-    if (selectedDate) setDate(selectedDate);
+    if (selectedDate) {
+      if (pickerMode === 'start') {
+        setStartDate(selectedDate);
+        if (selectedDate > endDate) setEndDate(selectedDate);
+      } else {
+        setEndDate(selectedDate);
+        if (selectedDate < startDate) setStartDate(selectedDate);
+      }
+    }
+  };
+
+  const openDatePicker = (mode: 'start' | 'end') => {
+    setPickerMode(mode);
+    setShowDatePicker(true);
   };
 
   const handleExportPDF = async () => {
     const shopName = selectedShop === 'all' ? 'All Shops' : shops.find(s => s._id === selectedShop)?.name || 'Unknown Shop';
-    const dateStr = date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+    const dateStr = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
     const s = symbol;
 
     const html = `
@@ -212,12 +234,12 @@ export default function StockTakeScreen() {
         </head>
         <body>
           <h1>Stock Take Report</h1>
-          <h2>${shopName} • ${dateStr}</h2>
+          <h2>${shopName}<br/>${dateStr}</h2>
           
           <div class="summary-box">
             <h3>Cash Flow</h3>
             <div class="row">
-              <span class="label">Monthly Cash Sales</span>
+              <span class="label">Total Cash Sales</span>
               <span class="value">${s}${convert(metrics.totalSalesCash).toFixed(2)}</span>
             </div>
             
@@ -260,7 +282,7 @@ export default function StockTakeScreen() {
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { flex: 1 }]}>Monthly Stock Take</Text>
+        <Text style={[styles.headerTitle, { flex: 1 }]}>Stock Report</Text>
         <TouchableOpacity onPress={handleExportPDF}>
           <Ionicons name="print-outline" size={24} color="white" />
         </TouchableOpacity>
@@ -268,7 +290,7 @@ export default function StockTakeScreen() {
 
       {/* Filters */}
       <View style={styles.filterSection}>
-        <View style={{flexDirection: 'row'}}>
+        <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'}}>
           <TouchableOpacity 
               style={styles.currencySelector} 
               onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
@@ -276,12 +298,15 @@ export default function StockTakeScreen() {
               <Text style={styles.currencyText}>{currency}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.dateSelector} onPress={() => setShowDatePicker(true)}>
-            <Ionicons name="calendar" size={20} color="#1e40af" />
-            <Text style={styles.dateText}>
-              {date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-            </Text>
-            <Ionicons name="chevron-down" size={16} color="#64748b" />
+          <TouchableOpacity style={styles.dateSelector} onPress={() => openDatePicker('start')}>
+            <Text style={styles.dateText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+          </TouchableOpacity>
+          
+          <Text style={{color: '#64748b', marginHorizontal: 5, marginBottom: 15}}>-</Text>
+
+          <TouchableOpacity style={styles.dateSelector} onPress={() => openDatePicker('end')}>
+            <Text style={styles.dateText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+            <Ionicons name="calendar-outline" size={16} color="#1e40af" style={{marginLeft: 4}} />
           </TouchableOpacity>
         </View>
 
@@ -308,7 +333,7 @@ export default function StockTakeScreen() {
       </View>
 
       {showDatePicker && (
-        <DateTimePicker value={date} mode="date" display="default" onChange={onDateChange} />
+        <DateTimePicker value={pickerMode === 'start' ? startDate : endDate} mode="date" display="default" onChange={onDateChange} />
       )}
 
       <ScrollView contentContainerStyle={styles.content}>
@@ -319,9 +344,9 @@ export default function StockTakeScreen() {
             <View style={styles.paperPreview}>
               {/* Document Header */}
               <View style={styles.paperHeader}>
-                <Text style={styles.paperTitle}>Monthly Stock Report</Text>
+                <Text style={styles.paperTitle}>Stock Report</Text>
                 <Text style={styles.paperSubtitle}>{currentShopName}</Text>
-                <Text style={styles.paperDate}>{date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</Text>
+                <Text style={styles.paperDate}>{startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
               </View>
 
               <View style={styles.divider} />
@@ -330,7 +355,7 @@ export default function StockTakeScreen() {
               <View style={styles.section}>
                 <Text style={styles.sectionHeader}>Cash Flow</Text>
                 <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Monthly Cash Sales</Text>
+                  <Text style={styles.rowLabel}>Total Cash Sales</Text>
                   <Text style={styles.rowValue}>{symbol}{convert(metrics.totalSalesCash).toFixed(2)}</Text>
                 </View>
               </View>

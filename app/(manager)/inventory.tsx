@@ -400,8 +400,8 @@ export default function ManagerInventoryScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manager Inventory</Text>
-          <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={() => setBulkModalVisible(true)}>
-            <Ionicons name="layers-outline" size={24} color="#1e40af" />
+          <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={() => router.push({ pathname: '/stock-take', params: { shopId } })}>
+            <Ionicons name="clipboard-outline" size={24} color="#1e40af" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
             <Ionicons name="add" size={24} color="#1e40af" />

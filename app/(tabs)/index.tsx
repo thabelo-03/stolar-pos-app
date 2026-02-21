@@ -230,18 +230,17 @@ export default function CashierHome() {
                 </View>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionRow} onPress={() => requestPassword(() => router.push('/(tabs)/profit-report'))}>
-                <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
-                  <Ionicons name="trending-up" size={20} color="#16a34a" />
-                </View>
-                <View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Text style={styles.actionTitle}>Profit Report</Text>
-                    <Ionicons name="lock-closed" size={12} color="#f59e0b" style={{ marginLeft: 4 }} />
+              {userRole === 'manager' && (
+                <TouchableOpacity style={styles.actionRow} onPress={() => router.push('/(tabs)/profit-report')}>
+                  <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                    <Ionicons name="trending-up" size={20} color="#16a34a" />
                   </View>
-                  <Text style={styles.actionSub}>Margins & Revenue</Text>
-                </View>
-              </TouchableOpacity>
+                  <View>
+                    <Text style={styles.actionTitle}>Profit Report</Text>
+                    <Text style={styles.actionSub}>Margins & Revenue</Text>
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
 
             {/* Add Stock Card */}

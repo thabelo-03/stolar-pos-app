@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -15,6 +15,7 @@ import { useActiveShop } from './use-active-shop';
 
 export default function AddStockScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
   const isEditMode = params.mode === 'edit';
   const insets = useSafeAreaInsets();
@@ -26,6 +27,7 @@ export default function AddStockScreen() {
   const [costPrice, setCostPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   // Add this near your other useState hooks
 const [category, setCategory] = useState('General');
@@ -40,14 +42,47 @@ const [category, setCategory] = useState('General');
 
   useEffect(() => {
     if (isEditMode) {
-      setItemName(params.name as string);
+      setItemName(params.name as string || '');
       setQuantity(params.quantity ? String(params.quantity) : '');
       setBarcode(params.barcode ? String(params.barcode) : '');
       setPrice(params.price ? Number(params.price).toFixed(2) : '');
       setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
       if (params.category) setCategory(params.category as string);
+    } else {
+      setItemName('');
+      setBarcode('');
+      setQuantity('');
+      setPrice('');
+      setCostPrice('');
+      setCategory('General');
     }
-  }, []);
+    setHasUnsavedChanges(false);
+  }, [params.mode, params.id, params.name, params.quantity, params.barcode, params.price, params.costPrice, params.category]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!hasUnsavedChanges) {
+        return;
+      }
+
+      e.preventDefault();
+
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Are you sure you want to discard them?',
+        [
+          { text: "Stay", style: 'cancel', onPress: () => {} },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedChanges]);
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -65,7 +100,7 @@ const [category, setCategory] = useState('General');
     fetchCategories();
   }, []);
 
-  const handleSave = async () => {
+  const handleSave = async (clearAndStay = false) => {
     if (!shopId) {
       Alert.alert('Restricted', 'You must be linked to a shop to manage inventory.');
       return;
@@ -133,6 +168,7 @@ const [category, setCategory] = useState('General');
         const data = await response.json();
 
         if (response.ok) {
+          setHasUnsavedChanges(false);
           if (isEditMode) {
             Alert.alert(
               'Success',
@@ -140,15 +176,19 @@ const [category, setCategory] = useState('General');
               [{ text: 'OK', onPress: () => router.back() }]
             );
           } else {
-            Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => {
-              setItemName('');
-              setBarcode('');
-              setQuantity('');
-              setPrice('');
-              setCostPrice('');
-              setCategory('General');
-              itemNameInputRef.current?.focus();
-            }}]);
+            if (clearAndStay) {
+              Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => {
+                setItemName('');
+                setBarcode('');
+                setQuantity('');
+                setPrice('');
+                setCostPrice('');
+                setCategory('General');
+                itemNameInputRef.current?.focus();
+              }}]);
+            } else {
+              Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => router.back() }]);
+            }
           }
         } else if (response.status === 409) {
           Alert.alert('Duplicate Item', 'An item with this name already exists.');
@@ -179,6 +219,7 @@ const [category, setCategory] = useState('General');
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     if (activeScanField === 'barcode') {
       setBarcode(data);
+      setHasUnsavedChanges(true);
       setActiveScanField(null);
     }
   };
@@ -204,6 +245,7 @@ const [category, setCategory] = useState('General');
           const result = await TextRecognition.recognize(uriToRecognize);
           if (result.text) {
             setItemName(result.text.trim());
+            setHasUnsavedChanges(true);
           } else {
             Alert.alert("No Text", "Could not detect text in the image.");
           }
@@ -214,6 +256,7 @@ const [category, setCategory] = useState('General');
   };
 
   const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
+    setHasUnsavedChanges(true);
     const cleanText = text.replace(/[^0-9]/g, '');
     if (cleanText === '') {
       setFunction('');
@@ -240,7 +283,7 @@ const [category, setCategory] = useState('General');
               ref={itemNameInputRef}
               style={[styles.input, { color: textColor, flex: 1 }]}
               value={itemName}
-              onChangeText={setItemName}
+              onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
               placeholder="e.g. Apple 1kg, Milk 1L"
               placeholderTextColor={placeholderColor}
             />
@@ -263,7 +306,7 @@ const [category, setCategory] = useState('General');
           <TextInput 
             style={[styles.input, { color: textColor }]}
             value={category}
-            onChangeText={setCategory}
+            onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
             placeholder="e.g. Groceries"
             placeholderTextColor={placeholderColor}
           />
@@ -273,7 +316,7 @@ const [category, setCategory] = useState('General');
                 <TouchableOpacity 
                   key={index} 
                   style={styles.categoryChip} 
-                  onPress={() => setCategory(cat)}
+                  onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
                 >
                   <Text style={styles.categoryText}>{cat}</Text>
                 </TouchableOpacity>
@@ -288,7 +331,7 @@ const [category, setCategory] = useState('General');
             <TextInput 
               style={[styles.input, { color: textColor, flex: 1 }]}
               value={barcode}
-              onChangeText={setBarcode}
+              onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
               placeholder="Scan or enter barcode"
               placeholderTextColor={placeholderColor}
               keyboardType="numeric"
@@ -337,7 +380,7 @@ const [category, setCategory] = useState('General');
           <TextInput 
             style={[styles.input, { color: textColor }]}
             value={quantity}
-            onChangeText={setQuantity}
+            onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
             keyboardType="numeric"
             placeholder="0"
             placeholderTextColor={placeholderColor}
@@ -347,9 +390,16 @@ const [category, setCategory] = useState('General');
         {loading || shopLoading ? (
           <ActivityIndicator size="large" color={textColor} />
         ) : (
-          <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={shopLoading}>
-            <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>
-          </TouchableOpacity>
+          <View style={{ gap: 12, marginTop: 20 }}>
+            {!isEditMode && (
+              <TouchableOpacity style={[styles.saveButton, { marginTop: 0, backgroundColor: '#0f172a' }]} onPress={() => handleSave(true)} disabled={shopLoading}>
+                <Text style={styles.saveButtonText}>Save & Add Another</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={[styles.saveButton, { marginTop: 0 }]} onPress={() => handleSave(false)} disabled={shopLoading}>
+              <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>
+            </TouchableOpacity>
+          </View>
         )}
       </ScrollView>
 
