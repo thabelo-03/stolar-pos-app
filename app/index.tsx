@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,8 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from 'react-native';
 import { API_BASE_URL } from './config';
 
@@ -41,7 +41,7 @@ export default function LoginScreen() {
           } else if (role === 'manager') {
             router.replace('/(manager)');
           } else {
-            router.replace('/(cashier)/my-shop');
+            router.replace('/(tabs)');
           }
         }
       } catch (e) {
@@ -96,7 +96,7 @@ export default function LoginScreen() {
           } catch (e) {}
           router.replace('/(manager)'); // Fallback if no shops or error
         } else {
-          router.replace('/(cashier)/my-shop');
+          router.replace('/(tabs)');
         }
       } else {
         Alert.alert('Login Failed', data.message || 'Invalid credentials');
@@ -112,7 +112,7 @@ export default function LoginScreen() {
   const handleSelectShop = async (shop: any) => {
     await AsyncStorage.setItem('shopId', shop._id);
     setShopSelectionVisible(false);
-    router.replace('/(cashier)/my-shop');
+    router.replace('/(tabs)');
   };
 
   const handleSkipToDashboard = () => {
