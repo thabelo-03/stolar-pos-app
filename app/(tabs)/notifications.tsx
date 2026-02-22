@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../../components/themed-view';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 interface Notification {
   _id: string;
@@ -94,7 +94,7 @@ export default function NotificationsScreen() {
           data={notifications}
           keyExtractor={(item) => item._id}
           renderItem={renderItem}
-          contentContainerStyle={[styles.list, { paddingBottom: 120 }]}
+          contentContainerStyle={styles.list}
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNotifications(); }} />
           }

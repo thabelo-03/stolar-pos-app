@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View, Image } from 'react-native';
-import { API_BASE_URL } from '../(tabs)/api';
+import { API_BASE_URL } from '../config';
 
 export default function ForgotPassword() {
   const router = useRouter();

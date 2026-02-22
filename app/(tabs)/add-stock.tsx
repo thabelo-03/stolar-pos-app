@@ -7,7 +7,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 import { useActiveShop } from './use-active-shop';
 import { useRates } from './use-rates';
 

@@ -13,7 +13,7 @@ import {
   View,
   Image
 } from 'react-native';
-import { API_BASE_URL } from '../(tabs)/api';
+import { API_BASE_URL } from '../config';
 
 export default function Signup() {
   const [name, setName] = useState('');

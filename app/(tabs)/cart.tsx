@@ -19,7 +19,7 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { ProductDetails } from '../../ProductDetails';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 // IMPORT OFFLINE TOOLS
 import * as Network from 'expo-network';

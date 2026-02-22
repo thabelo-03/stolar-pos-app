@@ -1,24 +1,19 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as Print from 'expo-print';
-import * as Sharing from 'expo-sharing';
 import { useRouter } from 'expo-router';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
-import { API_BASE_URL } from './api';
-import { useActiveShop } from './use-active-shop';
-import { useSales } from './use-sales';
-import { useProducts } from './use-products';
-import { useRates } from './use-rates';
+import { API_BASE_URL } from '../config';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
   const textColor = useThemeColor({}, 'text');
+  const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState({
     revenue: 0,
     cost: 0,
@@ -32,35 +27,14 @@ export default function ProfitReportScreen() {
   const [showPicker, setShowPicker] = useState(false);
   const [viewMode, setViewMode] = useState<'daily' | 'weekly' | 'monthly'>('monthly');
   const [refreshing, setRefreshing] = useState(false);
-  
-  const flatListRef = useRef<FlatList>(null);
-  const [showScrollTop, setShowScrollTop] = useState(false);
-
   const [chartData, setChartData] = useState({
     labels: ["W1", "W2", "W3", "W4"],
     datasets: [{ data: [0, 0, 0, 0] }]
   });
 
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
-
-  const { shopId, loading: shopLoading } = useActiveShop();
-  const { loading: salesLoading, fetchSales } = useSales();
-  const { fetchProducts } = useProducts();
-  const { rates } = useRates();
-
-  const convert = (amount: number) => {
-    if (currency === 'ZAR') return amount * rates.ZAR;
-    if (currency === 'ZiG') return amount * rates.ZiG;
-    return amount;
-  };
-
-  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
-
   useEffect(() => {
-    if (!shopLoading) {
-      fetchData();
-    }
-  }, [shopLoading, shopId]);
+    fetchData();
+  }, []);
 
   useEffect(() => {
     if (allSales.length > 0) {
@@ -69,7 +43,7 @@ export default function ProfitReportScreen() {
       setSalesList([]);
       setReportData({ revenue: 0, cost: 0, profit: 0, margin: 0, salesCount: 0 });
     }
-  }, [allSales, date, viewMode, currency, rates]);
+  }, [allSales, date, viewMode]);
 
   const filterDataByDate = () => {
     let filtered: any[] = [];
@@ -84,7 +58,7 @@ export default function ProfitReportScreen() {
       const hourlyProfit = new Array(24).fill(0);
       filtered.forEach((sale: any) => {
         const hour = new Date(sale.date).getHours();
-        hourlyProfit[hour] += convert(sale.profit);
+        hourlyProfit[hour] += sale.profit;
       });
       chartLabels = ["8am", "12pm", "4pm", "8pm"];
       chartDataPoints = [8, 12, 16, 20].map(h => hourlyProfit[h]);
@@ -115,7 +89,7 @@ export default function ProfitReportScreen() {
             const sd = new Date(s.date);
             return sd >= dayStart && sd <= dayEnd;
           })
-          .reduce((acc: number, curr: any) => acc + convert(curr.profit), 0);
+          .reduce((acc: number, curr: any) => acc + curr.profit, 0);
         chartDataPoints.push(dayProfit);
       }
     } else {
@@ -132,11 +106,10 @@ export default function ProfitReportScreen() {
       const weeklyProfits = [0, 0, 0, 0];
       filtered.forEach((s: any) => {
         const d = new Date(s.date).getDate();
-        const p = convert(s.profit);
-        if (d <= 7) weeklyProfits[0] += p;
-        else if (d <= 14) weeklyProfits[1] += p;
-        else if (d <= 21) weeklyProfits[2] += p;
-        else weeklyProfits[3] += p;
+        if (d <= 7) weeklyProfits[0] += s.profit;
+        else if (d <= 14) weeklyProfits[1] += s.profit;
+        else if (d <= 21) weeklyProfits[2] += s.profit;
+        else weeklyProfits[3] += s.profit;
       });
       chartDataPoints = weeklyProfits;
     }
@@ -145,8 +118,8 @@ export default function ProfitReportScreen() {
     let totalCost = 0;
 
     filtered.forEach(sale => {
-      totalRevenue += convert(sale.total || sale.amount || 0);
-      totalCost += convert(sale.cost);
+      totalRevenue += (sale.total || sale.amount || 0);
+      totalCost += sale.cost;
     });
 
     setSalesList(filtered);
@@ -178,8 +151,22 @@ export default function ProfitReportScreen() {
 
   const fetchData = async () => {
     try {
+      const userId = await AsyncStorage.getItem('userId');
+      let shopId = null;
+      let userRole = null;
+
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        shopId = user.shopId;
+        userRole = user.role;
+      }
+
       // 1. Fetch Inventory to get Cost Prices
-      const inventoryData = await fetchProducts();
+      let productsUrl = `${API_BASE_URL}/products`;
+      if (shopId) productsUrl += `?shopId=${shopId}`;
+      const invResponse = await fetch(productsUrl);
+      const inventoryData = await invResponse.json();
       
       // Create a map for quick lookup: barcode -> costPrice
       const costMap = new Map();
@@ -191,8 +178,19 @@ export default function ProfitReportScreen() {
         });
       }
 
-      // 2. Fetch Sales History using Hook
-      const salesData = await fetchSales({ endpoint: 'all' });
+      // 2. Fetch Sales History
+      let salesUrl = `${API_BASE_URL}/sales`;
+      const params = [];
+      if (shopId && userRole !== 'admin') {
+        params.push(`shopId=${shopId}`);
+      }
+      if (userRole === 'cashier') {
+        params.push(`cashierId=${userId}`);
+      }
+      if (params.length > 0) salesUrl += `?${params.join('&')}`;
+
+      const salesResponse = await fetch(salesUrl);
+      const salesData = await salesResponse.json();
 
       if (Array.isArray(salesData)) {
         const processedSales = salesData.map((sale: any) => {
@@ -226,95 +224,8 @@ export default function ProfitReportScreen() {
     } catch (error) {
       console.log('Error calculating profit:', error);
     } finally {
+      setLoading(false);
       setRefreshing(false);
-    }
-  };
-
-  const generatePDF = async () => {
-    const html = `
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-          <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
-            h1 { color: #1e40af; text-align: center; margin-bottom: 5px; }
-            .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
-            .stats-container { display: flex; justify-content: space-between; margin-bottom: 30px; background-color: #f8fafc; padding: 15px; border-radius: 8px; }
-            .stat-box { text-align: center; width: 24%; }
-            .stat-label { font-size: 10px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-            .stat-value { font-size: 14px; font-weight: bold; color: #1e293b; margin-top: 5px; }
-            table { width: 100%; border-collapse: collapse; font-size: 12px; }
-            th { text-align: left; padding: 8px; background-color: #f1f5f9; color: #475569; }
-            td { padding: 8px; border-bottom: 1px solid #e2e8f0; }
-            .amount { font-weight: bold; text-align: right; }
-            .positive { color: #16a34a; }
-            .negative { color: #dc2626; }
-            .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #94a3b8; }
-          </style>
-        </head>
-        <body>
-          <h1>Profit Report</h1>
-          <div class="subtitle">${viewMode.toUpperCase()} • ${date.toLocaleDateString()}</div>
-
-          <div class="stats-container">
-            <div class="stat-box">
-              <div class="stat-label">Revenue</div>
-              <div class="stat-value">${symbol} ${reportData.revenue.toFixed(2)}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">COGS</div>
-              <div class="stat-value" style="color: #dc2626;">${symbol} ${reportData.cost.toFixed(2)}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Profit</div>
-              <div class="stat-value" style="color: #16a34a;">${symbol} ${reportData.profit.toFixed(2)}</div>
-            </div>
-            <div class="stat-box">
-              <div class="stat-label">Margin</div>
-              <div class="stat-value">${reportData.margin.toFixed(1)}%</div>
-            </div>
-          </div>
-
-          <h3>Sales Breakdown</h3>
-          <table>
-            <thead>
-              <tr>
-                <th>Date & Time</th>
-                <th>Items</th>
-                <th style="text-align: right;">Rev</th>
-                <th style="text-align: right;">Cost</th>
-                <th style="text-align: right;">Profit</th>
-                <th style="text-align: right;">Margin</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${salesList.map(item => {
-                const rev = convert(item.total || item.amount || 0);
-                const cost = convert(item.cost || 0);
-                const margin = rev > 0 ? ((rev - cost) / rev) * 100 : 0;
-                return `
-                <tr>
-                  <td>${new Date(item.date).toLocaleDateString([], {month: 'short', day: 'numeric'})} ${new Date(item.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                  <td>${Array.isArray(item.items) ? item.items.length : 1} items</td>
-                  <td class="amount">${symbol} ${rev.toFixed(2)}</td>
-                  <td class="amount">${symbol} ${cost.toFixed(2)}</td>
-                  <td class="amount ${item.profit >= 0 ? 'positive' : 'negative'}">${symbol} ${convert(item.profit || 0).toFixed(2)}</td>
-                  <td class="amount" style="color: ${margin >= 20 ? '#16a34a' : margin > 0 ? '#d97706' : '#dc2626'};">${margin.toFixed(1)}%</td>
-                </tr>
-              `}).join('')}
-            </tbody>
-          </table>
-
-          <div class="footer">Generated by Stolar POS</div>
-        </body>
-      </html>
-    `;
-
-    try {
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch (error) {
-      console.error(error);
     }
   };
 
@@ -327,19 +238,10 @@ export default function ProfitReportScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profit Report</Text>
-          <TouchableOpacity onPress={generatePDF} style={styles.backButton}>
-            <Ionicons name="print-outline" size={24} color="white" />
-          </TouchableOpacity>
+          <View style={{ width: 40 }} />
         </View>
         
         <View style={styles.controlsRow}>
-          <TouchableOpacity 
-            style={styles.currencySelector} 
-            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
-          >
-            <Text style={styles.dateText}>{currency}</Text>
-          </TouchableOpacity>
-
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
             <Ionicons name="calendar" size={20} color="#1e40af" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
@@ -368,15 +270,15 @@ export default function ProfitReportScreen() {
       <View style={styles.statsGrid}>
         <View style={[styles.card, { backgroundColor: '#e0f2fe' }]}>
           <Text style={styles.cardLabel}>Revenue</Text>
-          <Text style={[styles.cardValue, { color: '#0284c7' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#0284c7' }]}>${reportData.revenue.toFixed(0)}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: '#fee2e2' }]}>
           <Text style={styles.cardLabel}>COGS</Text>
-          <Text style={[styles.cardValue, { color: '#dc2626' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#dc2626' }]}>${reportData.cost.toFixed(0)}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: '#dcfce7', width: '100%' }]}>
           <Text style={styles.cardLabel}>Net Profit</Text>
-          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
+          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>${reportData.profit.toFixed(2)}</Text>
           <Text style={{ color: '#16a34a', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
         </View>
       </View>
@@ -388,7 +290,7 @@ export default function ProfitReportScreen() {
           data={chartData}
           width={Dimensions.get("window").width - 60}
           height={180}
-          yAxisLabel={symbol === '$' ? '$' : ''}
+          yAxisLabel="$"
           yAxisSuffix=""
           chartConfig={{
             backgroundColor: "#ffffff",
@@ -412,11 +314,10 @@ export default function ProfitReportScreen() {
   return (
     <ThemedView style={styles.container}>
       <FlatList
-        ref={flatListRef}
         data={salesList}
         keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={{ paddingBottom: 120 }}
+        contentContainerStyle={{ paddingBottom: 40 }}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         renderItem={({ item }) => (
           <View style={styles.transactionCard}>
@@ -425,9 +326,9 @@ export default function ProfitReportScreen() {
                 <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#16a34a" : "#dc2626"} />
               </View>
               <View>
-                <Text style={styles.transAmount}>{symbol} {convert(item.total || 0).toFixed(2)}</Text>
+                <Text style={styles.transAmount}>${(item.total || 0).toFixed(2)}</Text>
                 <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#16a34a' : '#dc2626' }]}>
-                  Profit: {symbol} {convert(item.profit).toFixed(2)}
+                  Profit: ${item.profit.toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -436,18 +337,7 @@ export default function ProfitReportScreen() {
             </Text>
           </View>
         )}
-        onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 300)}
-        scrollEventThrottle={16}
       />
-
-      {showScrollTop && (
-        <TouchableOpacity 
-          style={styles.scrollTopButton} 
-          onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
-        >
-          <Ionicons name="arrow-up" size={24} color="white" />
-        </TouchableOpacity>
-      )}
     </ThemedView>
   );
 }
@@ -470,7 +360,6 @@ const styles = StyleSheet.create({
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5 },
   dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
   dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 13 },
-  currencySelector: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
 
   viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16 },
@@ -492,17 +381,4 @@ const styles = StyleSheet.create({
   transAmount: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
   transProfit: { fontSize: 12, fontWeight: '600' },
   transTime: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
-  scrollTopButton: {
-    position: 'absolute',
-    bottom: 110,
-    right: 20,
-    backgroundColor: '#1e40af',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
-  },
 });

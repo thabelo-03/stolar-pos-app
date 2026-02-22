@@ -2,12 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Switch, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
@@ -21,7 +21,6 @@ export default function ProfileSettingsScreen() {
   const [estimatingCosts, setEstimatingCosts] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
-  const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
   useEffect(() => {
     AsyncStorage.getItem('biometricEnabled').then((value) => {
@@ -35,7 +34,7 @@ export default function ProfileSettingsScreen() {
     await AsyncStorage.setItem('biometricEnabled', value.toString());
   };
 
-  const handleUpdatePress = () => {
+  const handleChangePassword = async () => {
     if (!currentPassword || !newPassword || !confirmPassword) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
@@ -45,11 +44,7 @@ export default function ProfileSettingsScreen() {
       Alert.alert('Error', 'New passwords do not match');
       return;
     }
-    setConfirmModalVisible(true);
-  };
 
-  const handleChangePassword = async () => {
-    setConfirmModalVisible(false);
     setLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/auth/change-password`, {
@@ -210,7 +205,7 @@ export default function ProfileSettingsScreen() {
 
         <TouchableOpacity 
           style={styles.saveButton} 
-          onPress={handleUpdatePress}
+          onPress={handleChangePassword}
           disabled={loading}
         >
           {loading ? (
@@ -219,33 +214,37 @@ export default function ProfileSettingsScreen() {
             <ThemedText style={styles.saveButtonText}>Update Password</ThemedText>
           )}
         </TouchableOpacity>
+
+        <ThemedText type="subtitle" style={[styles.sectionTitle, { marginTop: 20 }]}>Data Management</ThemedText>
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#64748b' }]} 
+          onPress={handleMigrateData}
+          disabled={migrating || loading}
+        >
+          {migrating ? (
+            <ActivityIndicator color="white" />
+          ) : (
+            <ThemedText style={styles.saveButtonText}>Fix Old Sales Data</ThemedText>
+          )}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#059669', marginTop: 10 }]} 
+          onPress={handleFixCosts}
+          disabled={fixingCosts}
+        >
+          {fixingCosts ? <ActivityIndicator color="white" /> : <ThemedText style={styles.saveButtonText}>Initialize Cost Prices</ThemedText>}
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={[styles.saveButton, { backgroundColor: '#0891b2', marginTop: 10 }]} 
+          onPress={handleEstimateCosts}
+          disabled={estimatingCosts}
+        >
+          {estimatingCosts ? <ActivityIndicator color="white" /> : <ThemedText style={styles.saveButtonText}>Estimate Missing Costs (70%)</ThemedText>}
+        </TouchableOpacity>
       </View>
       </ScrollView>
-
-      {/* Confirmation Modal */}
-      <Modal
-        animationType="fade"
-        transparent={true}
-        visible={confirmModalVisible}
-        onRequestClose={() => setConfirmModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContainer}>
-            <Ionicons name="lock-closed-outline" size={40} color="#1e40af" style={{ marginBottom: 10 }} />
-            <Text style={styles.modalTitle}>Change Password?</Text>
-            <Text style={styles.modalText}>Are you sure you want to update your password?</Text>
-            
-            <View style={styles.modalButtons}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setConfirmModalVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleChangePassword}>
-                <Text style={styles.confirmBtnText}>Confirm</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
     </ThemedView>
   );
 }
@@ -263,14 +262,4 @@ const styles = StyleSheet.create({
   saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 10 },
   subLabel: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginTop: 12, marginBottom: 8 },
-  modalText: { fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
-  modalButtons: { flexDirection: 'row', width: '100%', gap: 12 },
-  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  cancelBtn: { backgroundColor: '#f1f5f9' },
-  cancelBtnText: { color: '#64748b', fontWeight: '600' },
-  confirmBtn: { backgroundColor: '#1e40af' },
-  confirmBtnText: { color: '#fff', fontWeight: 'bold' },
 });

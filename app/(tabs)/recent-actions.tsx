@@ -5,7 +5,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../../components/themed-view';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 export default function RecentActionsScreen() {
   const router = useRouter();
@@ -97,7 +97,7 @@ const styles = StyleSheet.create({
   },
   backButton: { marginRight: 15 },
   headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-  list: { padding: 20, paddingBottom: 120 },
+  list: { padding: 20 },
   card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
   iconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   details: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 4 },
