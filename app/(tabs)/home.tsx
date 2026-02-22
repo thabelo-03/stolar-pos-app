@@ -3,7 +3,7 @@ import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Animated, Modal, Pressable, ScrollView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 import { useActiveShop } from './use-active-shop';
 import { useManagerAuth } from './use-manager-auth';
 import { useNotifications } from './use-notifications';

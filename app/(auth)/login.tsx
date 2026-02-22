@@ -96,7 +96,7 @@ export default function Login() {
         Alert.alert("Login Failed", data.message || "Invalid credentials");
       }
     } catch (error) {
-      Alert.alert("Network Error", "Check server connection at 192.168.54.12:5000");
+      Alert.alert("Network Error", "Could not connect to server.");
     } finally {
       setLoading(false);
     }

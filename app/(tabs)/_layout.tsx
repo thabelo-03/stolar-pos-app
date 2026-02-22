@@ -6,7 +6,7 @@ import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
 import { useColorScheme } from '@/hooks/use-color-scheme';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 export default function TabLayout() {
   const router = useRouter();

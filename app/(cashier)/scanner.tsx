@@ -4,8 +4,8 @@ import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
-// Use your computer's IP address here
-const API_URL = 'http://192.168.1.XX:5000/api/products/add'; 
+import { API_BASE_URL } from '../config';
+const API_URL = `${API_BASE_URL}/products/add`;
 
 export default function CashierScanner() {
   const [permission, requestPermission] = useCameraPermissions();
