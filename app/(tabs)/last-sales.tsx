@@ -12,9 +12,9 @@ import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
-import { useActiveShop } from './use-active-shop';
-import { useSales } from './use-sales';
-import { useRates } from './use-rates';
+import { useActiveShop } from '@/hooks/use-active-shop';
+import { useSales } from '@/hooks/use-sales';
+import { useRates } from '@/hooks/use-rates';
 
 export default function LastSalesScreen() {
   const router = useRouter();

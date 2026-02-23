@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useState } from 'react';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../app/config';
 
 export function useNotifications() {
   const [unreadCount, setUnreadCount] = useState(0);

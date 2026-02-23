@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Tabs, useFocusEffect, useRouter } from 'expo-router';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 import { HapticTab } from '@/components/haptic-tab';
+import { useActiveShop } from '@/hooks/use-active-shop';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { API_BASE_URL } from '../config';
 
@@ -13,28 +14,28 @@ export default function TabLayout() {
   const colorScheme = useColorScheme();
   const [lowStockCount, setLowStockCount] = useState<number | undefined>(undefined);
   const [isLocked, setIsLocked] = useState(false);
+  const { shopId } = useActiveShop();
 
-  useEffect(() => {
-    const fetchLowStock = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/products`);
-        const data = await response.json();
-        if (response.ok && Array.isArray(data)) {
-          // Count items with quantity less than 5
-          const count = data.filter((item: any) => Number(item.quantity) < 5).length;
-          setLowStockCount(count > 0 ? count : undefined);
-        }
-      } catch (error) {
-        // Silently fail for badge updates
+  const fetchLowStock = useCallback(async () => {
+    if (!shopId) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/products?shopId=${shopId}`);
+      const data = await response.json();
+      if (response.ok && Array.isArray(data)) {
+        // Count items with quantity less than 5
+        const count = data.filter((item: any) => Number(item.quantity) < 5).length;
+        setLowStockCount(count > 0 ? count : undefined);
       }
-    };
+    } catch (error) {
+      // Silently fail for badge updates
+    }
+  }, [shopId]);
 
-    fetchLowStock();
-  }, []);
   useFocusEffect(
     useCallback(() => {
       checkSubscriptionStatus();
-    }, [])
+      fetchLowStock();
+    }, [fetchLowStock])
   );
 
   const checkSubscriptionStatus = async () => {
@@ -83,6 +84,7 @@ export default function TabLayout() {
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarShowLabel: true,
+        tabBarHideOnKeyboard: true,
         tabBarStyle: {
           position: 'absolute',
           bottom: 25,
@@ -197,29 +199,6 @@ export default function TabLayout() {
           title: 'Settings',
         }}
       />
-      
-      {/* Hidden: Home (Duplicate/Arrow as per user) */}
-      <Tabs.Screen
-        name="home" // This corresponds to app/(tabs)/home.tsx
-        options={{
-          href: null, // Hide it from the tab bar
-          title: 'Home Hidden', // Give it a distinct title for debugging if needed
-        }}
-      />
-
-      {/* Defensively hide potential helper files to prevent them from appearing as tabs */}
-      <Tabs.Screen name="api" options={{ href: null }} />
-      <Tabs.Screen name="Api" options={{ href: null }} />
-      <Tabs.Screen name="API" options={{ href: null }} />
-      <Tabs.Screen name="config" options={{ href: null }} />
-      <Tabs.Screen name="Config" options={{ href: null }} />
-      <Tabs.Screen name="utils" options={{ href: null }} />
-      <Tabs.Screen name="constants" options={{ href: null }} />
-      <Tabs.Screen name="hooks" options={{ href: null }} />
-      <Tabs.Screen name="context" options={{ href: null }} />
-      <Tabs.Screen name="types" options={{ href: null }} />
-      <Tabs.Screen name="services" options={{ href: null }} />
-      <Tabs.Screen name="components" options={{ href: null }} />
     </Tabs>
 
     {/* GLOBAL LOCKOUT MODAL */}

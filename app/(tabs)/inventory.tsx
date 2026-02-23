@@ -10,9 +10,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
-import { useActiveShop } from './use-active-shop';
-import { useProducts } from './use-products';
-import { useRates } from './use-rates';
+import { useActiveShop } from '@/hooks/use-active-shop';
+import { useProducts } from '@/hooks/use-products';
+import { useRates } from '@/hooks/use-rates';
 
 
 interface InventoryItem {

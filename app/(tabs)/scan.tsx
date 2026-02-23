@@ -3,7 +3,7 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Stack, useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import { ActivityIndicator, Button, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { useActiveShop } from './use-active-shop';
+import { useActiveShop } from '@/hooks/use-active-shop';
 
 export default function ScanScreen() {
   const router = useRouter();

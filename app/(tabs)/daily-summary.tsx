@@ -1,5 +1,4 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
@@ -9,11 +8,11 @@ import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text
 import { LineChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useActiveShop } from '@/hooks/use-active-shop';
+import { useRates } from '@/hooks/use-rates';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
-import { useActiveShop } from './use-active-shop';
-import { useRates } from './use-rates';
 
 export default function DailySummaryScreen() {
   const router = useRouter();

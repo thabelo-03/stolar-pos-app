@@ -354,9 +354,18 @@ const ManagerIndex = () => {
   };
 
   const handleSelectShopForPOS = async (shop: Shop) => {
-      await AsyncStorage.setItem('shopId', shop._id);
-      setShopSelectionVisible(false);
-      router.replace('/(tabs)/home');
+      Alert.alert(
+        "Switch to POS Mode",
+        `You are about to enter Cashier mode for ${shop.name}.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Proceed", onPress: async () => {
+              await AsyncStorage.setItem('shopId', shop._id);
+              setShopSelectionVisible(false);
+              router.replace('/(tabs)');
+          }}
+        ]
+      );
   };
 
   if (loading) {

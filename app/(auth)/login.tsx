@@ -7,6 +7,7 @@ import {
   Alert,
   Animated,
   FlatList,
+  Image,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -14,8 +15,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View,
-  Image
+  View
 } from 'react-native';
 import { API_BASE_URL } from '../config';
 
@@ -80,7 +80,7 @@ export default function Login() {
           } else {
             // Established Staff: Go directly to the Sales POS
             await AsyncStorage.setItem('shopId', data.shopId);
-            router.replace('/(tabs)/home');
+            router.replace('/(tabs)');
           }
           return;
         }
@@ -131,7 +131,7 @@ export default function Login() {
   const handleSelectShopForPOS = async (shop: any) => {
       await AsyncStorage.setItem('shopId', shop._id);
       setShopSelectionVisible(false);
-      router.replace('/(tabs)/home');
+      router.replace('/(tabs)');
   };
 
   return (

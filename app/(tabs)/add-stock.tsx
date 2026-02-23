@@ -8,8 +8,8 @@ import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, Scroll
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { API_BASE_URL } from '../config';
-import { useActiveShop } from './use-active-shop';
-import { useRates } from './use-rates';
+import { useActiveShop } from '@/hooks/use-active-shop';
+import { useRates } from '@/hooks/use-rates';
 
 export default function AddStockScreen() {
   const router = useRouter();

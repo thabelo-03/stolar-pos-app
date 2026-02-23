@@ -1,6 +1,6 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useState } from 'react';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../app/config';
 
 export function useActiveShop() {
   const [shopId, setShopId] = useState<string | null>(null);

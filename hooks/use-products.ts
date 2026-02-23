@@ -1,5 +1,5 @@
 import { useCallback, useState } from 'react';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../app/config';
 import { useActiveShop } from './use-active-shop';
 
 export function useProducts() {

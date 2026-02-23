@@ -24,9 +24,9 @@ import { API_BASE_URL } from '../config';
 // IMPORT OFFLINE TOOLS
 import * as Network from 'expo-network';
 import { OfflineService } from '../services/offlineService';
-import { useActiveShop } from './use-active-shop';
-import { useProducts } from './use-products';
-import { useRates } from './use-rates';
+import { useActiveShop } from '@/hooks/use-active-shop';
+import { useProducts } from '@/hooks/use-products';
+import { useRates } from '@/hooks/use-rates';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -388,7 +388,7 @@ export default function CartScreen() {
           setCartItems([]);
           setShowPaymentModal(false);
           setTenderedAmount('');
-          router.replace('/(tabs)/home');
+          router.replace('/(tabs)');
           return;
         } else {
           let errorMessage = 'Transaction failed';
@@ -408,7 +408,7 @@ export default function CartScreen() {
         setCartItems([]);
         setShowPaymentModal(false);
         setTenderedAmount('');
-        router.replace('/(tabs)/home');
+        router.replace('/(tabs)');
       } else {
         Alert.alert('Error', 'Transaction failed and could not be saved offline.');
       }
