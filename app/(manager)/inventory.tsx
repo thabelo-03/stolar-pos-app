@@ -479,7 +479,17 @@ export default function ManagerInventoryScreen() {
             <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={handleExportPDF}>
               <Ionicons name="share-outline" size={24} color="#1e40af" />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={() => router.push({ pathname: '/stock-take', params: { shopId } })}>
+            <TouchableOpacity 
+              style={[styles.addButton, { marginRight: 10 }]} 
+              onPress={() => {
+                // Ensure shopId is a safe string and navigate
+                if (shopId && typeof shopId === 'string') {
+                  router.push({ pathname: '/stock-take', params: { shopId } });
+                } else {
+                  router.push({ pathname: '/stock-take' });
+                }
+              }}
+            >
               <Ionicons name="clipboard-outline" size={24} color="#1e40af" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>

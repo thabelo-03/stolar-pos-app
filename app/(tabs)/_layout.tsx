@@ -206,6 +206,20 @@ export default function TabLayout() {
           title: 'Home Hidden', // Give it a distinct title for debugging if needed
         }}
       />
+
+      {/* Defensively hide potential helper files to prevent them from appearing as tabs */}
+      <Tabs.Screen name="api" options={{ href: null }} />
+      <Tabs.Screen name="Api" options={{ href: null }} />
+      <Tabs.Screen name="API" options={{ href: null }} />
+      <Tabs.Screen name="config" options={{ href: null }} />
+      <Tabs.Screen name="Config" options={{ href: null }} />
+      <Tabs.Screen name="utils" options={{ href: null }} />
+      <Tabs.Screen name="constants" options={{ href: null }} />
+      <Tabs.Screen name="hooks" options={{ href: null }} />
+      <Tabs.Screen name="context" options={{ href: null }} />
+      <Tabs.Screen name="types" options={{ href: null }} />
+      <Tabs.Screen name="services" options={{ href: null }} />
+      <Tabs.Screen name="components" options={{ href: null }} />
     </Tabs>
 
     {/* GLOBAL LOCKOUT MODAL */}

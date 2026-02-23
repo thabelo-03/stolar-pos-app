@@ -39,7 +39,7 @@ export default function StockTakeScreen() {
 
   useEffect(() => {
     if (shopId) {
-      setSelectedShop(Array.isArray(shopId) ? shopId[0] : shopId);
+      setSelectedShop(Array.isArray(shopId) ? shopId[0] : (shopId || 'all'));
     }
   }, [shopId]);
 
