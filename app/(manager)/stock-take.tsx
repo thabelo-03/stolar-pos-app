@@ -115,7 +115,10 @@ export default function StockTakeScreen() {
       // Client-side filter for 'all' shops (Manager view)
       if (selectedShop === 'all' && shops.length > 0) {
         const shopIds = new Set(shops.map(s => s._id));
-        sales = sales.filter((s: any) => shopIds.has(s.shopId));
+        sales = sales.filter((s: any) => {
+          const sId = s.shopId && (typeof s.shopId === 'object' ? s.shopId._id : s.shopId);
+          return shopIds.has(sId);
+        });
       }
 
       // 3. Fetch Current Inventory
@@ -128,7 +131,10 @@ export default function StockTakeScreen() {
 
       if (selectedShop === 'all' && shops.length > 0) {
         const shopIds = new Set(shops.map(s => s._id));
-        products = products.filter((p: any) => shopIds.has(p.shopId));
+        products = products.filter((p: any) => {
+          const pId = p.shopId && (typeof p.shopId === 'object' ? p.shopId._id : p.shopId);
+          return shopIds.has(pId);
+        });
       }
 
       // --- CALCULATIONS ---
@@ -168,7 +174,7 @@ export default function StockTakeScreen() {
       let itemsInStock = 0;
 
       products.forEach((p: any) => {
-        const qty = Number(p.quantity) || Number(p.stockQuantity) || 0;
+        const qty = p.stockQuantity !== undefined ? Number(p.stockQuantity) : (Number(p.quantity) || 0);
         const price = Number(p.price) || 0;
         const cost = Number(p.costPrice) || 0;
 
@@ -182,7 +188,7 @@ export default function StockTakeScreen() {
         inventoryValue,
         inventoryCost,
         soldCost,
-        totalStockManaged: inventoryCost + soldCost,
+        totalStockManaged: soldCost + inventoryValue,
         itemsSold,
         itemsInStock
       });
@@ -247,14 +253,14 @@ export default function StockTakeScreen() {
             
             <div class="divider"></div>
             
-            <h3>Stock Inventory (Cost Basis)</h3>
+            <h3>Stock Inventory</h3>
             <div class="row">
                <span class="label">Items Sold (${metrics.itemsSold} units)</span>
-               <span class="value">${s}${convert(metrics.soldCost).toFixed(2)}</span>
+               <span class="value">${s}${convert(metrics.soldCost).toFixed(2)} (Cost)</span>
             </div>
             <div class="row">
                <span class="label">Available Stock (${metrics.itemsInStock} units)</span>
-               <span class="value">${s}${convert(metrics.inventoryCost).toFixed(2)}</span>
+               <span class="value">${s}${convert(metrics.inventoryValue).toFixed(2)} (Retail)</span>
             </div>
           </div>
 
@@ -366,7 +372,7 @@ export default function StockTakeScreen() {
 
               {/* 2. Stock Breakdown */}
               <View style={styles.section}>
-                <Text style={styles.sectionHeader}>Stock Inventory (Cost)</Text>
+                <Text style={styles.sectionHeader}>Stock Inventory</Text>
                 
                 <View style={styles.row}>
                   <View>
@@ -378,9 +384,13 @@ export default function StockTakeScreen() {
 
                 <View style={[styles.row, { marginTop: 15 }]}>
                   <View>
-                    <Text style={styles.rowLabel}>Available Stock</Text>
+                    <Text style={styles.rowLabel}>Available Stock (Retail)</Text>
                     <Text style={styles.rowSub}>{metrics.itemsInStock} units</Text>
                   </View>
+                  <Text style={styles.rowValue}>{symbol}{convert(metrics.inventoryValue).toFixed(2)}</Text>
+                </View>
+                <View style={[styles.row, { marginTop: 5 }]}>
+                  <Text style={[styles.rowLabel, { fontSize: 12, color: '#94a3b8' }]}>Cost Value</Text>
                   <Text style={styles.rowValue}>{symbol}{convert(metrics.inventoryCost).toFixed(2)}</Text>
                 </View>
               </View>
