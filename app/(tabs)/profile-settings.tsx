@@ -16,9 +16,6 @@ export default function ProfileSettingsScreen() {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [migrating, setMigrating] = useState(false);
-  const [fixingCosts, setFixingCosts] = useState(false);
-  const [estimatingCosts, setEstimatingCosts] = useState(false);
   const [biometricEnabled, setBiometricEnabled] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
 
@@ -66,74 +63,6 @@ export default function ProfileSettingsScreen() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleMigrateData = () => {
-    Alert.alert(
-      "Confirm Migration",
-      "This will update all past sales to link them to your current shop. This process may take a moment.",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Start", 
-          onPress: async () => {
-            setMigrating(true);
-            try {
-              const userId = await AsyncStorage.getItem('userId');
-              const response = await fetch(`${API_BASE_URL}/test/migrate-sales-shopid`, { 
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId })
-              });
-              const data = await response.json();
-              Alert.alert("Migration Result", data.message || "Migration completed");
-            } catch (error) {
-              Alert.alert("Error", "Failed to run migration");
-            } finally {
-              setMigrating(false);
-            }
-          }
-        }
-      ]
-    );
-  };
-
-  const handleFixCosts = async () => {
-    setFixingCosts(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/test/fix-product-costs`, { method: 'POST' });
-      const data = await response.json();
-      Alert.alert("Success", data.message || "Products updated.");
-    } catch (error) {
-      Alert.alert("Error", "Failed to fix product costs.");
-    } finally {
-      setFixingCosts(false);
-    }
-  };
-
-  const handleEstimateCosts = async () => {
-    Alert.alert(
-      "Estimate Costs",
-      "This will set the Cost Price to 70% of the Selling Price for all items where Cost is currently 0. Continue?",
-      [
-        { text: "Cancel", style: "cancel" },
-        { 
-          text: "Yes, Estimate", 
-          onPress: async () => {
-            setEstimatingCosts(true);
-            try {
-              const response = await fetch(`${API_BASE_URL}/test/backfill-estimated-costs`, { method: 'POST' });
-              const data = await response.json();
-              Alert.alert("Success", data.message);
-            } catch (error) {
-              Alert.alert("Error", "Failed to estimate costs.");
-            } finally {
-              setEstimatingCosts(false);
-            }
-          }
-        }
-      ]
-    );
   };
 
   return (
@@ -213,35 +142,6 @@ export default function ProfileSettingsScreen() {
           ) : (
             <ThemedText style={styles.saveButtonText}>Update Password</ThemedText>
           )}
-        </TouchableOpacity>
-
-        <ThemedText type="subtitle" style={[styles.sectionTitle, { marginTop: 20 }]}>Data Management</ThemedText>
-        <TouchableOpacity 
-          style={[styles.saveButton, { backgroundColor: '#64748b' }]} 
-          onPress={handleMigrateData}
-          disabled={migrating || loading}
-        >
-          {migrating ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <ThemedText style={styles.saveButtonText}>Fix Old Sales Data</ThemedText>
-          )}
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.saveButton, { backgroundColor: '#059669', marginTop: 10 }]} 
-          onPress={handleFixCosts}
-          disabled={fixingCosts}
-        >
-          {fixingCosts ? <ActivityIndicator color="white" /> : <ThemedText style={styles.saveButtonText}>Initialize Cost Prices</ThemedText>}
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={[styles.saveButton, { backgroundColor: '#0891b2', marginTop: 10 }]} 
-          onPress={handleEstimateCosts}
-          disabled={estimatingCosts}
-        >
-          {estimatingCosts ? <ActivityIndicator color="white" /> : <ThemedText style={styles.saveButtonText}>Estimate Missing Costs (70%)</ThemedText>}
         </TouchableOpacity>
       </View>
       </ScrollView>

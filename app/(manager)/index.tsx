@@ -108,7 +108,7 @@ const ManagerIndex = () => {
         }
 
         // Fetch sales for chart
-        const salesRes = await fetch(`${API_BASE_URL}/sales`);
+        const salesRes = await fetch(`${API_BASE_URL}/sales?managerId=${userId}`);
         if (salesRes.ok) {
           const salesData = await salesRes.json();
           if (Array.isArray(salesData)) {

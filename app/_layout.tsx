@@ -1,14 +1,16 @@
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import * as NavigationBar from 'expo-navigation-bar';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import React, { useCallback, useEffect, useState } from 'react';
-import { Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Platform, StyleSheet } from 'react-native';
 import 'react-native-reanimated';
 
 // ⭐ NEW IMPORTS (ICON FIX)
 import { Ionicons } from '@expo/vector-icons';
 import { useFonts } from 'expo-font';
+import * as Updates from 'expo-updates';
 
 // Import your Offline Service
 import { API_BASE_URL } from './config';
@@ -26,6 +28,31 @@ export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     ...Ionicons.font,
   });
+
+  // --- HIDE NAVIGATION BAR (IMMERSIVE MODE) ---
+  useEffect(() => {
+    if (Platform.OS === 'android') {
+      NavigationBar.setVisibilityAsync("hidden");
+      NavigationBar.setBehaviorAsync("overlay-swipe");
+    }
+  }, []);
+
+  // --- AUTO-UPDATE CHECK ---
+  useEffect(() => {
+    async function onFetchUpdateAsync() {
+      if (__DEV__) return; // Don't check in development mode
+      try {
+        const update = await Updates.checkForUpdateAsync();
+        if (update.isAvailable) {
+          await Updates.fetchUpdateAsync();
+          await Updates.reloadAsync();
+        }
+      } catch (error) {
+        console.log(`Error fetching latest Expo update: ${error}`);
+      }
+    }
+    onFetchUpdateAsync();
+  }, []);
 
   // --- AUTO-SYNC LOGIC ---
   useEffect(() => {
@@ -74,19 +101,8 @@ export default function RootLayout() {
         <Stack.Screen name="(manager)" options={{ headerShown: false }} /> 
         <Stack.Screen name="(admin)" options={{ headerShown: false }} />
         <Stack.Screen name="modal" options={{ presentation: 'modal', title: 'Modal' }} />
+        <Stack.Screen name="stock-take" options={{ presentation: 'modal', headerShown: false }} />
       </Stack>
-      {isOffline && (
-        <View style={styles.offlineBanner}>
-          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-            <Ionicons name="cloud-offline" size={20} color="white" style={{ marginRight: 8 }} />
-            <Text style={styles.offlineText}>Offline Mode</Text>
-          </View>
-          <TouchableOpacity style={styles.retryButton} onPress={checkReachability}>
-            <Text style={styles.retryText}>Retry</Text>
-            <Ionicons name="refresh" size={16} color="white" />
-          </TouchableOpacity>
-        </View>
-      )}
       <StatusBar style="auto" />
     </ThemeProvider>
   );

@@ -15,7 +15,7 @@ export default function StockTakeScreen() {
   const [endDate, setEndDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [pickerMode, setPickerMode] = useState<'start' | 'end'>('start');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
   const [userRole, setUserRole] = useState<string>('manager');
@@ -110,6 +110,7 @@ export default function StockTakeScreen() {
       
       const salesRes = await fetch(salesUrl);
       let sales = await salesRes.json();
+      if (!Array.isArray(sales)) sales = [];
 
       // Client-side filter for 'all' shops (Manager view)
       if (selectedShop === 'all' && shops.length > 0) {
@@ -123,6 +124,7 @@ export default function StockTakeScreen() {
       
       const prodRes = await fetch(productsUrl);
       let products = await prodRes.json();
+      if (!Array.isArray(products)) products = [];
 
       if (selectedShop === 'all' && shops.length > 0) {
         const shopIds = new Set(shops.map(s => s._id));
