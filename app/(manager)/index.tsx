@@ -222,7 +222,7 @@ const ManagerIndex = () => {
       salesByShop[sId] = (salesByShop[sId] || 0) + (sale.totalUSD || sale.total || sale.amount || 0);
     });
 
-    const colors = ['#fca5a5', '#3b82f6', '#86efac', '#93c5fd', '#c4b5fd', '#f9a8d4'];
+    const colors = ['#c4b5fd', '#a78bfa', '#7c3aed', '#9333ea', '#ddd6fe', '#ede9fe'];
     const pieData = shops.map((shop, index) => ({
       name: shop.name,
       population: salesByShop[shop._id] || 0,
@@ -406,10 +406,67 @@ const ManagerIndex = () => {
       d.getFullYear() === today.getFullYear();
   }).length;
 
+  // ── Stolar AI Insights ──────────────────────────────────────────
+  const getAIInsight = (): { icon: string; color: string; title: string; message: string }[] => {
+    const insights: { icon: string; color: string; title: string; message: string }[] = [];
+
+    // Revenue growth hint
+    if (totalRevenue > 0) {
+      const avgPerShop = shops.length > 0 ? totalRevenue / shops.length : totalRevenue;
+      insights.push({
+        icon: 'trending-up',
+        color: '#7c3aed',
+        title: 'Revenue Insight',
+        message: shops.length > 1
+          ? `Avg $${avgPerShop.toFixed(0)}/shop this period. Focus on under-performing locations to lift overall revenue.`
+          : `You generated $${totalRevenue.toFixed(0)} this period. Great progress — consider promoting top-sellers.`,
+      });
+    } else {
+      insights.push({
+        icon: 'bar-chart-outline',
+        color: '#9333ea',
+        title: 'No Sales Yet',
+        message: 'Record your first sale to start seeing AI-powered trends and recommendations.',
+      });
+    }
+
+    // Low stock warning
+    if (lowStockItems.length > 0) {
+      const names = lowStockItems.slice(0, 2).map((i: any) => i.name).join(', ');
+      insights.push({
+        icon: 'alert-circle-outline',
+        color: '#f59e0b',
+        title: `${lowStockItems.length} Low-Stock Item${lowStockItems.length > 1 ? 's' : ''}`,
+        message: `Restock ${names}${lowStockItems.length > 2 ? ' and others' : ''} soon to avoid lost sales.`,
+      });
+    }
+
+    // Orders today tip
+    if (ordersToday === 0) {
+      insights.push({
+        icon: 'bulb-outline',
+        color: '#0ea5e9',
+        title: 'Quiet Day',
+        message: 'No orders recorded today. Consider a flash promo or checking cashier connectivity.',
+      });
+    } else if (ordersToday >= 10) {
+      insights.push({
+        icon: 'flame-outline',
+        color: '#ef4444',
+        title: 'High Traffic Day',
+        message: `${ordersToday} orders today! Ensure stock levels are up-to-date across all shops.`,
+      });
+    }
+
+    return insights.slice(0, 3);
+  };
+
+  const aiInsights = getAIInsight();
+
   const renderHeader = () => (
     <View>
       <LinearGradient
-        colors={['#0f172a', '#1e3a8a', '#2563eb']}
+        colors={['#4f46e5', '#7c3aed', '#9333ea']}
         style={[styles.header, { paddingTop: insets.top + 16, paddingBottom: 40 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -436,8 +493,8 @@ const ManagerIndex = () => {
 
       {/* KPI Metrics Row */}
       <View style={styles.kpiContainer}>
-        <View style={[styles.kpiCard, styles.kpiCardBlue]}>
-          <Ionicons name="cash-outline" size={18} color="#2563eb" style={styles.kpiIcon} />
+        <View style={[styles.kpiCard, styles.kpiCardIndigo]}>
+          <Ionicons name="cash-outline" size={18} color="#7c3aed" style={styles.kpiIcon} />
           <Text style={styles.kpiLabel}>Revenue</Text>
           <Text style={styles.kpiValue}>${totalRevenue.toFixed(0)}</Text>
         </View>
@@ -455,18 +512,41 @@ const ManagerIndex = () => {
         </View>
       </View>
 
+      {/* ── Stolar AI Insights Card ── */}
+      {aiInsights.length > 0 && (
+        <View style={styles.aiInsightsCard}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+            <View style={styles.aiInsightsBadge}>
+              <Ionicons name="sparkles" size={14} color="white" />
+            </View>
+            <Text style={styles.aiInsightsTitle}>Stolar AI Insights</Text>
+          </View>
+          {aiInsights.map((insight, idx) => (
+            <View key={idx} style={[styles.aiInsightRow, idx < aiInsights.length - 1 && { borderBottomWidth: 1, borderBottomColor: '#ede9fe' }]}>
+              <View style={[styles.aiInsightIcon, { backgroundColor: insight.color + '18' }]}>
+                <Ionicons name={insight.icon as any} size={18} color={insight.color} />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.aiInsightRowTitle}>{insight.title}</Text>
+                <Text style={styles.aiInsightRowMsg}>{insight.message}</Text>
+              </View>
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* Sales Chart */}
       <View style={styles.chartContainer}>
         <View style={styles.chartHeader}>
           <Text style={styles.chartTitle}>Sales Performance</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TouchableOpacity onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }} style={styles.dateButton}>
-              <Ionicons name="calendar-outline" size={16} color="#1e40af" />
+              <Ionicons name="calendar-outline" size={16} color="#7c3aed" />
               <Text style={styles.dateButtonText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
             </TouchableOpacity>
             <Text style={{ color: '#94a3b8' }}>-</Text>
             <TouchableOpacity onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }} style={styles.dateButton}>
-              <Ionicons name="calendar-outline" size={16} color="#1e40af" />
+              <Ionicons name="calendar-outline" size={16} color="#7c3aed" />
               <Text style={styles.dateButtonText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
             </TouchableOpacity>
           </View>
@@ -482,10 +562,10 @@ const ManagerIndex = () => {
             backgroundGradientFrom: "#ffffff",
             backgroundGradientTo: "#ffffff",
             decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`,
+            color: (opacity = 1) => `rgba(124, 58, 237, ${opacity})`,
             labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
             style: { borderRadius: 16 },
-            barPercentage: 0.5,
+            barPercentage: 0.55,
           }}
           style={{ marginVertical: 8, borderRadius: 16 }}
           showValuesOnTopOfBars
@@ -585,9 +665,14 @@ const ManagerIndex = () => {
       )}
 
       <View style={styles.sectionHeader}>
-        <Text style={styles.title}>My Shops</Text>
+        <View>
+          <Text style={styles.title}>My Shops</Text>
+          <Text style={{ fontSize: 12, color: '#a78bfa', fontWeight: '600', marginTop: 1 }}>
+            {shops.length} {shops.length === 1 ? 'location' : 'locations'} registered
+          </Text>
+        </View>
         <TouchableOpacity style={styles.addShopButton} onPress={() => router.push('/(manager)/register-shop')}>
-          <LinearGradient colors={['#2563eb', '#1d4ed8']} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <LinearGradient colors={['#7c3aed', '#9333ea']} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Ionicons name="add" size={18} color="white" />
             <Text style={styles.addShopButtonText}>Add Shop</Text>
           </LinearGradient>
@@ -607,15 +692,15 @@ const ManagerIndex = () => {
         <TouchableOpacity style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.menuContainer}>
             <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="person-circle-outline" size={24} color="#1e40af" />
+              <Ionicons name="person-circle-outline" size={24} color="#7c3aed" />
               <Text style={styles.menuItemText}>Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="settings-outline" size={24} color="#1e40af" />
+              <Ionicons name="settings-outline" size={24} color="#7c3aed" />
               <Text style={styles.menuItemText}>Settings</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSwitchToCashier}>
-              <Ionicons name="calculator-outline" size={24} color="#1e40af" />
+              <Ionicons name="calculator-outline" size={24} color="#7c3aed" />
               <Text style={styles.menuItemText}>Switch to POS</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
@@ -623,7 +708,7 @@ const ManagerIndex = () => {
               <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Sign Out</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="help-circle-outline" size={24} color="#1e40af" />
+              <Ionicons name="help-circle-outline" size={24} color="#7c3aed" />
               <Text style={styles.menuItemText}>Help</Text>
             </TouchableOpacity>
           </View>
@@ -647,7 +732,7 @@ const ManagerIndex = () => {
                     keyExtractor={(item) => item._id}
                     renderItem={({ item }) => (
                         <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShopForPOS(item)}>
-                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
+                            <Ionicons name="storefront" size={20} color="#7c3aed" style={{marginRight: 10}} />
                             <Text style={styles.shopSelectionText}>{item.name}</Text>
                             <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
                         </TouchableOpacity>
@@ -792,31 +877,40 @@ const ManagerIndex = () => {
         contentContainerStyle={{ paddingBottom: 40 }}
         renderItem={({ item }) => (
           <TouchableOpacity style={styles.shopItem} onPress={() => handleShopPress(item)} activeOpacity={0.85}>
+            {/* Left accent bar */}
             <LinearGradient
-              colors={['#1e3a8a', '#2563eb']}
-              style={styles.shopItemGrad}
+              colors={['#4f46e5', '#7c3aed']}
+              style={styles.shopItemAccent}
               start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-            >
-              <View style={styles.shopItemIconWrap}>
-                <Ionicons name="storefront" size={22} color="white" />
-              </View>
-            </LinearGradient>
+              end={{ x: 0, y: 1 }}
+            />
+            {/* Icon circle */}
+            <View style={styles.shopIconCircle}>
+              <Ionicons name="storefront" size={22} color="white" />
+            </View>
+            {/* Info */}
             <View style={{ flex: 1 }}>
-              <Text style={styles.shopName}>{item.name}</Text>
+              <Text style={styles.shopName} numberOfLines={1}>{item.name}</Text>
               <View style={styles.shopLocationRow}>
                 <Ionicons name="location-outline" size={12} color="#94a3b8" />
-                <Text style={styles.shopLocation}>{item.location}</Text>
+                <Text style={styles.shopLocation} numberOfLines={1}>{item.location}</Text>
               </View>
+              {item.branchCode ? (
+                <View style={styles.shopBranchRow}>
+                  <Ionicons name="barcode-outline" size={11} color="#a78bfa" />
+                  <Text style={styles.shopBranchCode}>{item.branchCode}</Text>
+                </View>
+              ) : null}
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            {/* Actions */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <TouchableOpacity onPress={() => handleEditPress(item)} style={styles.shopActionBtn}>
-                <Ionicons name="create-outline" size={18} color="#2563eb" />
+                <Ionicons name="create-outline" size={17} color="#7c3aed" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDeleteShop(item._id, item.name)} style={[styles.shopActionBtn, { backgroundColor: '#fee2e2' }]}>
-                <Ionicons name="trash-outline" size={18} color="#f43f5e" />
+                <Ionicons name="trash-outline" size={17} color="#f43f5e" />
               </TouchableOpacity>
-              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
+              <Ionicons name="chevron-forward" size={18} color="#c4b5fd" />
             </View>
           </TouchableOpacity>
         )}
@@ -825,7 +919,7 @@ const ManagerIndex = () => {
             style={styles.registerShopButton}
             onPress={() => router.push('/(manager)/register-shop')}
           >
-            <Ionicons name="add-circle-outline" size={28} color="#2563eb" />
+            <Ionicons name="add-circle-outline" size={28} color="#7c3aed" />
             <Text style={styles.registerShopButtonText}>Register Your First Shop</Text>
             <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Tap to get started</Text>
           </TouchableOpacity>
@@ -861,9 +955,9 @@ const styles = StyleSheet.create({
         shadowRadius: 10,
         elevation: 3,
     },
-    kpiCardBlue: {
+    kpiCardIndigo: {
         borderTopWidth: 3,
-        borderTopColor: '#2563eb',
+        borderTopColor: '#7c3aed',
     },
     kpiCardGreen: {
         borderTopWidth: 3,
@@ -920,25 +1014,52 @@ const styles = StyleSheet.create({
 
     // Shop cards
     shopItem: {
-        flexDirection: 'row', alignItems: 'center',
-        backgroundColor: 'white', paddingRight: 16, paddingVertical: 14,
-        borderRadius: 18, marginBottom: 12, marginHorizontal: 20,
-        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.07, shadowRadius: 8, elevation: 4,
-        gap: 14, overflow: 'hidden',
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'white',
+        paddingRight: 14,
+        paddingVertical: 0,
+        borderRadius: 18,
+        marginBottom: 12,
+        marginHorizontal: 20,
+        shadowColor: '#7c3aed',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.10,
+        shadowRadius: 10,
+        elevation: 5,
+        overflow: 'hidden',
+        minHeight: 78,
+        borderWidth: 1,
+        borderColor: '#ede9fe',
     },
-    shopItemGrad: { width: 56, height: '100%', justifyContent: 'center', alignItems: 'center', paddingVertical: 14 },
+    shopItemAccent: {
+        width: 6,
+        alignSelf: 'stretch',
+    },
+    shopIconCircle: {
+        width: 44,
+        height: 44,
+        borderRadius: 14,
+        backgroundColor: '#7c3aed',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 12,
+        marginRight: 12,
+    },
+    shopItemGrad: { width: 56, height: 80, justifyContent: 'center', alignItems: 'center' },
     shopItemIconWrap: {
         width: 40, height: 40, borderRadius: 12,
         backgroundColor: 'rgba(255,255,255,0.2)',
         justifyContent: 'center', alignItems: 'center',
     },
-    shopName: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
-    shopLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
-    shopLocation: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+    shopName: { fontSize: 15, fontWeight: '800', color: '#1e1b4b', marginBottom: 2 },
+    shopLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+    shopLocation: { fontSize: 12, color: '#94a3b8', fontWeight: '500', flex: 1 },
+    shopBranchRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
+    shopBranchCode: { fontSize: 11, color: '#a78bfa', fontWeight: '700', letterSpacing: 0.5 },
     shopActionBtn: {
         width: 34, height: 34, borderRadius: 10,
-        backgroundColor: '#eff6ff',
+        backgroundColor: '#f5f3ff',
         justifyContent: 'center', alignItems: 'center',
     },
 
@@ -950,7 +1071,7 @@ const styles = StyleSheet.create({
         borderStyle: 'dashed',
     },
     registerShopButtonText: {
-        marginTop: 12, fontSize: 16, fontWeight: '800', color: '#2563eb',
+        marginTop: 12, fontSize: 16, fontWeight: '800', color: '#7c3aed',
     },
 
     // Menu
@@ -997,8 +1118,47 @@ const styles = StyleSheet.create({
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 12 },
     modalButton: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
     cancelButton: { backgroundColor: '#f1f5f9' },
-    saveButton: { backgroundColor: '#2563eb' },
+    saveButton: { backgroundColor: '#7c3aed' },
     buttonText: { fontWeight: '700', color: '#475569' },
+
+    // AI Insights
+    aiInsightsCard: {
+        backgroundColor: '#faf5ff',
+        borderRadius: 20,
+        padding: 16,
+        marginHorizontal: 20,
+        marginBottom: 12,
+        borderWidth: 1,
+        borderColor: '#ede9fe',
+        shadowColor: '#7c3aed',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08,
+        shadowRadius: 12,
+        elevation: 4,
+    },
+    aiInsightsBadge: {
+        width: 26, height: 26, borderRadius: 8,
+        backgroundColor: '#7c3aed',
+        justifyContent: 'center', alignItems: 'center',
+        marginRight: 8,
+    },
+    aiInsightsTitle: {
+        fontSize: 14, fontWeight: '800', color: '#4c1d95', letterSpacing: 0.3,
+    },
+    aiInsightRow: {
+        flexDirection: 'row', alignItems: 'flex-start',
+        paddingVertical: 10, gap: 12,
+    },
+    aiInsightIcon: {
+        width: 36, height: 36, borderRadius: 10,
+        justifyContent: 'center', alignItems: 'center',
+    },
+    aiInsightRowTitle: {
+        fontSize: 13, fontWeight: '700', color: '#3b0764', marginBottom: 2,
+    },
+    aiInsightRowMsg: {
+        fontSize: 12, color: '#6b7280', lineHeight: 17,
+    },
 
     notificationBadge: {
         position: 'absolute', right: -5, top: -5,
@@ -1022,10 +1182,10 @@ const styles = StyleSheet.create({
     chartTitle: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
     dateButton: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#eff6ff', paddingHorizontal: 10,
+        backgroundColor: '#f5f3ff', paddingHorizontal: 10,
         paddingVertical: 6, borderRadius: 10,
     },
-    dateButtonText: { marginLeft: 5, color: '#2563eb', fontSize: 12, fontWeight: '700' },
+    dateButtonText: { marginLeft: 5, color: '#7c3aed', fontSize: 12, fontWeight: '700' },
 
     rowContainer: {
         flexDirection: 'row', marginHorizontal: 15,
@@ -1039,10 +1199,10 @@ const styles = StyleSheet.create({
     },
     miniRankBadge: {
         width: 22, height: 22, borderRadius: 11,
-        backgroundColor: '#eff6ff', justifyContent: 'center',
+        backgroundColor: '#f5f3ff', justifyContent: 'center',
         alignItems: 'center', marginRight: 8,
     },
-    miniRankText: { color: '#2563eb', fontWeight: '800', fontSize: 10 },
+    miniRankText: { color: '#7c3aed', fontWeight: '800', fontSize: 10 },
     miniTopItemName: { fontSize: 12, color: '#334155', fontWeight: '600' },
     miniTopItemQty: { fontSize: 10, color: '#94a3b8' },
 
@@ -1055,16 +1215,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#fee2e2', justifyContent: 'center',
         alignItems: 'center', marginRight: 10,
     },
-    rankText: { color: '#2563eb', fontWeight: '800', fontSize: 12 },
+    rankText: { color: '#7c3aed', fontWeight: '800', fontSize: 12 },
     topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '600' },
     topItemQty: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
 
     paymentOption: {
         flex: 1, alignItems: 'center', padding: 12,
-        backgroundColor: '#f8faff', borderRadius: 14,
-        borderWidth: 1, borderColor: '#e0e9ff',
+        backgroundColor: '#faf5ff', borderRadius: 14,
+        borderWidth: 1, borderColor: '#ede9fe',
     },
-    paymentOptionText: { marginTop: 6, fontSize: 12, fontWeight: '700', color: '#2563eb' },
+    paymentOptionText: { marginTop: 6, fontSize: 12, fontWeight: '700', color: '#7c3aed' },
 
     actionRow: {
         flexDirection: 'row', alignItems: 'center',
@@ -1079,9 +1239,9 @@ const styles = StyleSheet.create({
 
     compactActionBtn: {
         flex: 1, flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'center', backgroundColor: '#f0f4ff',
+        justifyContent: 'center', backgroundColor: '#f5f3ff',
         paddingVertical: 12, borderRadius: 14, marginHorizontal: 4,
-        borderWidth: 1, borderColor: '#e0e9ff',
+        borderWidth: 1, borderColor: '#ede9fe',
     },
     compactActionText: { fontSize: 12, fontWeight: '700', color: '#334155', marginLeft: 8 },
 
