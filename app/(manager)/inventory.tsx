@@ -37,7 +37,7 @@ export default function ManagerInventoryScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
   const textColor = useThemeColor({}, 'text');
-  const [currency, setCurrency] = useState<'USD' | 'ZAR'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR'>('ZAR');
   const [rates, setRates] = useState({ ZAR: 19.2 });
   const [permission, requestPermission] = useCameraPermissions();
   const [isScanning, setIsScanning] = useState(false);

@@ -153,7 +153,7 @@ export default function SalesReports() {
             }}
             width={SCREEN_WIDTH - 48} // Padding adjustments
             height={220}
-            yAxisLabel="$"
+            yAxisLabel="R"
             chartConfig={chartConfig}
             bezier
             style={styles.chart}

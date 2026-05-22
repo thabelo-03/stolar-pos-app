@@ -58,7 +58,7 @@ export default function CartScreen() {
   const [tenderedAmount, setTenderedAmount] = useState('');
 
   // MULTI-CURRENCY STATE
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
 
   const { shopId, shopName, userRole, userId, loading: shopLoading } = useActiveShop();
   const { products: allProducts, fetchProducts, loading: productsLoading } = useProducts();

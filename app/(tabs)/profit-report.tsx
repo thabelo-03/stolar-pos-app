@@ -37,7 +37,7 @@ export default function ProfitReportScreen() {
     datasets: [{ data: [0, 0, 0, 0] }]
   });
   
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const { rates } = useRates();
 
   const convert = (amount: number) => {

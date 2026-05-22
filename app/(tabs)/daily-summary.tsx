@@ -41,7 +41,7 @@ export default function DailySummaryScreen() {
   });
 
   const { shopId, userRole, userId, loading: shopLoading } = useActiveShop();
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const { rates } = useRates();
 
   const convert = (amount: number) => {

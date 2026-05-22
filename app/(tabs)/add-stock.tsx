@@ -39,8 +39,8 @@ const [category, setCategory] = useState('General');
 
   const { shopId, userId, loading: shopLoading } = useActiveShop();
   const { rates } = useRates();
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
-  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
+  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('ZAR');
 
   useEffect(() => {
     if (isEditMode) {

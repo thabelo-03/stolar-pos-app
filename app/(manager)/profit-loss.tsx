@@ -19,7 +19,7 @@ export default function ProfitLoss() {
   const [loading, setLoading] = useState(false);
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
   const [rawSales, setRawSales] = useState<any[]>([]);
   const [stats, setStats] = useState({

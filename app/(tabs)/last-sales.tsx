@@ -39,7 +39,7 @@ export default function LastSalesScreen() {
   const flatListRef = useRef<FlatList>(null);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const { shopId, loading: shopLoading } = useActiveShop();
   const { sales, loading, fetchSales: fetchSalesHook, hasMore } = useSales();
   const { rates } = useRates();

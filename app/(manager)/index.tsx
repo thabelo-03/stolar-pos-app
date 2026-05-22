@@ -418,8 +418,8 @@ const ManagerIndex = () => {
         color: '#7c3aed',
         title: 'Revenue Insight',
         message: shops.length > 1
-          ? `Avg $${avgPerShop.toFixed(0)}/shop this period. Focus on under-performing locations to lift overall revenue.`
-          : `You generated $${totalRevenue.toFixed(0)} this period. Great progress — consider promoting top-sellers.`,
+          ? `Avg R${avgPerShop.toFixed(0)}/shop this period. Focus on under-performing locations to lift overall revenue.`
+          : `You generated R${totalRevenue.toFixed(0)} this period. Great progress — consider promoting top-sellers.`,
       });
     } else {
       insights.push({
@@ -496,7 +496,7 @@ const ManagerIndex = () => {
         <View style={[styles.kpiCard, styles.kpiCardIndigo]}>
           <Ionicons name="cash-outline" size={18} color="#7c3aed" style={styles.kpiIcon} />
           <Text style={styles.kpiLabel}>Revenue</Text>
-          <Text style={styles.kpiValue}>${totalRevenue.toFixed(0)}</Text>
+          <Text style={styles.kpiValue}>R{totalRevenue.toFixed(0)}</Text>
         </View>
 
         <View style={[styles.kpiCard, styles.kpiCardGreen]}>
@@ -558,7 +558,7 @@ const ManagerIndex = () => {
           }}
           width={Dimensions.get("window").width - 72}
           height={200}
-          yAxisLabel="$"
+          yAxisLabel="R"
           yAxisSuffix=""
           chartConfig={{
             backgroundColor: "#ffffff",

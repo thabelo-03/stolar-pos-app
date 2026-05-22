@@ -36,9 +36,9 @@ export default function ManagerAddStockScreen() {
   const itemNameInputRef = useRef<TextInput>(null);
   const cameraRef = useRef<CameraView>(null);
   
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
-  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const placeholderColor = '#94a3b8';
 
   useEffect(() => {

@@ -22,7 +22,7 @@ export default function StockTakeScreen() {
   const [shops, setShops] = useState<any[]>([]);
   const [selectedShop, setSelectedShop] = useState<string>('all');
   const [userRole, setUserRole] = useState<string>('manager');
-  const [currency, setCurrency] = useState<'USD' | 'ZAR'>('USD');
+  const [currency, setCurrency] = useState<'USD' | 'ZAR'>('ZAR');
   const [rates, setRates] = useState({ ZAR: 19.2 });
   
   // Metrics
