@@ -42,6 +42,7 @@ export default function CartScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [activeScanField, setActiveScanField] = useState<'search-barcode' | 'search-ocr' | null>(null);
   const cameraRef = useRef<CameraView>(null);
+  const processedBarcodeRef = useRef<string | null>(null);
   const [parkedSales, setParkedSales] = useState<any[]>([]);
   const [showParkedModal, setShowParkedModal] = useState(false);
   const [recentSales, setRecentSales] = useState<any[]>([]);
@@ -178,6 +179,10 @@ export default function CartScreen() {
     if (barcode) {
       const barcodeStr = Array.isArray(barcode) ? barcode[0] : barcode;
       if (barcodeStr && !productsLoading) {
+        // Prevent duplicate processing on rapid asynchronous re-renders in the same transition
+        if (processedBarcodeRef.current === barcodeStr) return;
+        processedBarcodeRef.current = barcodeStr;
+
         // 1. Populate search query input and trigger matching dropdown
         setSearchQuery(barcodeStr);
         handleSearch(barcodeStr);
@@ -193,6 +198,9 @@ export default function CartScreen() {
         // 3. Reset router param to prevent duplicate additions on tab refocus
         router.setParams({ barcode: undefined });
       }
+    } else {
+      // Clear the tracking ref when route parameters are cleared
+      processedBarcodeRef.current = null;
     }
   }, [barcode, allProducts, productsLoading]);
 
