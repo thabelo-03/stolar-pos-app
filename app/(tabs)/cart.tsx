@@ -9,8 +9,11 @@ import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -786,16 +789,21 @@ export default function CartScreen() {
       </Modal>
 
       <Modal visible={showPaymentModal} animationType="slide" transparent onRequestClose={() => setShowPaymentModal(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
             <Text style={styles.modalTitle}>Payment Details</Text>
             
-            <View style={{ maxHeight: 150, width: '100%', marginBottom: 15 }}>
-              <FlatList
-                data={cartItems}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
+              style={{ width: '100%' }}
+            >
+              <View style={{ width: '100%', marginBottom: 15 }}>
+                {cartItems.map((item) => (
+                  <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
                     <Text style={{ fontSize: 14, color: '#94a3b8', flex: 1 }} numberOfLines={1}>
                       {item.quantity} x {item.name}
                     </Text>
@@ -803,89 +811,90 @@ export default function CartScreen() {
                       {symbol()} {convert((item.price || 0) * item.quantity).toFixed(2)}
                     </Text>
                   </View>
-                )}
-              />
-              <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', width: '100%', marginTop: 10 }} />
-            </View>
+                ))}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', width: '100%', marginTop: 10 }} />
+              </View>
 
-            <View style={{marginBottom: 20, alignItems: 'center'}}>
-                <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 4}}>Total Due</Text>
-                <Text style={{fontSize: 32, fontWeight: 'bold', color: '#f1f5f9'}}>
-                    {symbol()} {convert(totalUSD).toFixed(2)}
-                </Text>
-            </View>
+              <View style={{marginBottom: 20, alignItems: 'center'}}>
+                  <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 4}}>Total Due</Text>
+                  <Text style={{fontSize: 32, fontWeight: 'bold', color: '#f1f5f9'}}>
+                      {symbol()} {convert(totalUSD).toFixed(2)}
+                  </Text>
+              </View>
 
-            <View style={{marginBottom: 20}}>
-                <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 8}}>Amount Tendered</Text>
-                <View style={{flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 15, backgroundColor: 'rgba(255,255,255,0.04)'}}>
-                    <Text style={{fontSize: 20, fontWeight: 'bold', color: '#94a3b8'}}>{symbol()}</Text>
-                    <TextInput
-                        style={{flex: 1, fontSize: 24, fontWeight: 'bold', color: '#f1f5f9', paddingVertical: 12, marginLeft: 10}}
-                        placeholder="0.00"
-                        placeholderTextColor="rgba(255,255,255,0.3)"
-                        keyboardType="numeric"
-                        value={tenderedAmount}
-                        onChangeText={setTenderedAmount}
-                        autoFocus
-                    />
-                </View>
+              <View style={{marginBottom: 20}}>
+                  <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 8}}>Amount Tendered</Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 15, backgroundColor: 'rgba(255,255,255,0.04)'}}>
+                      <Text style={{fontSize: 20, fontWeight: 'bold', color: '#94a3b8'}}>{symbol()}</Text>
+                      <TextInput
+                          style={{flex: 1, fontSize: 24, fontWeight: 'bold', color: '#f1f5f9', paddingVertical: 12, marginLeft: 10}}
+                          placeholder="0.00"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          keyboardType="numeric"
+                          value={tenderedAmount}
+                          onChangeText={setTenderedAmount}
+                          collapsable={false}
+                          autoFocus
+                      />
+                  </View>
 
-                <View style={styles.denomContainer}>
-                    {[1, 5, 10, 20, 50, 100, 200].map((amount) => (
-                        <TouchableOpacity 
-                            key={amount} 
-                            style={styles.denomBtn}
-                            onPress={() => setTenderedAmount(amount.toString())}
-                        >
-                            <Text style={styles.denomText}>{symbol()}{amount}</Text>
-                        </TouchableOpacity>
-                    ))}
-                </View>
-            </View>
+                  <View style={styles.denomContainer}>
+                      {[1, 5, 10, 20, 50, 100, 200].map((amount) => (
+                          <TouchableOpacity 
+                              key={amount} 
+                              style={styles.denomBtn}
+                              onPress={() => setTenderedAmount(amount.toString())}
+                          >
+                              <Text style={styles.denomText}>{symbol()}{amount}</Text>
+                          </TouchableOpacity>
+                      ))}
+                  </View>
+              </View>
 
-            <View style={{marginBottom: 25, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', padding: 15, borderRadius: 12}}>
-                <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 4}}>Change Due</Text>
-                <Text style={{fontSize: 28, fontWeight: 'bold', color: (parseFloat(tenderedAmount || '0') - convert(totalUSD)) < 0 ? '#f43f5e' : '#10b981'}}>
-                    {symbol()} {Math.max(0, (parseFloat(tenderedAmount || '0') - convert(totalUSD))).toFixed(2)}
-                </Text>
-            </View>
+              <View style={{marginBottom: 25, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', padding: 15, borderRadius: 12}}>
+                  <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 4}}>Change Due</Text>
+                  <Text style={{fontSize: 28, fontWeight: 'bold', color: (parseFloat(tenderedAmount || '0') - convert(totalUSD)) < 0 ? '#f43f5e' : '#10b981'}}>
+                      {symbol()} {Math.max(0, (parseFloat(tenderedAmount || '0') - convert(totalUSD))).toFixed(2)}
+                  </Text>
+              </View>
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowPaymentModal(false)} disabled={loading}>
-                <Text style={[styles.btnText, { color: '#94a3b8' }]}>Cancel</Text>
-              </TouchableOpacity>
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowPaymentModal(false)} disabled={loading}>
+                  <Text style={[styles.btnText, { color: '#94a3b8' }]}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.modalBtn, styles.confirmBtn]} 
+                  onPress={() => {
+                      const tendered = parseFloat(tenderedAmount || '0');
+                      const total = convert(totalUSD);
+                      
+                      if (tendered < total && Math.abs(tendered - total) > 0.01) {
+                           if (!tenderedAmount) {
+                               setTenderedAmount(total.toFixed(2));
+                               return;
+                           }
+                           Alert.alert("Insufficient Amount", "Tendered amount is less than total.");
+                           return;
+                      }
+                      processTransaction();
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? <ActivityIndicator color="white" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm & Print</Text>}
+                </TouchableOpacity>
+              </View>
               
               <TouchableOpacity 
-                style={[styles.modalBtn, styles.confirmBtn]} 
-                onPress={() => {
-                    const tendered = parseFloat(tenderedAmount || '0');
-                    const total = convert(totalUSD);
-                    
-                    if (tendered < total && Math.abs(tendered - total) > 0.01) {
-                         if (!tenderedAmount) {
-                             setTenderedAmount(total.toFixed(2));
-                             return;
-                         }
-                         Alert.alert("Insufficient Amount", "Tendered amount is less than total.");
-                         return;
-                    }
-                    processTransaction();
-                }}
-                disabled={loading}
+                  style={{marginTop: 15, padding: 10, alignItems: 'center'}} 
+                  onPress={() => setTenderedAmount(convert(totalUSD).toFixed(2))}
+                  disabled={loading}
               >
-                {loading ? <ActivityIndicator color="white" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm & Print</Text>}
+                  <Text style={{color: Colors.brand.cyan, fontWeight: '600'}}>Pay Exact Amount</Text>
               </TouchableOpacity>
-            </View>
-            
-            <TouchableOpacity 
-                style={{marginTop: 15, padding: 10, alignItems: 'center'}} 
-                onPress={() => setTenderedAmount(convert(totalUSD).toFixed(2))}
-                disabled={loading}
-            >
-                <Text style={{color: '#60a5fa', fontWeight: '600'}}>Pay Exact Amount</Text>
-            </TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* FOOTER */}
