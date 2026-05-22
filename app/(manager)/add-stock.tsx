@@ -4,8 +4,10 @@ import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
@@ -14,6 +16,7 @@ export default function ManagerAddStockScreen() {
   const router = useRouter();
   const navigation = useNavigation();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const isEditMode = params.mode === 'edit';
   const rawShopId = params.shopId;
   const shopId = Array.isArray(rawShopId) ? rawShopId[0] : rawShopId;
@@ -36,7 +39,6 @@ export default function ManagerAddStockScreen() {
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
   const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
   const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('USD');
-  const textColor = useThemeColor({}, 'text');
   const placeholderColor = '#94a3b8';
 
   useEffect(() => {
@@ -171,13 +173,11 @@ export default function ManagerAddStockScreen() {
       return;
     }
 
-    // Validate that Item Name ends with a weight (e.g., 1kg, 500g)
     if (!/[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(itemName.trim())) {
       Alert.alert('Invalid Name', 'Item name must include weight/volume at the end (e.g. "Rice 2kg", "Milk 1L")');
       return;
     }
 
-    // Normalize name: Capitalize unit and remove space between number and unit
     const finalName = itemName.trim().replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
       return `${num}${unit.toUpperCase()}`;
     });
@@ -210,7 +210,6 @@ export default function ManagerAddStockScreen() {
         
         const method = isEditMode ? 'PUT' : 'POST';
         
-        // Prepare safe payload
         const payload = {
           name: finalName,
           quantity: Number(quantity) || 0,
@@ -294,7 +293,6 @@ export default function ManagerAddStockScreen() {
         if (photo?.uri) {
           let uriToRecognize = photo.uri;
 
-          // Crop image to the center "text box" area to improve accuracy
           if (photo.width && photo.height) {
             const cropWidth = photo.width * 0.8;
             const cropHeight = photo.height * 0.20;
@@ -319,20 +317,20 @@ export default function ManagerAddStockScreen() {
   };
 
   return (
-    <View style={[styles.container]}>
+    <View style={styles.container}>
       <KeyboardAvoidingView 
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-      <View style={styles.header}>
+      <LinearGradient colors={['#4f46e5', '#7c3aed', '#9333ea']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#1e293b" />
+          <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{isEditMode ? 'Edit Stock' : 'Add New Stock'}</Text>
         <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Ionicons name="log-out-outline" size={24} color="#ef4444" />
+          <Ionicons name="log-out-outline" size={24} color="#ffffff" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
         
@@ -360,7 +358,7 @@ export default function ManagerAddStockScreen() {
                             setActiveScanField('name');
                         }
                     }} style={styles.scanIconBtn}>
-                        <Ionicons name="scan-outline" size={20} color="#1e40af" />
+                        <Ionicons name="scan-outline" size={20} color="#7c3aed" />
                     </TouchableOpacity>
                 </View>
                 <Text style={styles.helperText}>Must include weight/volume (e.g. 1kg, 1L)</Text>
@@ -411,7 +409,7 @@ export default function ManagerAddStockScreen() {
                             setActiveScanField('barcode');
                         }
                     }} style={styles.scanIconBtn}>
-                        <Ionicons name="camera-outline" size={20} color="#1e40af" />
+                        <Ionicons name="camera-outline" size={20} color="#7c3aed" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -463,8 +461,8 @@ export default function ManagerAddStockScreen() {
 
             <View style={styles.marginContainer}>
                 <Text style={styles.marginLabel}>Profit Margin</Text>
-                <View style={[styles.marginBadge, { backgroundColor: calculateMargin() >= 20 ? '#dcfce7' : calculateMargin() > 0 ? '#fef3c7' : '#fee2e2' }]}>
-                    <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#16a34a' : calculateMargin() > 0 ? '#d97706' : '#dc2626' }]}>
+                <View style={[styles.marginBadge, { backgroundColor: calculateMargin() >= 20 ? 'rgba(16, 185, 129, 0.15)' : calculateMargin() > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(244, 63, 94, 0.15)' }]}>
+                    <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#10b981' : calculateMargin() > 0 ? '#f59e0b' : '#f43f5e' }]}>
                         {calculateMargin().toFixed(1)}%
                     </Text>
                 </View>
@@ -487,12 +485,12 @@ export default function ManagerAddStockScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 20 }} />
         ) : (
           <View style={styles.actionContainer}>
             {!isEditMode && (
               <TouchableOpacity style={styles.secondaryButton} onPress={() => handleSave(true)} disabled={loading}>
-                <Ionicons name="duplicate-outline" size={20} color="#1e40af" style={{ marginRight: 8 }} />
+                <Ionicons name="duplicate-outline" size={20} color="#7c3aed" style={{ marginRight: 8 }} />
                 <Text style={styles.secondaryButtonText}>Save & Add Another</Text>
               </TouchableOpacity>
             )}
@@ -533,64 +531,65 @@ export default function ManagerAddStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingBottom: 15,
-    backgroundColor: '#f8fafc',
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
   },
-  backButton: { padding: 8, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
-  logoutButton: { padding: 8, backgroundColor: '#fef2f2', borderRadius: 12, borderWidth: 1, borderColor: '#fecaca' },
+  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', letterSpacing: 0.5 },
+  logoutButton: { padding: 8, backgroundColor: 'rgba(244, 63, 94, 0.2)', borderRadius: 12 },
   
   form: { padding: 20, gap: 20, paddingBottom: 120 },
   
-  card: { backgroundColor: 'white', borderRadius: 20, padding: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  cardTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 20 },
+  card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
 
   inputGroup: { marginBottom: 15 },
-  label: { fontSize: 14, fontWeight: '600', color: '#64748b', marginBottom: 8 },
+  label: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 8 },
   inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', height: 50 },
   inputIcon: { marginLeft: 15, marginRight: 10 },
-  input: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+  input: { flex: 1, fontSize: 16, color: '#0f172a', height: '100%' },
   helperText: { fontSize: 12, color: '#94a3b8', marginTop: 5, marginLeft: 5 },
   scanIconBtn: { padding: 10, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' },
   
   chipScroll: { marginTop: 10, flexDirection: 'row' },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 8, borderWidth: 1, borderColor: '#e2e8f0' },
-  activeChip: { backgroundColor: '#eff6ff', borderColor: '#bfdbfe' },
-  chipText: { color: '#64748b', fontSize: 13, fontWeight: '600' },
-  activeChipText: { color: '#1e40af' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f5f3ff', marginRight: 8, borderWidth: 1, borderColor: '#ddd6fe' },
+  activeChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  chipText: { color: '#7c3aed', fontSize: 13, fontWeight: '600' },
+  activeChipText: { color: '#ffffff' },
 
   currencyToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 10, padding: 3 },
   currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  currBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  currText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
-  currTextActive: { color: '#1e40af' },
-  currencySymbol: { fontSize: 18, fontWeight: 'bold', color: '#64748b', marginLeft: 15, marginRight: 5 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currText: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  currTextActive: { color: '#7c3aed' },
+  currencySymbol: { fontSize: 18, fontWeight: 'bold', color: '#475569', marginLeft: 15, marginRight: 5 },
 
   row: { flexDirection: 'row', gap: 15 },
   
-  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f8fafc', padding: 12, borderRadius: 12 },
-  marginLabel: { fontSize: 14, fontWeight: '600', color: '#64748b' },
+  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f5f3ff', padding: 12, borderRadius: 12 },
+  marginLabel: { fontSize: 14, fontWeight: '600', color: '#475569' },
   marginBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   marginValue: { fontSize: 14, fontWeight: 'bold' },
 
   actionContainer: { gap: 12, marginTop: 10 },
   primaryButton: {
-    backgroundColor: '#1e40af',
+    backgroundColor: '#7c3aed',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#7c3aed',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 8,
     elevation: 4,
   },
@@ -600,28 +599,40 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   secondaryButton: {
-    backgroundColor: '#e0f2fe',
+    backgroundColor: '#f5f3ff',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#bae6fd',
+    borderColor: '#ddd6fe',
   },
   secondaryButtonText: {
-    color: '#1e40af',
+    color: '#7c3aed',
     fontSize: 16,
     fontWeight: 'bold',
   },
   
   // Camera Modal Styles
   camera: { flex: 1 },
-  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.8)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  scanFrame: { width: 280, height: 180, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent', borderRadius: 15, marginBottom: 20 },
+  scanFrame: { 
+    width: 280, 
+    height: 180, 
+    borderWidth: 2, 
+    borderColor: '#7c3aed', 
+    backgroundColor: 'transparent', 
+    borderRadius: 15, 
+    marginBottom: 20,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+  },
   textScanFrame: { height: 100, borderStyle: 'dashed' },
   scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
   shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
-  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#1e3a8a' },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#7c3aed' },
 });

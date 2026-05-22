@@ -1,5 +1,6 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -13,10 +14,11 @@ import { useRates } from '@/hooks/use-rates';
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
 
 export default function DailySummaryScreen() {
   const router = useRouter();
-  const textColor = useThemeColor({}, 'text');
+  const textColor = Colors.dark.text;
   const [date, setDate] = useState(new Date());
   const [showPicker, setShowPicker] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -307,14 +309,14 @@ export default function DailySummaryScreen() {
   const renderHeader = () => (
     <View>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>{viewMode === 'daily' ? 'Daily Summary' : 'Weekly Summary'}</Text>
           <TouchableOpacity onPress={generatePDF} style={styles.backButton}>
-            <Ionicons name="share-outline" size={24} color="white" />
+            <Ionicons name="share-outline" size={24} color="#f1f5f9" />
           </TouchableOpacity>
         </View>
         
@@ -327,9 +329,9 @@ export default function DailySummaryScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
-            <Ionicons name="calendar" size={20} color="#1e40af" />
+            <Ionicons name="calendar" size={18} color="#06b6d4" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
-            <Ionicons name="chevron-down" size={16} color="#1e40af" />
+            <Ionicons name="chevron-down" size={14} color="#06b6d4" />
           </TouchableOpacity>
 
           <View style={styles.viewToggle}>
@@ -347,7 +349,7 @@ export default function DailySummaryScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {showPicker && (
         <DateTimePicker
@@ -373,8 +375,8 @@ export default function DailySummaryScreen() {
           <Text style={styles.statValue}>{symbol} {avgTransaction.toFixed(2)}</Text>
         </View>
         <View style={styles.statCard}>
-          <Text style={[styles.statLabel, { color: '#ef4444' }]}>Refunds</Text>
-          <Text style={[styles.statValue, { color: '#ef4444' }]}>{symbol} {totalRefunds.toFixed(2)}</Text>
+          <Text style={[styles.statLabel, { color: '#f43f5e' }]}>Refunds</Text>
+          <Text style={[styles.statValue, { color: '#f43f5e' }]}>{symbol} {totalRefunds.toFixed(2)}</Text>
         </View>
       </View>
 
@@ -383,20 +385,20 @@ export default function DailySummaryScreen() {
         <Text style={styles.sectionTitle}>Sales Trend</Text>
         <LineChart
           data={chartData}
-          width={Dimensions.get("window").width - 60}
+          width={Dimensions.get("window").width - 40}
           height={180}
           yAxisLabel={symbol === '$' ? '$' : ''}
           yAxisSuffix=""
           yAxisInterval={1}
           chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
+            backgroundColor: "#111827",
+            backgroundGradientFrom: "#111827",
+            backgroundGradientTo: "#111827",
             decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(30, 64, 175, ${opacity})`,
-            labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+            color: (opacity = 1) => `rgba(6, 182, 212, ${opacity})`,
+            labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
             style: { borderRadius: 16 },
-            propsForDots: { r: "4", strokeWidth: "2", stroke: "#f59e0b" }
+            propsForDots: { r: "4", strokeWidth: "2", stroke: "#06b6d4" }
           }}
           bezier
           style={{ marginVertical: 8, borderRadius: 16 }}
@@ -405,20 +407,20 @@ export default function DailySummaryScreen() {
 
       {/* Payment Breakdown */}
       <View style={styles.rowContainer}>
-        <View style={[styles.paymentCard, { backgroundColor: '#ecfdf5' }]}>
-          <Ionicons name="cash-outline" size={20} color="#059669" />
-          <Text style={[styles.paymentLabel, { color: '#059669' }]}>Cash</Text>
-          <Text style={[styles.paymentValue, { color: '#047857' }]}>{symbol} {paymentStats.cash.toFixed(0)}</Text>
+        <View style={[styles.paymentCard, { backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.2)', borderWidth: 1 }]}>
+          <Ionicons name="cash-outline" size={20} color="#10b981" />
+          <Text style={[styles.paymentLabel, { color: '#10b981' }]}>Cash</Text>
+          <Text style={[styles.paymentValue, { color: '#34d399' }]}>{symbol} {paymentStats.cash.toFixed(0)}</Text>
         </View>
-        <View style={[styles.paymentCard, { backgroundColor: '#eff6ff' }]}>
-          <Ionicons name="card-outline" size={20} color="#2563eb" />
-          <Text style={[styles.paymentLabel, { color: '#2563eb' }]}>Card</Text>
-          <Text style={[styles.paymentValue, { color: '#1d4ed8' }]}>{symbol} {paymentStats.card.toFixed(0)}</Text>
+        <View style={[styles.paymentCard, { backgroundColor: 'rgba(37, 99, 235, 0.08)', borderColor: 'rgba(37, 99, 235, 0.2)', borderWidth: 1 }]}>
+          <Ionicons name="card-outline" size={20} color="#3b82f6" />
+          <Text style={[styles.paymentLabel, { color: '#3b82f6' }]}>Card</Text>
+          <Text style={[styles.paymentValue, { color: '#60a5fa' }]}>{symbol} {paymentStats.card.toFixed(0)}</Text>
         </View>
-        <View style={[styles.paymentCard, { backgroundColor: '#fefce8' }]}>
-          <Ionicons name="wallet-outline" size={20} color="#ca8a04" />
-          <Text style={[styles.paymentLabel, { color: '#ca8a04' }]}>Other</Text>
-          <Text style={[styles.paymentValue, { color: '#a16207' }]}>{symbol} {paymentStats.other.toFixed(0)}</Text>
+        <View style={[styles.paymentCard, { backgroundColor: 'rgba(245, 158, 11, 0.08)', borderColor: 'rgba(245, 158, 11, 0.2)', borderWidth: 1 }]}>
+          <Ionicons name="wallet-outline" size={20} color="#f59e0b" />
+          <Text style={[styles.paymentLabel, { color: '#f59e0b' }]}>Other</Text>
+          <Text style={[styles.paymentValue, { color: '#fbbf24' }]}>{symbol} {paymentStats.other.toFixed(0)}</Text>
         </View>
       </View>
 
@@ -436,7 +438,7 @@ export default function DailySummaryScreen() {
         </View>
       )}
 
-      <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 10 }]}>Recent Transactions</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20, marginBottom: 10, paddingHorizontal: 20 }]}>Recent Transactions</Text>
     </View>
   );
 
@@ -448,18 +450,18 @@ export default function DailySummaryScreen() {
         keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         ListHeaderComponent={renderHeader}
         renderItem={({ item }) => (
-          <View style={[styles.transactionCard, item.refunded && { opacity: 0.7 }]}>
+          <View style={[styles.transactionCard, item.refunded && { opacity: 0.6 }]}>
             <View style={styles.transLeft}>
               <View style={styles.iconBox}>
-                <MaterialCommunityIcons name={item.refunded ? "refresh" : "receipt"} size={20} color={item.refunded ? "#ef4444" : "#64748b"} />
+                <MaterialCommunityIcons name={item.refunded ? "refresh" : "receipt"} size={20} color={item.refunded ? "#f43f5e" : "#94a3b8"} />
               </View>
               <View>
-                <Text style={[styles.transAmount, item.refunded && { textDecorationLine: 'line-through', color: '#94a3b8' }]}>
+                <Text style={[styles.transAmount, item.refunded && { textDecorationLine: 'line-through', color: '#64748b' }]}>
                   {symbol} {convert(item.total || item.amount || 0).toFixed(2)}
                 </Text>
                 <Text style={styles.transItems}>
                   {Array.isArray(item.items) ? `${item.items.length} items` : (item.items || 'Sale')}
-                  {item.refunded && <Text style={{ color: '#ef4444', fontWeight: 'bold' }}> • Refunded</Text>}
+                  {item.refunded && <Text style={{ color: '#f43f5e', fontWeight: 'bold' }}> • Refunded</Text>}
                 </Text>
               </View>
             </View>
@@ -470,7 +472,7 @@ export default function DailySummaryScreen() {
         )}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#06b6d4" colors={["#06b6d4"]} />
         }
         onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 300)}
         scrollEventThrottle={16}
@@ -489,9 +491,8 @@ export default function DailySummaryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
   header: {
-    backgroundColor: '#1e40af',
     paddingBottom: 60, // Extra space for overlapping cards
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
@@ -499,70 +500,73 @@ const styles = StyleSheet.create({
     marginBottom: -40, // Pull up content
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
   
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10 },
   dateSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
+    backgroundColor: Colors.dark.surface,
+    borderColor: Colors.dark.border,
+    borderWidth: 1,
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 20,
     gap: 8,
   },
-  dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 14 },
-  currencySelector: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 10, borderRadius: 20, marginRight: 8 },
+  dateText: { color: Colors.dark.text, fontWeight: 'bold', fontSize: 14 },
+  currencySelector: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 20, marginRight: 8 },
 
-  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },
+  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16 },
-  toggleBtnActive: { backgroundColor: 'white' },
-  toggleText: { color: '#bfdbfe', fontWeight: '600', fontSize: 12 },
-  toggleTextActive: { color: '#1e40af', fontWeight: 'bold' },
+  toggleBtnActive: { backgroundColor: '#06b6d4' },
+  toggleText: { color: Colors.dark.textSecondary, fontWeight: '600', fontSize: 12 },
+  toggleTextActive: { color: '#0a0f1e', fontWeight: 'bold' },
 
   statsRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', paddingHorizontal: 20, marginBottom: 10, gap: 10 },
-  statCard: { width: '48%', backgroundColor: 'white', padding: 15, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 3, marginBottom: 10 },
-  statLabel: { fontSize: 12, color: '#64748b', marginBottom: 4, fontWeight: '600' },
-  statValue: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  statCard: { width: '48%', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, padding: 15, borderRadius: 16, alignItems: 'center', marginBottom: 10 },
+  statLabel: { fontSize: 12, color: Colors.dark.textSecondary, marginBottom: 4, fontWeight: '600' },
+  statValue: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text },
 
-  chartCard: { backgroundColor: 'white', marginHorizontal: 20, borderRadius: 16, padding: 15, marginBottom: 20, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 10 },
+  chartCard: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, marginHorizontal: 20, borderRadius: 16, padding: 10, marginBottom: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 10 },
 
   rowContainer: { flexDirection: 'row', paddingHorizontal: 20, gap: 10, marginBottom: 20 },
   paymentCard: { flex: 1, padding: 12, borderRadius: 12, alignItems: 'center' },
   paymentLabel: { fontSize: 12, fontWeight: '600', marginTop: 4 },
   paymentValue: { fontSize: 14, fontWeight: 'bold', marginTop: 2 },
 
-  topItemsCard: { backgroundColor: 'white', marginHorizontal: 20, borderRadius: 16, padding: 15, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  topItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  rankBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
-  rankText: { color: '#1e40af', fontWeight: 'bold', fontSize: 12 },
-  topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '500' },
-  topItemQty: { fontSize: 12, color: '#64748b' },
+  topItemsCard: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, marginHorizontal: 20, borderRadius: 16, padding: 15 },
+  topItemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)' },
+  rankBadge: { width: 24, height: 24, borderRadius: 12, backgroundColor: 'rgba(6, 182, 212, 0.1)', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  rankText: { color: '#06b6d4', fontWeight: 'bold', fontSize: 12 },
+  topItemName: { flex: 1, fontSize: 14, color: Colors.dark.text, fontWeight: '500' },
+  topItemQty: { fontSize: 12, color: Colors.dark.textSecondary },
 
   listContent: { paddingBottom: 120 },
   transactionCard: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    backgroundColor: 'white', 
+    backgroundColor: Colors.dark.surface, 
+    borderColor: Colors.dark.border,
+    borderWidth: 1,
     marginHorizontal: 20, 
     marginBottom: 10, 
     padding: 15, 
     borderRadius: 12,
-    shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1
   },
   transLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
-  transAmount: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  transItems: { fontSize: 12, color: '#64748b' },
-  transTime: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+  iconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center' },
+  transAmount: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text },
+  transItems: { fontSize: 12, color: Colors.dark.textSecondary },
+  transTime: { fontSize: 12, color: Colors.dark.textMuted, fontWeight: '500' },
   scrollTopButton: {
     position: 'absolute',
     bottom: 110,
     right: 20,
-    backgroundColor: '#1e40af',
+    backgroundColor: '#06b6d4',
     width: 50,
     height: 50,
     borderRadius: 25,

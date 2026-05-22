@@ -1,18 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
-import { useEffect, useState } from 'react';
+import { LinearGradient } from 'expo-linear-gradient';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
-  Linking,
-  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View,
   Image
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
 interface User {
@@ -28,6 +28,7 @@ interface User {
 export default function SubscriptionPage() {
   const [user, setUser] = useState<User | null>(null);
   const router = useRouter();
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -62,191 +63,201 @@ export default function SubscriptionPage() {
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1e40af" />
+      <View style={[styles.loadingContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+        <ActivityIndicator size="large" color="#7c3aed" />
         <Text style={styles.loadingText}>Loading user data...</Text>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="black" />
+          <Ionicons name="arrow-back" size={24} color="#7c3aed" />
         </TouchableOpacity>
       </View>
-      <View style={styles.contentContainer}>
-        
-        <View style={styles.header}>
-          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={{ width: 80, height: 80, resizeMode: 'contain', marginBottom: 10 }} />
-          <Text style={styles.title}>Subscription Required</Text>
-          <Text style={styles.subtitle}>
-            Your access to manager features is currently restricted. Please renew your subscription to continue managing your shop and access all functionalities.
-          </Text>
-        </View>
-
-        <View style={styles.detailsCard}>
-          <View style={styles.row}>
-            <Text style={styles.label}>Account:</Text>
-            <Text style={styles.value}>{user.email}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={styles.row}>
-            <Text style={styles.label}>Plan:</Text>
-            <Text style={styles.value}>{user.planType || 'Standard'} (1 Month)</Text>
-          </View>
-          <View style={styles.row}>
-            <Text style={styles.label}>Total:</Text>
-            <Text style={styles.amount}>R{(user.nextBillingAmount || 150).toFixed(2)}</Text>
-          </View>
-        </View>
-
-        <View style={styles.actions}>
-          <View style={styles.paymentInfoBox}>
-            <Text style={styles.paymentTitle}>Payment Options</Text>
-            
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>EcoCash:</Text>
-              <Text style={styles.paymentValue}>+263 777 926 123</Text>
+      
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        <View style={styles.contentContainer}>
+          
+          <View style={styles.header}>
+            <View style={styles.logoWrapper}>
+              <Image source={require('../../assets/images/stolar-logo.jpeg')} style={styles.logo} />
             </View>
-            <View style={styles.paymentRow}>
-              <Text style={styles.paymentLabel}>Name:</Text>
-              <Text style={styles.paymentValue}>Thabelo Dumani</Text>
-            </View>
-            
-            <Text style={styles.instruction}>
-              Please send proof of payment to the admin to activate your account.
+            <Text style={styles.title}>Subscription Required</Text>
+            <Text style={styles.subtitle}>
+              Your access to manager features is currently restricted. Please renew your subscription to continue managing your shop and access all functionalities.
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutText}>Log Out</Text>
-          </TouchableOpacity>
-        </View>
+          <View style={styles.detailsCard}>
+            <View style={styles.row}>
+              <Text style={styles.label}>Account:</Text>
+              <Text style={styles.value}>{user.email}</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.row}>
+              <Text style={styles.label}>Plan:</Text>
+              <Text style={styles.value}>{user.planType || 'Standard'} (1 Month)</Text>
+            </View>
+            <View style={[styles.row, { marginTop: 10 }]}>
+              <Text style={styles.label}>Total:</Text>
+              <Text style={styles.amount}>R{(user.nextBillingAmount || 150).toFixed(2)}</Text>
+            </View>
+          </View>
 
-      </View>
-    </SafeAreaView>
+          <View style={styles.actions}>
+            <View style={styles.paymentInfoBox}>
+              <Text style={styles.paymentTitle}>Payment Options</Text>
+              
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>EcoCash:</Text>
+                <Text style={styles.paymentValue}>+263 777 926 123</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Name:</Text>
+                <Text style={styles.paymentValue}>Thabelo Dumani</Text>
+              </View>
+              
+              <Text style={styles.instruction}>
+                Please send proof of payment to the admin to activate your account.
+              </Text>
+            </View>
+
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutText}>Log Out Account</Text>
+            </TouchableOpacity>
+          </View>
+
+        </View>
+      </ScrollView>
+    </View>
   );
 }
+
+import { ScrollView } from 'react-native';
 
 const styles = StyleSheet.create({
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f1f5f9',
+    backgroundColor: '#f5f3ff',
   },
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#334155',
+    color: '#475569',
+    fontWeight: '500'
   },
   container: { 
     flex: 1, 
-    backgroundColor: '#eef2ff', // Lighter, subtle background
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 20 
+    backgroundColor: '#f5f3ff',
+    paddingHorizontal: 20 
   },
   headerContainer: {
     position: 'absolute',
     top: 40,
     left: 20,
-    zIndex: 1,
+    zIndex: 10,
   },
   backButton: {
-    padding: 10,
+    padding: 8,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  contentContainer: { // Renamed from modalContainer for clarity
+  scrollContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  contentContainer: {
     backgroundColor: 'white', 
-    borderRadius: 16, // Slightly smaller radius
+    borderRadius: 24, 
     width: '100%', 
-    maxWidth: 450, // Slightly wider max width
-    padding: 30, // Increased padding
+    padding: 24, 
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 6 }, // More pronounced shadow
-    shadowOpacity: 0.1, // Softer shadow
-    shadowRadius: 12,
-    elevation: 10,
+    shadowColor: "#4f46e5",
+    shadowOffset: { width: 0, height: 10 }, 
+    shadowOpacity: 0.08, 
+    shadowRadius: 24,
+    elevation: 8,
   },
   header: { 
     alignItems: 'center', 
-    marginBottom: 30, // Increased margin
-    paddingHorizontal: 15,
+    marginBottom: 24, 
+    paddingHorizontal: 10,
+  },
+  logoWrapper: {
+    padding: 4,
+    backgroundColor: '#f5f3ff',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  logo: { 
+    width: 72, 
+    height: 72, 
+    borderRadius: 20,
+    resizeMode: 'contain'
   },
   title: { 
-    fontSize: 28, // Larger title
-    fontWeight: '800', 
-    color: '#1e40af', // Primary blue for title
-    marginTop: 20, 
+    fontSize: 24, 
+    fontWeight: 'bold', 
+    color: '#0f172a',
+    marginTop: 16, 
     textAlign: 'center',
+    letterSpacing: 0.5
   },
   subtitle: { 
     textAlign: 'center', 
-    color: '#475569', // Darker gray for better contrast
+    color: '#475569', 
     marginTop: 10, 
-    fontSize: 16, 
-    lineHeight: 24, // Improved line height for readability
+    fontSize: 14, 
+    lineHeight: 20, 
   },
   
   detailsCard: { 
     width: '100%', 
-    backgroundColor: '#f8fafc', 
-    padding: 20, // Increased padding
-    borderRadius: 12, // Slightly smaller radius
-    marginBottom: 30, // Increased margin
+    backgroundColor: '#f5f3ff', 
+    padding: 16, 
+    borderRadius: 16, 
+    marginBottom: 24, 
     borderWidth: 1, 
-    borderColor: '#e2e8f0',
-    shadowColor: "#000", // Add subtle shadow to card
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: '#ddd6fe',
   },
-  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' },
-  label: { color: '#64748b', fontSize: 15, fontWeight: '600' }, // Slightly larger font
-  value: { color: '#0f172a', fontSize: 16, fontWeight: '700' }, // Slightly larger font
-  amount: { color: '#1e40af', fontWeight: '800', fontSize: 24 }, // Larger amount
-  divider: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 15 }, // More vertical margin
-
-  paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 20, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },
-  paymentTitle: { fontWeight: 'bold', color: '#166534', marginBottom: 15, fontSize: 18, textAlign: 'center' },
-  paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  paymentLabel: { color: '#15803d', fontWeight: '600', fontSize: 16 },
-  paymentValue: { color: '#14532d', fontWeight: 'bold', fontSize: 16 },
-  instruction: { marginTop: 15, fontSize: 14, color: '#166534', fontStyle: 'italic', textAlign: 'center' },
-
-  actions: { width: '100%', gap: 15 }, // Increased gap between buttons
-  payButton: { 
-    backgroundColor: '#1e40af', // Primary blue button
-    paddingVertical: 18, // More padding
-    borderRadius: 12, 
-    alignItems: 'center',
-    shadowColor: "#1e40af", // Shadow matching button color
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  payButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 }, // Larger font
-  checkButton: { 
-    backgroundColor: '#059669', // Green for success check
-    paddingVertical: 18, 
-    borderRadius: 12, 
-    alignItems: 'center',
-    shadowColor: "#059669",
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  checkButtonText: { color: 'white', fontWeight: 'bold', fontSize: 18 }, // Larger font
+  row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
+  label: { color: '#475569', fontSize: 14, fontWeight: '600' }, 
+  value: { color: '#0f172a', fontSize: 14, fontWeight: 'bold' }, 
+  amount: { color: '#7c3aed', fontWeight: 'bold', fontSize: 22 }, 
+  divider: { height: 1, backgroundColor: '#ddd6fe', marginVertical: 12 }, 
+  
+  paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 16, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },
+  paymentTitle: { fontWeight: 'bold', color: '#166534', marginBottom: 12, fontSize: 16, textAlign: 'center' },
+  paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 },
+  paymentLabel: { color: '#15803d', fontWeight: '600', fontSize: 14 },
+  paymentValue: { color: '#14532d', fontWeight: 'bold', fontSize: 14 },
+  instruction: { marginTop: 12, fontSize: 12, color: '#166534', fontStyle: 'italic', textAlign: 'center', lineHeight: 16 },
+  
+  actions: { width: '100%', gap: 10 }, 
   logoutButton: { 
     padding: 15, 
     alignItems: 'center',
-    // No shadow for logout to de-emphasize
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#fca5a5',
+    backgroundColor: '#fef2f2'
   },
-  logoutText: { color: '#ef4444', fontWeight: '600', fontSize: 16 } // Larger font
+  logoutText: { color: '#ef4444', fontWeight: 'bold', fontSize: 15 } 
 });

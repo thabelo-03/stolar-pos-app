@@ -5,6 +5,8 @@ import React, { useState } from 'react';
 import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
+
 const API_URL = `${API_BASE_URL}/products/add`;
 
 export default function CashierScanner() {
@@ -16,14 +18,17 @@ export default function CashierScanner() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
-  if (!permission) return <View />;
+  if (!permission) return <View style={styles.container} />;
   if (!permission.granted) {
     return (
-      <View style={styles.container}>
-        <Text style={{ textAlign: 'center' }}>We need your permission to show the camera</Text>
-        <TouchableOpacity style={styles.btn} onPress={requestPermission}>
-          <Text style={{ color: 'white' }}>Grant Permission</Text>
-        </TouchableOpacity>
+      <View style={[styles.container, styles.center]}>
+        <View style={styles.permissionCard}>
+          <Ionicons name="camera-outline" size={48} color="#06b6d4" style={{ marginBottom: 16 }} />
+          <Text style={styles.permissionText}>We need your permission to show the camera</Text>
+          <TouchableOpacity style={styles.btn} onPress={requestPermission}>
+            <Text style={styles.btnText}>Grant Permission</Text>
+          </TouchableOpacity>
+        </View>
       </View>
     );
   }
@@ -31,7 +36,7 @@ export default function CashierScanner() {
   const handleBarcodeScanned = ({ data }: any) => {
     setScanned(true);
     setCurrentBarcode(data);
-    setModalVisible(true); // Open the "Add Stock" dialog
+    setModalVisible(true);
   };
 
   const submitStockUpdate = async () => {
@@ -48,7 +53,6 @@ export default function CashierScanner() {
         body: JSON.stringify({
           barcode: currentBarcode,
           quantity: Number(quantity),
-          // Default values for brand new items
           name: "New Scanned Item",
           category: "Uncategorized",
           price: 0
@@ -60,7 +64,7 @@ export default function CashierScanner() {
       if (response.ok) {
         Alert.alert("Success", `Stock updated for ${currentBarcode}`);
         setModalVisible(false);
-        setScanned(false); // Reset scanner for next item
+        setScanned(false);
         setQuantity('1');
       } else {
         Alert.alert("Failed", result.message || "Server error");
@@ -82,7 +86,7 @@ export default function CashierScanner() {
 
       <View style={styles.overlay}>
         <TouchableOpacity style={styles.closeBtn} onPress={() => router.back()}>
-          <Ionicons name="close-circle" size={40} color="white" />
+          <Ionicons name="close-circle" size={44} color="rgba(255, 255, 255, 0.7)" />
         </TouchableOpacity>
         <View style={styles.scanFrame} />
         <Text style={styles.guideText}>Align barcode within the frame</Text>
@@ -92,12 +96,16 @@ export default function CashierScanner() {
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
+            <View style={styles.modalIconWrapper}>
+              <Ionicons name="cube-outline" size={32} color="#06b6d4" />
+            </View>
             <Text style={styles.modalTitle}>Add Stock</Text>
             <Text style={styles.barcodeLabel}>Barcode: {currentBarcode}</Text>
             
             <TextInput
               style={styles.input}
               placeholder="Enter Quantity"
+              placeholderTextColor="#64748b"
               keyboardType="numeric"
               value={quantity}
               onChangeText={setQuantity}
@@ -117,7 +125,7 @@ export default function CashierScanner() {
                 onPress={submitStockUpdate}
                 disabled={loading}
               >
-                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveText}>Confirm</Text>}
+                {loading ? <ActivityIndicator color="#0a0f1e" /> : <Text style={styles.saveText}>Confirm</Text>}
               </TouchableOpacity>
             </View>
           </View>
@@ -128,31 +136,102 @@ export default function CashierScanner() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: 'black' },
-  btn: { backgroundColor: '#1e40af', padding: 15, borderRadius: 10, alignSelf: 'center', marginTop: 20 },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
+  center: { justifyContent: 'center', alignItems: 'center', padding: 20 },
+  permissionCard: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 24,
+    padding: 24,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  permissionText: {
+    color: '#94a3b8',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  btn: { 
+    backgroundColor: '#06b6d4', 
+    paddingHorizontal: 24, 
+    paddingVertical: 14, 
+    borderRadius: 16, 
+    width: '100%', 
+    alignItems: 'center' 
+  },
+  btnText: { color: '#0a0f1e', fontWeight: 'bold', fontSize: 16 },
   overlay: { flex: 1, backgroundColor: 'transparent', justifyContent: 'center', alignItems: 'center' },
-  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: '#10b981', backgroundColor: 'transparent', borderRadius: 20 },
+  scanFrame: { 
+    width: 260, 
+    height: 260, 
+    borderWidth: 2, 
+    borderColor: '#06b6d4', 
+    backgroundColor: 'transparent', 
+    borderRadius: 24,
+    shadowColor: '#06b6d4',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+  },
   closeBtn: { position: 'absolute', top: 50, right: 20 },
-  guideText: { color: 'white', marginTop: 20, fontSize: 16, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', padding: 10, borderRadius: 10 },
+  guideText: { 
+    color: 'white', 
+    marginTop: 24, 
+    fontSize: 14, 
+    fontWeight: 'bold', 
+    backgroundColor: 'rgba(10, 15, 30, 0.8)', 
+    paddingHorizontal: 16, 
+    paddingVertical: 8, 
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    letterSpacing: 0.5,
+  },
   
   // Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginTop: 12, marginBottom: 8 },
-  barcodeLabel: { fontSize: 14, color: '#64748b', marginBottom: 24, },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { 
+    backgroundColor: '#111827', 
+    borderRadius: 24, 
+    padding: 24, 
+    width: '100%', 
+    maxWidth: 340, 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff', marginTop: 6, marginBottom: 8 },
+  barcodeLabel: { fontSize: 14, color: '#94a3b8', marginBottom: 24 },
   input: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 15,
-    padding: 15,
-    fontSize: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
+    padding: 18,
+    fontSize: 20,
     width: '100%',
     textAlign: 'center',
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    color: '#fff',
+    fontWeight: 'bold',
   },
   buttonRow: { flexDirection: 'row', width: '100%', gap: 12 },
-  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  cancelBtn: { backgroundColor: '#f1f5f9' },
-  saveBtn: { backgroundColor: '#10b981' },
-  cancelText: { color: '#64748b', fontWeight: '600' },
-  saveText: { color: 'white', fontWeight: 'bold' }
+  modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  cancelBtn: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+  saveBtn: { backgroundColor: '#06b6d4' },
+  cancelText: { color: '#94a3b8', fontWeight: '600' },
+  saveText: { color: '#0a0f1e', fontWeight: 'bold' }
 });

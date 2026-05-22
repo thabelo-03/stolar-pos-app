@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../../components/themed-view';
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
 
 export default function RecentActionsScreen() {
   const router = useRouter();
@@ -45,20 +47,20 @@ export default function RecentActionsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Recent Actions</Text>
-      </View>
+      </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color="#06b6d4" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={logs}
           keyExtractor={(item) => item._id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#06b6d4" />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={<Text style={styles.emptyText}>No recent actions recorded.</Text>}
           renderItem={({ item }) => (
@@ -67,7 +69,7 @@ export default function RecentActionsScreen() {
                 <Ionicons 
                   name={item.action === 'ADD_PRODUCT' ? "add-circle" : "cube"} 
                   size={24} 
-                  color={item.action === 'ADD_PRODUCT' ? "#10b981" : "#3b82f6"} 
+                  color={item.action === 'ADD_PRODUCT' ? "#10b981" : "#06b6d4"} 
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -85,9 +87,8 @@ export default function RecentActionsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
   header: {
-    backgroundColor: '#1e40af',
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -95,12 +96,12 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  backButton: { marginRight: 15 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-  list: { padding: 20 },
-  card: { backgroundColor: 'white', padding: 15, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  iconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  details: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 4 },
-  meta: { fontSize: 12, color: '#64748b' },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8' }
+  backButton: { marginRight: 15, padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  list: { padding: 20, paddingBottom: 120 },
+  card: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, padding: 15, borderRadius: 12, marginBottom: 10, flexDirection: 'row', alignItems: 'center' },
+  iconBox: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.04)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  details: { fontSize: 14, fontWeight: '600', color: Colors.dark.text, marginBottom: 4 },
+  meta: { fontSize: 12, color: Colors.dark.textSecondary },
+  emptyText: { textAlign: 'center', marginTop: 50, color: Colors.dark.textMuted }
 });

@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
 
 interface Shop {
   _id: string;
@@ -39,7 +41,7 @@ export default function MyShopScreen() {
   const [processing, setProcessing] = useState(false);
   const [branchCode, setBranchCode] = useState('');
   const router = useRouter();
-  const insets = useSafeAreaInsets(); // Use hook directly
+  const insets = useSafeAreaInsets();
   const [modalType, setModalType] = useState<'leave' | 'switch'>('leave');
   const [recentShops, setRecentShops] = useState<any[]>([]);
   
@@ -131,7 +133,6 @@ export default function MyShopScreen() {
         const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
         if (reqRes.ok) {
           const reqData = await reqRes.json();
-          // reqData will be null if no request exists
           setPendingRequest(reqData);
         }
       }
@@ -170,7 +171,7 @@ export default function MyShopScreen() {
         setModalVisible(false);
         setShop(null);
         Alert.alert("Success", modalType === 'switch' ? "Disconnected. Enter new branch code." : "You have left the shop.");
-        router.replace('/(cashier)/my-shop'); // Stay on this screen to show Join options
+        router.replace('/(cashier)/my-shop');
       } else {
         Alert.alert("Error", data.message || "Failed to leave shop");
       }
@@ -253,7 +254,6 @@ export default function MyShopScreen() {
   };
 
   const handleSwitchPress = async () => {
-    // Ensure we have the latest shops before deciding
     let currentShops = shops;
     if (userRole === 'manager' && currentShops.length === 0) {
         const userId = await AsyncStorage.getItem('userId');
@@ -267,7 +267,7 @@ export default function MyShopScreen() {
     }
 
     if (userRole === 'manager' && currentShops.length > 0) {
-        setShops(currentShops); // Update state if we fetched fresh
+        setShops(currentShops);
         setShopSelectionVisible(true);
     } else {
         setModalType('switch');
@@ -279,7 +279,7 @@ export default function MyShopScreen() {
     await AsyncStorage.setItem('shopId', selectedShop._id);
     setShopSelectionVisible(false);
     Alert.alert("Success", `Switched to ${selectedShop.name}`);
-    fetchShopDetails(); // Refresh current screen
+    fetchShopDetails();
   };
 
   const handleLogout = async () => {
@@ -290,26 +290,28 @@ export default function MyShopScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#1e40af" />
+        <ActivityIndicator size="large" color="#06b6d4" />
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <Text style={styles.title}>My Shop</Text>
         <Text style={styles.subtitle}>Branch Information</Text>
-      </View>
+      </LinearGradient>
 
       <View style={styles.content}>
         {shop ? (
           <>
             <View style={styles.card}>
-              <Ionicons name="storefront" size={48} color="#1e40af" style={styles.icon} />
+              <View style={styles.storeIconWrapper}>
+                <Ionicons name="storefront" size={42} color="#06b6d4" />
+              </View>
               <Text style={styles.shopName}>{shop.name}</Text>
               <Text style={styles.shopDetail}>{shop.location}</Text>
-              <Text style={styles.shopDetail}>Code: {shop.branchCode}</Text>
+              <Text style={styles.shopCodeBadge}>CODE: {shop.branchCode}</Text>
               {shop.manager && (shop.manager.name || shop.manager.email) ? (
                 <Text style={styles.managerText}>Manager: {shop.manager.name}</Text>
               ) : (
@@ -323,14 +325,16 @@ export default function MyShopScreen() {
                     style={styles.quickActionCard} 
                     onPress={() => router.push('/stock-take')}
                 >
-                    <View style={styles.actionIconCircle}><Ionicons name="clipboard" size={28} color="#1e40af" /></View>
+                    <View style={styles.actionIconCircle}>
+                      <Ionicons name="clipboard" size={26} color="#06b6d4" />
+                    </View>
                     <Text style={styles.quickActionText}>Stock Take</Text>
                 </TouchableOpacity>
             </View>
 
             <TouchableOpacity 
               style={styles.switchButton} 
-              onPress={handleSwitchPress} // Now defined
+              onPress={handleSwitchPress}
             >
               <Text style={styles.switchButtonText}>Switch Shop</Text>
             </TouchableOpacity>
@@ -344,27 +348,36 @@ export default function MyShopScreen() {
           </>
         ) : pendingRequest ? (
           <View style={styles.emptyState}>
-            <Ionicons name="time-outline" size={64} color="#f59e0b" />
-            <Text style={styles.emptyText}>Request Pending</Text>
-            <Text style={styles.shopDetail}>Shop: {pendingRequest.shop.name}</Text>
-            <Text style={[styles.shopDetail, { marginBottom: 24 }]}>Code: {pendingRequest.shop.branchCode}</Text>
+            <View style={styles.iconCirclePending}>
+              <Ionicons name="time-outline" size={54} color="#f59e0b" />
+            </View>
+            <Text style={styles.emptyText}>Request Pending Approval</Text>
+            <View style={styles.pendingCard}>
+              <Text style={styles.pendingShopLabel}>Shop Name</Text>
+              <Text style={styles.pendingShopVal}>{pendingRequest.shop.name}</Text>
+              <Text style={styles.pendingShopLabel}>Branch Code</Text>
+              <Text style={styles.pendingShopVal}>{pendingRequest.shop.branchCode}</Text>
+            </View>
             
             <TouchableOpacity 
-              style={[styles.leaveButton, { width: '100%' }]} 
+              style={[styles.leaveButton, { width: '100%', marginTop: 10 }]} 
               onPress={handleCancelRequest}
               disabled={processing}
             >
-              {processing ? <ActivityIndicator color="#ef4444" /> : <Text style={styles.leaveButtonText}>Cancel Request</Text>}
+              {processing ? <ActivityIndicator color="#f43f5e" /> : <Text style={styles.leaveButtonText}>Cancel Request</Text>}
             </TouchableOpacity>
           </View>
         ) : (
           <View style={styles.emptyState}>
-            <Ionicons name="alert-circle-outline" size={64} color="#94a3b8" />
+            <View style={styles.iconCircleAlert}>
+              <Ionicons name="alert-circle-outline" size={54} color="#64748b" />
+            </View>
             <Text style={styles.emptyText}>You are not linked to any shop.</Text>
             
             <TextInput
               style={styles.input}
               placeholder="Enter Branch Code (e.g. STLR-1234)"
+              placeholderTextColor="#64748b"
               value={branchCode}
               onChangeText={setBranchCode}
               autoCapitalize="characters"
@@ -375,7 +388,7 @@ export default function MyShopScreen() {
               onPress={() => handleJoinShop()}
               disabled={processing}
             >
-              {processing ? <ActivityIndicator color="#fff" /> : <Text style={styles.linkButtonText}>Send Request</Text>}
+              {processing ? <ActivityIndicator color="#0a0f1e" /> : <Text style={styles.linkButtonText}>Send Request</Text>}
             </TouchableOpacity>
 
             {recentShops.length > 0 && (
@@ -401,7 +414,7 @@ export default function MyShopScreen() {
                       <Text style={styles.recentName}>{item.name}</Text>
                       <Text style={styles.recentCode}>{item.branchCode}</Text>
                     </View>
-                    <Ionicons name="copy-outline" size={20} color="#1e40af" />
+                    <Ionicons name="copy-outline" size={20} color="#06b6d4" />
                   </TouchableOpacity>
                 ))}
               </View>
@@ -419,7 +432,13 @@ export default function MyShopScreen() {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Ionicons name={modalType === 'switch' ? "swap-horizontal" : "warning-outline"} size={40} color={modalType === 'switch' ? "#1e40af" : "#ef4444"} />
+            <View style={[styles.modalIconWrapper, { backgroundColor: modalType === 'switch' ? 'rgba(6, 182, 212, 0.15)' : 'rgba(244, 63, 94, 0.15)' }]}>
+              <Ionicons 
+                name={modalType === 'switch' ? "swap-horizontal" : "warning-outline"} 
+                size={32} 
+                color={modalType === 'switch' ? "#06b6d4" : "#f43f5e"} 
+              />
+            </View>
             <Text style={styles.modalTitle}>{modalType === 'switch' ? 'Switch Shop?' : 'Leave Shop?'}</Text>
             <Text style={styles.modalText}>
               {modalType === 'switch' 
@@ -460,52 +479,23 @@ export default function MyShopScreen() {
       >
         <View style={styles.modalOverlay}>
             <View style={styles.modalContainer}>
+                <View style={styles.modalIconWrapper}>
+                  <Ionicons name="storefront" size={32} color="#06b6d4" />
+                </View>
                 <Text style={styles.modalTitle}>Select Shop</Text>
-                <Text style={{textAlign: 'center', color: '#64748b', marginBottom: 20}}>Choose a shop to manage.</Text>
+                <Text style={styles.modalText}>Choose a shop to manage.</Text>
                 
                 <FlatList
                     data={shops}
                     keyExtractor={(item) => item._id}
                     renderItem={({ item }) => (
                         <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShop(item)}>
-                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
+                            <Ionicons name="storefront" size={20} color="#06b6d4" style={{marginRight: 10}} />
                             <Text style={styles.shopSelectionText}>{item.name}</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
+                            <Ionicons name="chevron-forward" size={20} color="#64748b" style={{marginLeft: 'auto'}} />
                         </TouchableOpacity>
                     )}
-                    style={{maxHeight: 300, width: '100%'}}
-                />
-
-                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn, {marginTop: 15, width: '100%'}]} onPress={() => setShopSelectionVisible(false)}>
-                    <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-            </View>
-        </View>
-      </Modal>
-
-      {/* MANAGER SHOP SELECTION MODAL */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={shopSelectionVisible}
-        onRequestClose={() => setShopSelectionVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-            <View style={styles.modalContainer}>
-                <Text style={styles.modalTitle}>Select Shop</Text>
-                <Text style={{textAlign: 'center', color: '#64748b', marginBottom: 20}}>Choose a shop to manage.</Text>
-                
-                <FlatList
-                    data={shops}
-                    keyExtractor={(item) => item._id}
-                    renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShop(item)}>
-                            <Ionicons name="storefront" size={20} color="#1e40af" style={{marginRight: 10}} />
-                            <Text style={styles.shopSelectionText}>{item.name}</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
-                        </TouchableOpacity>
-                    )}
-                    style={{maxHeight: 300, width: '100%'}}
+                    style={{maxHeight: 220, width: '100%'}}
                 />
 
                 <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn, {marginTop: 15, width: '100%'}]} onPress={() => setShopSelectionVisible(false)}>
@@ -517,17 +507,19 @@ export default function MyShopScreen() {
 
       {/* LOCKOUT MODAL */}
       <Modal visible={lockoutVisible} transparent={false} animationType="fade">
-        <View style={[styles.modalOverlay, { backgroundColor: 'white' }]}>
-          <View style={[styles.modalContainer, { elevation: 0, shadowOpacity: 0 }]}>
-            <Ionicons name="lock-closed" size={80} color="#ef4444" style={{ alignSelf: 'center', marginBottom: 20 }} />
-            <Text style={[styles.modalTitle, { color: '#ef4444' }]}>Access Denied</Text>
+        <View style={[styles.modalOverlay, { backgroundColor: '#0a0f1e' }]}>
+          <View style={styles.modalContainer}>
+            <View style={[styles.modalIconWrapper, { backgroundColor: 'rgba(244, 63, 94, 0.15)', marginBottom: 20 }]}>
+              <Ionicons name="lock-closed" size={48} color="#f43f5e" />
+            </View>
+            <Text style={[styles.modalTitle, { color: '#f43f5e' }]}>Access Denied</Text>
             <Text style={styles.modalText}>
               The Shop you are trying to access has not paid its subscription.
             </Text>
-            <Text style={[styles.modalText, { fontWeight: 'bold', color: '#1e293b' }]}>
+            <Text style={[styles.modalText, { fontWeight: 'bold', color: '#fff', marginTop: -10 }]}>
               Please contact your manager.
             </Text>
-            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn, { width: '100%', marginTop: 30, paddingVertical: 15 }]} onPress={handleLogout}>
+            <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn, { width: '100%', marginTop: 15, paddingVertical: 15 }]} onPress={handleLogout}>
               <Text style={styles.confirmBtnText}>Log Out</Text>
             </TouchableOpacity>
           </View>
@@ -538,100 +530,225 @@ export default function MyShopScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: Colors.dark.bg },
   header: {
-    backgroundColor: '#1e3a8a',
     padding: 25,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
   },
   title: {
-    color: 'white',
+    color: Colors.dark.text,
     fontSize: 26,
     fontWeight: 'bold',
+    letterSpacing: 0.5,
   },
   subtitle: {
-    color: '#93c5fd',
+    color: '#06b6d4',
     fontSize: 14,
+    marginTop: 2,
   },
   content: { flex: 1, padding: 20, justifyContent: 'center' },
-  card: { backgroundColor: '#fff', padding: 24, borderRadius: 16, alignItems: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 10, elevation: 2, marginBottom: 30 },
-  icon: { marginBottom: 16 },
-  shopName: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginBottom: 8 },
-  shopDetail: { fontSize: 16, color: '#64748b', marginBottom: 4 },
+  card: { 
+    backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+    padding: 24, 
+    borderRadius: 20, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.08)', 
+    marginBottom: 25 
+  },
+  storeIconWrapper: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  shopName: { fontSize: 22, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 6 },
+  shopDetail: { fontSize: 16, color: Colors.dark.textSecondary, marginBottom: 4 },
+  shopCodeBadge: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#0a0f1e',
+    backgroundColor: '#06b6d4',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginTop: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
   managerText: { fontSize: 14, color: '#94a3b8', marginTop: 12 },
-  switchButton: { backgroundColor: '#e0f2fe', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 12, borderWidth: 1, borderColor: '#bae6fd' },
-  switchButtonText: { color: '#0284c7', fontWeight: 'bold', fontSize: 16 },
-  leaveButton: { backgroundColor: '#fee2e2', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
-  leaveButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
-  sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1, marginTop: 10 },
+  switchButton: { 
+    backgroundColor: 'rgba(6, 182, 212, 0.12)', 
+    padding: 16, 
+    borderRadius: 16, 
+    alignItems: 'center', 
+    marginBottom: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(6, 182, 212, 0.25)' 
+  },
+  switchButtonText: { color: '#06b6d4', fontWeight: 'bold', fontSize: 16 },
+  leaveButton: { 
+    backgroundColor: 'rgba(244, 63, 94, 0.12)', 
+    padding: 16, 
+    borderRadius: 16, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: 'rgba(244, 63, 94, 0.25)' 
+  },
+  leaveButtonText: { color: '#f43f5e', fontWeight: 'bold', fontSize: 16 },
+  sectionTitle: { 
+    fontSize: 12, 
+    fontWeight: 'bold', 
+    color: Colors.dark.textSecondary, 
+    marginBottom: 12, 
+    textTransform: 'uppercase', 
+    letterSpacing: 1.5, 
+    marginTop: 10 
+  },
   quickActionsRow: {
     flexDirection: 'row',
     marginBottom: 20,
     gap: 15,
   },
   quickActionCard: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 20,
     padding: 20,
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  actionIconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  quickActionText: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
+  actionIconCircle: { 
+    width: 50, 
+    height: 50, 
+    borderRadius: 25, 
+    backgroundColor: 'rgba(6, 182, 212, 0.12)', 
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 10 
+  },
+  quickActionText: { fontSize: 14, fontWeight: 'bold', color: Colors.dark.text },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  emptyText: { fontSize: 18, color: '#64748b', marginTop: 16, marginBottom: 24, textAlign: 'center' },
-  linkButton: { backgroundColor: '#1e40af', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 15, width: '100%', alignItems: 'center' },
-  linkButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  input: { backgroundColor: '#fff', width: '100%', padding: 20, borderRadius: 15, marginBottom: 15, borderWidth: 1, borderColor: '#cbd5e1', fontSize: 16, textAlign: 'center' },
+  iconCirclePending: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(245, 158, 11, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  iconCircleAlert: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  emptyText: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text, marginTop: 10, marginBottom: 20, textAlign: 'center' },
+  pendingCard: {
+    width: '100%',
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 20,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    marginBottom: 20,
+  },
+  pendingShopLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  pendingShopVal: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: Colors.dark.text,
+    marginBottom: 16,
+  },
+  linkButton: { backgroundColor: '#06b6d4', paddingHorizontal: 24, paddingVertical: 16, borderRadius: 16, width: '100%', alignItems: 'center' },
+  linkButtonText: { color: '#0a0f1e', fontWeight: 'bold', fontSize: 16 },
+  input: { 
+    backgroundColor: 'rgba(255, 255, 255, 0.04)', 
+    width: '100%', 
+    padding: 20, 
+    borderRadius: 16, 
+    marginBottom: 15, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.08)', 
+    fontSize: 16, 
+    textAlign: 'center',
+    color: '#fff'
+  },
   
   // Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340, alignItems: 'center' },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginTop: 12, marginBottom: 8 },
-  modalText: { fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 24, lineHeight: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { 
+    backgroundColor: '#111827', 
+    borderRadius: 24, 
+    padding: 24, 
+    width: '100%', 
+    maxWidth: 340, 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  modalIconWrapper: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: 'rgba(6, 182, 212, 0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text, marginTop: 6, marginBottom: 8 },
+  modalText: { fontSize: 14, color: Colors.dark.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 20 },
   modalButtons: { flexDirection: 'row', width: '100%', gap: 12 },
-  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center', justifyContent: 'center' },
-  cancelBtn: { backgroundColor: '#f1f5f9' },
-  cancelBtnText: { color: '#64748b', fontWeight: '600' },
-  confirmBtn: { backgroundColor: '#ef4444' },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  cancelBtn: { backgroundColor: 'rgba(255, 255, 255, 0.08)' },
+  cancelBtnText: { color: Colors.dark.textSecondary, fontWeight: '600' },
+  confirmBtn: { backgroundColor: '#f43f5e' },
   confirmBtnText: { color: '#fff', fontWeight: 'bold' },
   
   recentSection: { width: '100%', marginTop: 30 },
-  recentLabel: { fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  recentLabel: { fontSize: 12, fontWeight: 'bold', color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
   recentItem: { 
     flexDirection: 'row', 
     justifyContent: 'space-between', 
     alignItems: 'center', 
-    backgroundColor: '#fff', 
+    backgroundColor: 'rgba(255, 255, 255, 0.04)', 
     padding: 16, 
     borderRadius: 16, 
     marginBottom: 10, 
     width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.08)',
   },
-  recentName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  recentCode: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  recentName: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text },
+  recentCode: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 2 },
   shopSelectionItem: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    borderRadius: 16,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(255, 255, 255, 0.08)',
+    width: '100%',
   },
-  shopSelectionText: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
+  shopSelectionText: { fontSize: 16, fontWeight: '600', color: Colors.dark.text },
 });
+

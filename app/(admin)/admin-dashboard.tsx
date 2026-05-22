@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -12,6 +12,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
 // --- Types for robustness ---
@@ -33,15 +34,15 @@ interface DashboardStats {
 // --- Helper Component (Defined outside to prevent re-renders) ---
 const StatCard = ({ title, value, icon, gradientColors, loading }: any) => (
   <View style={styles.statCard}>
-    <LinearGradient colors={gradientColors} style={styles.gradient}>
+    <LinearGradient colors={gradientColors} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.gradient}>
       <View style={styles.statContent}>
         <View style={styles.iconContainer}>
-          <Ionicons name={icon} size={24} color="white" />
+          <Ionicons name={icon} size={20} color="white" />
         </View>
         <View>
           <Text style={styles.statTitle}>{title}</Text>
           {loading ? (
-            <ActivityIndicator size="small" color="white" style={{ alignSelf: 'flex-start' }} />
+            <ActivityIndicator size="small" color="white" style={{ alignSelf: 'flex-start', marginTop: 4 }} />
           ) : (
             <Text style={styles.statValue}>{value}</Text>
           )}
@@ -53,6 +54,7 @@ const StatCard = ({ title, value, icon, gradientColors, loading }: any) => (
 
 export default function AdminDashboard() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [stats, setStats] = useState<DashboardStats>({ users: 0, products: 0, sales: 0 });
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,6 @@ export default function AdminDashboard() {
 
   const fetchStats = useCallback(async () => {
     try {
-      // Don't set loading=true if we are just refreshing (keeps UI smooth)
       if (!refreshing) setLoading(true);
 
       const [usersRes, productsRes, salesRes, recentSalesRes, recentUsersRes] = await Promise.all([
@@ -140,30 +141,33 @@ export default function AdminDashboard() {
   };
 
   return (
-    <ScrollView 
-      style={styles.container}
-      refreshControl={
-        <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1e3a8a']} />
-      }
-    >
-      {/* Header */}
-      <View style={styles.header}>
+    <View style={styles.container}>
+      <LinearGradient 
+        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        start={{ x: 0, y: 0 }} 
+        end={{ x: 1, y: 1 }} 
+        style={[styles.header, { paddingTop: insets.top + 15 }]}
+      >
         <View>
           <Text style={styles.headerSubtitle}>System Overview</Text>
           <Text style={styles.headerTitle}>Master Console</Text>
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={styles.headerIcon}>
-             <Ionicons name="shield-checkmark" size={28} color="#60a5fa" />
+             <Ionicons name="shield-checkmark" size={24} color="#a78bfa" />
           </View>
-          <TouchableOpacity onPress={handleLogout} style={[styles.headerIcon, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}>
-             <Ionicons name="log-out-outline" size={28} color="#fca5a5" />
+          <TouchableOpacity onPress={handleLogout} style={[styles.headerIcon, { backgroundColor: 'rgba(244, 63, 94, 0.2)' }]}>
+             <Ionicons name="log-out-outline" size={24} color="#f43f5e" />
           </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
-      <View style={styles.content}>
-        
+      <ScrollView 
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
+        }
+      >
         {/* Quick Stats Grid */}
         <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
@@ -171,14 +175,14 @@ export default function AdminDashboard() {
               title="Monthly Revenue" 
               value={`R${stats.sales.toFixed(2)}`} 
               icon="cash-outline" 
-              gradientColors={['#059669', '#10b981']} // Green
+              gradientColors={['#10b981', '#059669']} 
               loading={loading}
             />
             <StatCard 
               title="Total Users" 
               value={stats.users} 
               icon="people-outline" 
-              gradientColors={['#2563eb', '#3b82f6']} // Blue
+              gradientColors={['#4f46e5', '#7c3aed']} 
               loading={loading}
             />
           </View>
@@ -187,14 +191,14 @@ export default function AdminDashboard() {
               title="Inventory" 
               value={stats.products} 
               icon="cube-outline" 
-              gradientColors={['#d97706', '#f59e0b']} // Orange
+              gradientColors={['#f59e0b', '#d97706']} 
               loading={loading}
             />
              <StatCard 
               title="System Health" 
               value="100%" 
               icon="pulse-outline" 
-              gradientColors={['#7c3aed', '#8b5cf6']} // Purple
+              gradientColors={['#7c3aed', '#9333ea']} 
               loading={loading}
             />
           </View>
@@ -208,8 +212,8 @@ export default function AdminDashboard() {
             style={styles.gridItem} 
             onPress={() => router.push('/(admin)/manage-staff')}
           >
-            <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
-              <Ionicons name="people" size={28} color="#1e40af" />
+            <View style={[styles.iconBox, { backgroundColor: '#f5f3ff' }]}>
+              <Ionicons name="people" size={24} color="#7c3aed" />
             </View>
             <Text style={styles.gridText}>Staff List</Text>
           </TouchableOpacity>
@@ -219,7 +223,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/(admin)/all-products')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#ecfdf5' }]}>
-              <Ionicons name="cart" size={28} color="#059669" />
+              <Ionicons name="cart" size={24} color="#10b981" />
             </View>
             <Text style={styles.gridText}>Products</Text>
           </TouchableOpacity>
@@ -229,7 +233,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/(admin)/sales-reports')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
-              <Ionicons name="stats-chart" size={28} color="#ea580c" />
+              <Ionicons name="stats-chart" size={24} color="#f59e0b" />
             </View>
             <Text style={styles.gridText}>Reports</Text>
           </TouchableOpacity>
@@ -239,7 +243,7 @@ export default function AdminDashboard() {
             onPress={() => router.push('/(admin)/system-logs')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#f5f3ff' }]}>
-              <Ionicons name="terminal" size={28} color="#7c3aed" />
+              <Ionicons name="terminal" size={24} color="#7c3aed" />
             </View>
             <Text style={styles.gridText}>System Logs</Text>
           </TouchableOpacity>
@@ -249,7 +253,7 @@ export default function AdminDashboard() {
         <Text style={styles.sectionLabel}>Live Feed</Text>
         <View style={styles.activityCard}>
           {loading && !refreshing ? (
-            <ActivityIndicator color="#1e3a8a" style={{ padding: 20 }} />
+            <ActivityIndicator color="#7c3aed" style={{ padding: 20 }} />
           ) : recentActivity.length === 0 ? (
             <Text style={styles.emptyText}>No recent activity found.</Text>
           ) : (
@@ -257,12 +261,12 @@ export default function AdminDashboard() {
               <View key={activity._id} style={styles.activityItem}>
                 <View style={[
                   styles.activityIcon, 
-                  { backgroundColor: activity.type === 'sale' ? '#ecfdf5' : '#eff6ff' }
+                  { backgroundColor: activity.type === 'sale' ? '#ecfdf5' : '#f5f3ff' }
                 ]}>
                   <Ionicons 
                     name={activity.type === 'sale' ? "receipt" : "person-add"} 
-                    size={20} 
-                    color={activity.type === 'sale' ? "#10b981" : "#3b82f6"} 
+                    size={18} 
+                    color={activity.type === 'sale' ? "#10b981" : "#7c3aed"} 
                   />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
@@ -278,68 +282,62 @@ export default function AdminDashboard() {
         </View>
 
         <View style={{ height: 40 }} /> 
-      </View>
-    </ScrollView>
+      </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f1f5f9' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
   
   // Header
   header: { 
-    backgroundColor: '#1e3a8a', 
-    padding: 24, 
-    paddingTop: 60, 
-    borderBottomLeftRadius: 32, 
-    borderBottomRightRadius: 32,
+    paddingHorizontal: 20, 
+    paddingBottom: 20, 
+    borderBottomLeftRadius: 24, 
+    borderBottomRightRadius: 24,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
   },
-  headerSubtitle: { color: '#93c5fd', fontSize: 14, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
-  headerTitle: { color: 'white', fontSize: 26, fontWeight: '800', marginTop: 4 },
-  headerIcon: { backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 16 },
+  headerSubtitle: { color: 'rgba(255,255,255,0.8)', fontSize: 13, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', marginTop: 2, letterSpacing: 0.5 },
+  headerIcon: { backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 12 },
 
-  content: { padding: 20 },
+  scrollContent: { padding: 20 },
 
   // Stats
-  statsContainer: { marginBottom: 24 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  statCard: { width: '48%', borderRadius: 20, overflow: 'hidden', elevation: 4, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4 },
+  statsContainer: { marginBottom: 10 },
+  statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
+  statCard: { width: '48%', borderRadius: 20, overflow: 'hidden', shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 },
   gradient: { padding: 16, height: 110, justifyContent: 'center' },
   statContent: { flexDirection: 'column', height: '100%', justifyContent: 'space-between' },
   iconContainer: { 
-    width: 40, height: 40, borderRadius: 12, 
+    width: 36, height: 36, borderRadius: 10, 
     backgroundColor: 'rgba(255, 255, 255, 0.2)', 
-    justifyContent: 'center', alignItems: 'center', marginBottom: 8 
+    justifyContent: 'center', alignItems: 'center', marginBottom: 4
   },
-  statTitle: { color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: '500' },
-  statValue: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  statTitle: { color: 'rgba(255,255,255,0.9)', fontSize: 12, fontWeight: '600' },
+  statValue: { color: 'white', fontSize: 20, fontWeight: 'bold' },
 
-  sectionLabel: { fontSize: 18, fontWeight: '700', color: '#1e293b', marginBottom: 16, marginLeft: 4 },
+  sectionLabel: { fontSize: 16, fontWeight: 'bold', color: '#475569', marginVertical: 14, marginLeft: 4 },
 
   // Navigation Grid
-  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 10 },
   gridItem: { 
     backgroundColor: 'white', width: '48%', padding: 16, borderRadius: 20, 
     alignItems: 'center', marginBottom: 16, 
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }
+    shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4
   },
-  iconBox: { padding: 14, borderRadius: 16, marginBottom: 12 },
-  gridText: { fontWeight: '700', color: '#334155', fontSize: 14 },
+  iconBox: { padding: 12, borderRadius: 14, marginBottom: 10 },
+  gridText: { fontWeight: '700', color: '#475569', fontSize: 13 },
 
   // Activity Feed
-  activityCard: { backgroundColor: 'white', padding: 20, borderRadius: 24, elevation: 2 },
-  activityItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 16 },
-  activityIcon: { padding: 10, borderRadius: 12 },
-  activityTitleText: { color: '#1e293b', fontSize: 15, fontWeight: '600' },
-  activitySubtitle: { color: '#64748b', fontSize: 13, marginTop: 2 },
-  activityDate: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+  activityCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  activityItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f5f3ff', paddingBottom: 16 },
+  activityIcon: { padding: 8, borderRadius: 10 },
+  activityTitleText: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
+  activitySubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },
+  activityDate: { fontSize: 11, color: '#94a3b8', fontWeight: '500' },
   emptyText: { textAlign: 'center', color: '#94a3b8', fontStyle: 'italic', padding: 10 }
 });

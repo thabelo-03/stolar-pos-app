@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -12,6 +13,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
 interface Notification {
@@ -25,6 +27,7 @@ interface Notification {
 
 export default function ManagerNotifications() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -41,7 +44,6 @@ export default function ManagerNotifications() {
     });
   }, []);
 
-  // Automatically mark all as read after viewing for 2 seconds
   useEffect(() => {
     if (userId && notifications.some(n => !n.isRead)) {
       const timer = setTimeout(() => {
@@ -115,10 +117,15 @@ export default function ManagerNotifications() {
     <TouchableOpacity 
       style={[styles.card, !item.isRead && styles.unreadCard]} 
       onPress={() => markAsRead(item._id)}
+      activeOpacity={0.8}
     >
       <View style={styles.row}>
-        <View style={[styles.iconBox, { backgroundColor: item.type === 'link_request' ? '#e0f2fe' : '#f0fdf4' }]}>
-            <Ionicons name={item.type === 'link_request' ? 'link' : 'notifications'} size={24} color={item.type === 'link_request' ? '#0284c7' : '#16a34a'} />
+        <View style={[styles.iconBox, { backgroundColor: item.type === 'link_request' ? '#f5f3ff' : '#ecfdf5' }]}>
+            <Ionicons 
+              name={item.type === 'link_request' ? 'link' : 'notifications'} 
+              size={20} 
+              color={item.type === 'link_request' ? '#7c3aed' : '#10b981'} 
+            />
         </View>
         <View style={styles.content}>
           <Text style={[styles.message, !item.isRead && styles.boldText]}>
@@ -135,7 +142,7 @@ export default function ManagerNotifications() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <LinearGradient colors={['#4f46e5', '#7c3aed', '#9333ea']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
@@ -143,11 +150,11 @@ export default function ManagerNotifications() {
         <TouchableOpacity onPress={clearAllNotifications} style={styles.clearButton}>
           <Ionicons name="trash-outline" size={24} color="white" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       {loading ? (
         <View style={styles.center}>
-            <ActivityIndicator size="large" color="#1e40af" />
+            <ActivityIndicator size="large" color="#7c3aed" />
         </View>
       ) : (
         <FlatList
@@ -156,11 +163,11 @@ export default function ManagerNotifications() {
             renderItem={renderItem}
             contentContainerStyle={{ padding: 16 }}
             refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1e40af']} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} />
             }
             ListEmptyComponent={
-                <View style={styles.center}>
-                    <Ionicons name="notifications-off-outline" size={48} color="#cbd5e1" />
+                <View style={styles.emptyContainer}>
+                    <Ionicons name="notifications-off-outline" size={48} color="#94a3b8" />
                     <Text style={styles.emptyText}>No new notifications</Text>
                 </View>
             }
@@ -171,29 +178,42 @@ export default function ManagerNotifications() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
   header: {
-    backgroundColor: '#1e3a8a',
-    padding: 25,
-    paddingTop: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    padding: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
   },
-  backButton: { marginRight: 15 },
-  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
-  clearButton: { marginLeft: 'auto', padding: 5 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 50 },
-  card: { backgroundColor: 'white', padding: 16, borderRadius: 16, marginBottom: 12, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  unreadCard: { borderLeftWidth: 4, borderLeftColor: '#1e40af', backgroundColor: '#eff6ff' },
+  backButton: { padding: 4 },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 },
+  clearButton: { padding: 4 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', marginTop: 100 },
+  card: { 
+    backgroundColor: 'white', 
+    padding: 16, 
+    borderRadius: 20, 
+    marginBottom: 12, 
+    shadowColor: '#4f46e5', 
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.05, 
+    shadowRadius: 12, 
+    elevation: 3 
+  },
+  unreadCard: { 
+    borderLeftWidth: 4, 
+    borderLeftColor: '#7c3aed', 
+    backgroundColor: 'rgba(124, 58, 237, 0.03)' 
+  },
   row: { flexDirection: 'row', alignItems: 'center' },
-  iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   content: { flex: 1 },
-  message: { fontSize: 14, color: '#334155', marginBottom: 4, lineHeight: 20 },
-  boldText: { fontWeight: 'bold', color: '#1e293b' },
+  message: { fontSize: 14, color: '#475569', marginBottom: 4, lineHeight: 20 },
+  boldText: { fontWeight: 'bold', color: '#0f172a' },
   date: { fontSize: 12, color: '#94a3b8' },
-  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ef4444', marginLeft: 8 },
-  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 10, fontSize: 16 }
+  dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#f43f5e', marginLeft: 8 },
+  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 12, fontSize: 16, fontWeight: '500' }
 });

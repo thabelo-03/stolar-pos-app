@@ -2,13 +2,16 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Dimensions, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BarChart } from 'react-native-chart-kit';
 import { API_BASE_URL } from '../config';
 
 export default function ProfitLoss() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [startDate, setStartDate] = useState(new Date(new Date().setDate(new Date().getDate() - 6)));
   const [endDate, setEndDate] = useState(new Date());
   const [show, setShow] = useState(false);
@@ -230,12 +233,17 @@ export default function ProfitLoss() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
+      <LinearGradient 
+        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        start={{ x: 0, y: 0 }} 
+        end={{ x: 1, y: 1 }} 
+        style={[styles.header, { paddingTop: insets.top + 15 }]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profit & Loss Analysis</Text>
-      </View>
+      </LinearGradient>
 
       <View style={styles.filterSection}>
         <TouchableOpacity 
@@ -251,7 +259,7 @@ export default function ProfitLoss() {
             <TouchableOpacity style={styles.datePickerBtn} onPress={() => openPicker('start')}>
                 <Text style={styles.dateText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
             </TouchableOpacity>
-            <Text style={{marginHorizontal: 5, color: '#64748b'}}>-</Text>
+            <Text style={{marginHorizontal: 8, color: '#94a3b8'}}>-</Text>
             <TouchableOpacity style={styles.datePickerBtn} onPress={() => openPicker('end')}>
                 <Text style={styles.dateText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
             </TouchableOpacity>
@@ -288,7 +296,7 @@ export default function ProfitLoss() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {loading ? (
-          <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 40 }} />
         ) : (
           <View style={styles.reportContainer}>
             
@@ -323,12 +331,12 @@ export default function ProfitLoss() {
                   backgroundGradientFrom: "#ffffff",
                   backgroundGradientTo: "#ffffff",
                   decimalPlaces: 2,
-                  color: (opacity = 1) => chartView === 'profit' ? `rgba(16, 185, 129, ${opacity})` : `rgba(37, 99, 235, ${opacity})`,
-                  labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+                  color: (opacity = 1) => chartView === 'profit' ? `rgba(16, 185, 129, ${opacity})` : `rgba(124, 58, 237, ${opacity})`,
+                  labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
                   barPercentage: 0.7,
                   propsForBackgroundLines: {
                     strokeWidth: 1,
-                    stroke: "#f1f5f9",
+                    stroke: "#f5f3ff",
                     strokeDasharray: "", // solid lines
                   },
                 }}
@@ -341,7 +349,7 @@ export default function ProfitLoss() {
 
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Total Revenue</Text>
-              <Text style={[styles.statValue, { color: '#1e40af' }]}>{symbol} {stats.revenue.toFixed(2)}</Text>
+              <Text style={[styles.statValue, { color: '#7c3aed' }]}>{symbol} {stats.revenue.toFixed(2)}</Text>
             </View>
             
             <View style={styles.statCard}>
@@ -349,14 +357,19 @@ export default function ProfitLoss() {
                 <Text style={styles.statLabel}>COGS (Cost of Goods)</Text>
                 <Ionicons name="information-circle-outline" size={16} color="#64748b" />
               </View>
-              <Text style={[styles.statValue, { color: '#ef4444' }]}>{symbol} {stats.cogs.toFixed(2)}</Text>
+              <Text style={[styles.statValue, { color: '#f43f5e' }]}>{symbol} {stats.cogs.toFixed(2)}</Text>
             </View>
 
-            <View style={[styles.statCard, styles.profitCard]}>
+            <LinearGradient
+              colors={stats.profit >= 0 ? ['#10b981', '#059669'] : ['#f43f5e', '#e11d48']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.statCard, styles.profitCard]}
+            >
               <Text style={styles.profitLabel}>Net Profit</Text>
               <Text style={styles.profitValue}>{symbol} {stats.profit.toFixed(2)}</Text>
               <Text style={styles.profitSubtext}>(Revenue - COGS)</Text>
-            </View>
+            </LinearGradient>
           </View>
         )}
       </ScrollView>
@@ -365,44 +378,43 @@ export default function ProfitLoss() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
   header: {
-    backgroundColor: '#1e3a8a',
-    padding: 25,
-    paddingTop: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: { marginRight: 15 },
-  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
-  filterSection: { padding: 20, backgroundColor: 'white', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  currencySelector: { alignSelf: 'flex-end', backgroundColor: '#e0f2fe', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12, marginBottom: 10 },
-  currencyText: { color: '#0284c7', fontWeight: 'bold', fontSize: 12 },
+  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, marginRight: 15 },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 },
+  filterSection: { padding: 20, backgroundColor: 'white', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 10 },
+  currencySelector: { alignSelf: 'flex-end', backgroundColor: '#f5f3ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#ddd6fe', marginBottom: 10 },
+  currencyText: { color: '#7c3aed', fontWeight: 'bold', fontSize: 12 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
-  label: { color: '#64748b', fontWeight: 'bold', fontSize: 16 },
-  datePickerBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#eff6ff', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#bfdbfe' },
-  dateText: { marginLeft: 8, fontSize: 14, color: '#1e40af', fontWeight: 'bold' },
-  shopFilterContainer: { flexDirection: 'row' },
-  shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0' },
-  activeShopChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
-  shopChipText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
+  label: { color: '#475569', fontWeight: 'bold', fontSize: 14 },
+  datePickerBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f3ff', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ddd6fe' },
+  dateText: { fontSize: 14, color: '#7c3aed', fontWeight: 'bold' },
+  shopFilterContainer: { flexDirection: 'row', marginTop: 5 },
+  shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f5f3ff', marginRight: 10, borderWidth: 1, borderColor: '#ddd6fe' },
+  activeShopChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  shopChipText: { color: '#7c3aed', fontWeight: '600', fontSize: 13 },
   activeShopChipText: { color: 'white' },
-  reportContainer: { padding: 20 },
-  statCard: { backgroundColor: 'white', padding: 20, borderRadius: 15, marginBottom: 15, elevation: 2 },
-  chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 15, marginBottom: 20, elevation: 2 },
+  reportContainer: { padding: 20, gap: 15 },
+  statCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
-  chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  statLabel: { color: '#64748b', fontSize: 14 },
+  chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
+  statLabel: { color: '#475569', fontSize: 14, fontWeight: '600' },
   statValue: { fontSize: 24, fontWeight: 'bold', marginTop: 5 },
-  profitCard: { backgroundColor: '#10b981' },
-  profitLabel: { color: '#ecfdf5', fontSize: 14 },
+  profitCard: { borderRadius: 20, padding: 20, shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
+  profitLabel: { color: 'rgba(255, 255, 255, 0.9)', fontSize: 14, fontWeight: '600' },
   profitValue: { color: 'white', fontSize: 28, fontWeight: 'bold', marginTop: 5 },
   profitSubtext: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
   toggleContainer: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 2 },
   toggleBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
-  toggleBtnActive: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  toggleText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
-  toggleTextActive: { color: '#1e40af' },
+  toggleBtnActive: { backgroundColor: 'white', shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  toggleText: { fontSize: 12, color: '#475569', fontWeight: '600' },
+  toggleTextActive: { color: '#7c3aed' },
 });

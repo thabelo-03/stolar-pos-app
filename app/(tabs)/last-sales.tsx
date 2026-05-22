@@ -1,15 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, Platform, RefreshControl, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '../../components/themed-text';
-import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
 import { useActiveShop } from '@/hooks/use-active-shop';
@@ -19,7 +19,6 @@ import { useRates } from '@/hooks/use-rates';
 export default function LastSalesScreen() {
   const router = useRouter();
   const textColor = useThemeColor({}, 'text');
-  // Removed local sales/loading state in favor of hook
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(1);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -42,7 +41,7 @@ export default function LastSalesScreen() {
 
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
   const { shopId, loading: shopLoading } = useActiveShop();
-  const { sales, loading, fetchSales: fetchSalesHook, hasMore, setSales } = useSales();
+  const { sales, loading, fetchSales: fetchSalesHook, hasMore } = useSales();
   const { rates } = useRates();
 
   const convert = (amount: number) => {
@@ -111,7 +110,6 @@ export default function LastSalesScreen() {
     if (filterByDate) {
       const start = new Date(startDate); start.setHours(0,0,0,0);
       const end = new Date(endDate); end.setHours(23,59,59,999);
-      // Server handles main filtering, but we keep this for consistency with loaded data
       data = data.filter(item => {
         if (!item.date) return false;
         const d = new Date(item.date);
@@ -122,7 +120,6 @@ export default function LastSalesScreen() {
     if (!searchQuery) return data;
     const lowerText = searchQuery.toLowerCase();
     return data.filter((item) => {
-      // Handle items as array (from DB) or string (mock data)
       const itemsString = Array.isArray(item.items) 
         ? item.items.map((i: any) => i.name).join(' ').toLowerCase()
         : (item.items || '').toLowerCase();
@@ -153,7 +150,7 @@ export default function LastSalesScreen() {
     if (!loadingMore) return null;
     return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator size="small" color={textColor} />
+        <ActivityIndicator size="small" color="#06b6d4" />
       </View>
     );
   };
@@ -181,13 +178,6 @@ export default function LastSalesScreen() {
         Alert.alert('Error', data.message || 'Failed to refund sale');
       }
     } catch (error) { Alert.alert('Error', 'Could not connect to server'); }
-  };
-
-  const getPaymentIcon = (method: string) => {
-    const m = (method || '').toLowerCase();
-    if (m.includes('card')) return 'card-outline';
-    if (m.includes('cash')) return 'cash-outline';
-    return 'wallet-outline';
   };
 
   const handleSalePress = (sale: any) => {
@@ -256,15 +246,18 @@ export default function LastSalesScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <LinearGradient colors={['#0a0f1e', '#0f172a']} style={StyleSheet.absoluteFillObject} />
+
       {/* Header Section */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Sales History</Text>
-          <View style={{ width: 24 }} /> 
+          <View style={{ width: 38 }} /> 
         </View>
 
         {/* Stats Cards */}
@@ -287,11 +280,11 @@ export default function LastSalesScreen() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#64748b" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search receipts..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#64748b"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -305,10 +298,10 @@ export default function LastSalesScreen() {
         {/* Filter Chips */}
         <View style={styles.filterRow}>
           <TouchableOpacity 
-            style={[styles.filterChip, { backgroundColor: '#e0f2fe', borderColor: '#bae6fd' }]} 
+            style={styles.filterChip} 
             onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
           >
-            <Text style={[styles.filterText, { color: '#0284c7' }]}>{currency}</Text>
+            <Text style={[styles.filterText, { color: '#06b6d4' }]}>{currency}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -324,7 +317,7 @@ export default function LastSalesScreen() {
             style={[styles.filterChip, showRefundedOnly && styles.activeFilterChip]} 
             onPress={() => setShowRefundedOnly(true)}
           >
-            <Text style={[styles.filterText, showRefundedOnly && styles.activeFilterText]}>Refunded Only</Text>
+            <Text style={[styles.filterText, showRefundedOnly && styles.activeFilterText]}>Refunded</Text>
           </TouchableOpacity>
           
           {!filterByDate ? (
@@ -336,8 +329,8 @@ export default function LastSalesScreen() {
                 setEndDate(new Date());
               }}
             >
-              <Ionicons name="calendar-outline" size={16} color="#bfdbfe" />
-              <Text style={styles.filterText}>Date Range</Text>
+              <Ionicons name="calendar-outline" size={16} color="#94a3b8" />
+              <Text style={styles.filterText}>Date</Text>
             </TouchableOpacity>
           ) : (
             <>
@@ -346,7 +339,7 @@ export default function LastSalesScreen() {
                   {startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}
                 </Text>
               </TouchableOpacity>
-              <Text style={{color: '#bfdbfe', alignSelf: 'center'}}>-</Text>
+              <Text style={{color: '#94a3b8', alignSelf: 'center'}}>-</Text>
               <TouchableOpacity style={[styles.filterChip, styles.activeFilterChip]} onPress={() => openPicker('end')}>
                 <Text style={[styles.filterText, styles.activeFilterText]}>
                   {endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}
@@ -367,13 +360,13 @@ export default function LastSalesScreen() {
       </View>
 
       {loading && page === 1 ? (
-        <ActivityIndicator size="large" color={textColor} style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color="#06b6d4" style={{ marginTop: 20 }} />
       ) : (
         <FlatList
           ref={flatListRef}
           data={filteredSales}
           keyExtractor={(item) => item.id || item._id || Math.random().toString()}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f1f5f9" />}
           renderItem={({ item }) => {
             const isRefunded = item.refunded;
             const itemCount = Array.isArray(item.items) ? item.items.length : 1;
@@ -386,7 +379,7 @@ export default function LastSalesScreen() {
               >
                 <View style={styles.cardLeft}>
                   <View style={[styles.iconCircle, isRefunded ? styles.iconRefunded : styles.iconSuccess]}>
-                    <Ionicons name={isRefunded ? "return-up-back" : "receipt-outline"} size={20} color={isRefunded ? "#ef4444" : "#10b981"} />
+                    <Ionicons name={isRefunded ? "return-up-back" : "receipt-outline"} size={18} color={isRefunded ? "#f43f5e" : "#10b981"} />
                   </View>
                   <View style={styles.cardInfo}>
                     <Text style={styles.cardTitle} numberOfLines={1}>
@@ -420,7 +413,7 @@ export default function LastSalesScreen() {
             );
           }}
           contentContainerStyle={styles.list}
-          ListEmptyComponent={<ThemedText style={{ textAlign: 'center', marginTop: 20 }}>No recent sales found.</ThemedText>}
+          ListEmptyComponent={<ThemedText style={{ textAlign: 'center', marginTop: 20, color: '#64748b', fontWeight: '600' }}>No recent sales found.</ThemedText>}
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.2}
           ListFooterComponent={renderFooter}
@@ -434,10 +427,11 @@ export default function LastSalesScreen() {
           style={styles.scrollTopButton} 
           onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
         >
-          <Ionicons name="arrow-up" size={24} color="white" />
+          <Ionicons name="arrow-up" size={22} color="white" />
         </TouchableOpacity>
       )}
 
+      {/* Process Refund Modal */}
       <Modal visible={showRefundModal} animationType="fade" transparent onRequestClose={() => setShowRefundModal(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -448,34 +442,35 @@ export default function LastSalesScreen() {
               if (sale && sale.items && Array.isArray(sale.items)) {
                 return (
                   <View style={{ maxHeight: 150, width: '100%', marginBottom: 10 }}>
-                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 5 }}>ITEMS</Text>
+                    <Text style={{ fontSize: 11, fontWeight: '700', color: '#64748b', letterSpacing: 0.5, marginBottom: 6 }}>ITEMS TO RESTORE</Text>
                     <FlatList
                       data={sale.items}
                       keyExtractor={(item, index) => index.toString()}
                       renderItem={({ item }) => (
                         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-                          <Text style={{ fontSize: 14, color: '#334155', flex: 1 }} numberOfLines={1}>
+                          <Text style={{ fontSize: 14, color: '#94a3b8', flex: 1 }} numberOfLines={1}>
                             {item.quantity} x {item.name}
                           </Text>
-                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#1e293b' }}>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: '#f1f5f9' }}>
                             {symbol} {convert(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
                           </Text>
                         </View>
                       )}
                     />
-                    <View style={{ height: 1, backgroundColor: '#e2e8f0', marginVertical: 10 }} />
+                    <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 10 }} />
                   </View>
                 );
               }
               return null;
             })()}
 
-            <Text style={{marginBottom: 15, color: '#64748b'}}>Stock will be restored automatically.</Text>
+            <Text style={{marginBottom: 15, color: '#94a3b8', fontWeight: '500'}}>Stock will be restored automatically.</Text>
             
-            <Text style={{fontWeight: '600', marginBottom: 5, color: '#1e293b'}}>Reason for Refund</Text>
+            <Text style={{fontWeight: '700', marginBottom: 6, color: '#ffffff'}}>Reason for Refund</Text>
             <TextInput
               style={styles.refundInput}
               placeholder="e.g. Defective item, Customer changed mind"
+              placeholderTextColor="#64748b"
               value={refundReason}
               onChangeText={setRefundReason}
               multiline
@@ -483,7 +478,7 @@ export default function LastSalesScreen() {
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#ef4444' }]} onPress={confirmRefund}><Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text></TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, { backgroundColor: '#f43f5e' }]} onPress={confirmRefund}><Text style={[styles.btnText, {color: 'white'}]}>Confirm</Text></TouchableOpacity>
             </View>
           </View>
         </View>
@@ -496,27 +491,27 @@ export default function LastSalesScreen() {
             <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
               <Text style={styles.modalTitle}>Receipt Details</Text>
               <TouchableOpacity onPress={() => setDetailsModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#64748b" />
+                <Ionicons name="close" size={24} color="#94a3b8" />
               </TouchableOpacity>
             </View>
 
             {selectedSale && (
               <>
                 <View style={{marginBottom: 15}}>
-                  <Text style={{color: '#64748b', fontSize: 14, marginBottom: 4}}>
+                  <Text style={{color: '#94a3b8', fontSize: 13, marginBottom: 4, fontWeight: '500'}}>
                     {selectedSale.date ? new Date(selectedSale.date).toLocaleString() : 'Unknown Date'}
                   </Text>
-                  <Text style={{color: '#64748b', fontSize: 14, marginBottom: 4}}>
+                  <Text style={{color: '#94a3b8', fontSize: 13, marginBottom: 4, fontWeight: '500'}}>
                     Method: {selectedSale.paymentMethod || 'Cash'}
                   </Text>
                   {selectedSale.cashierName && (
-                    <Text style={{color: '#64748b', fontSize: 14}}>
+                    <Text style={{color: '#94a3b8', fontSize: 13, fontWeight: '500'}}>
                       Cashier: {selectedSale.cashierName}
                     </Text>
                   )}
                 </View>
 
-                <View style={{borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 10}} />
+                <View style={{borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.06)', marginBottom: 10}} />
 
                 <FlatList
                   data={selectedSale.items || []}
@@ -524,10 +519,10 @@ export default function LastSalesScreen() {
                   renderItem={({ item }) => (
                     <View style={{flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8}}>
                       <View style={{flex: 1, marginRight: 10}}>
-                        <Text style={{fontWeight: '600', color: '#1e293b'}}>{item.name}</Text>
-                        <Text style={{fontSize: 12, color: '#64748b'}}>{item.quantity} x {symbol} {convert(Number(item.price || 0)).toFixed(2)}</Text>
+                        <Text style={{fontWeight: '600', color: '#f1f5f9'}}>{item.name}</Text>
+                        <Text style={{fontSize: 12, color: '#94a3b8'}}>{item.quantity} x {symbol} {convert(Number(item.price || 0)).toFixed(2)}</Text>
                       </View>
-                      <Text style={{fontWeight: 'bold', color: '#1e293b'}}>
+                      <Text style={{fontWeight: 'bold', color: '#f1f5f9'}}>
                         {symbol} {convert(Number(item.price || 0) * Number(item.quantity || 0)).toFixed(2)}
                       </Text>
                     </View>
@@ -535,17 +530,17 @@ export default function LastSalesScreen() {
                   style={{marginBottom: 15}}
                 />
 
-                <View style={{borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
-                  <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b'}}>Total</Text>
-                  <Text style={{fontSize: 24, fontWeight: 'bold', color: '#1e40af'}}>
+                <View style={{borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.06)', paddingTop: 15, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <Text style={{fontSize: 18, fontWeight: '800', color: '#ffffff'}}>Total</Text>
+                  <Text style={{fontSize: 24, fontWeight: '800', color: '#06b6d4'}}>
                     {symbol} {convert(Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0)).toFixed(2)}
                   </Text>
                 </View>
                 
                 {selectedSale.refunded && (
-                   <View style={{marginTop: 15, padding: 10, backgroundColor: '#fee2e2', borderRadius: 8}}>
-                     <Text style={{color: '#ef4444', fontWeight: 'bold', textAlign: 'center'}}>REFUNDED</Text>
-                     {selectedSale.refundReason && <Text style={{color: '#ef4444', textAlign: 'center', fontSize: 12, marginTop: 4}}>{selectedSale.refundReason}</Text>}
+                   <View style={{marginTop: 15, padding: 12, backgroundColor: 'rgba(244, 63, 94, 0.08)', borderRadius: 10, borderWidth: 1, borderColor: 'rgba(244, 63, 94, 0.15)'}}>
+                     <Text style={{color: '#f43f5e', fontWeight: '800', textAlign: 'center', fontSize: 13, textTransform: 'uppercase', letterSpacing: 0.5}}>REFUNDED</Text>
+                     {selectedSale.refundReason && <Text style={{color: '#f43f5e', textAlign: 'center', fontSize: 12, marginTop: 4, fontStyle: 'italic'}}>{selectedSale.refundReason}</Text>}
                    </View>
                 )}
 
@@ -558,118 +553,167 @@ export default function LastSalesScreen() {
           </View>
         </View>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#0a0f1e' },
   header: {
-    backgroundColor: '#1e40af',
-    paddingBottom: 25,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    marginBottom: 10,
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  backButton: { 
+    padding: 10, 
+    backgroundColor: 'rgba(255,255,255,0.06)', 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: 'white' },
   
-  statsRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 15, justifyContent: 'space-between', marginBottom: 20 },
+  statsRow: { 
+    flexDirection: 'row', 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    borderRadius: 20, 
+    padding: 16, 
+    justifyContent: 'space-between', 
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
   statCard: { alignItems: 'center', flex: 1 },
-  statLabel: { color: '#bfdbfe', fontSize: 12, fontWeight: '600', marginBottom: 4 },
-  statValue: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginHorizontal: 10 },
+  statLabel: { color: '#94a3b8', fontSize: 11, fontWeight: '600', marginBottom: 4, textTransform: 'uppercase', letterSpacing: 0.5 },
+  statValue: { color: 'white', fontSize: 16, fontWeight: '800' },
+  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 10 },
 
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+  searchInput: { flex: 1, fontSize: 16, color: '#ffffff', height: '100%', fontWeight: '600' },
 
   list: { padding: 20, gap: 12, paddingBottom: 120 },
   
   card: {
-    backgroundColor: 'white',
-    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    borderRadius: 20,
     padding: 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
     elevation: 2,
   },
-  refundedCard: { backgroundColor: '#fef2f2', borderColor: '#fee2e2', borderWidth: 1 },
+  refundedCard: { 
+    backgroundColor: 'rgba(244, 63, 94, 0.04)', 
+    borderColor: 'rgba(244, 63, 94, 0.15)', 
+    borderWidth: 1 
+  },
   cardLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, marginRight: 10 },
-  iconCircle: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  iconSuccess: { backgroundColor: '#ecfdf5' },
-  iconRefunded: { backgroundColor: '#fef2f2' },
+  iconCircle: { width: 38, height: 38, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  iconSuccess: { backgroundColor: 'rgba(16, 185, 129, 0.12)' },
+  iconRefunded: { backgroundColor: 'rgba(244, 63, 94, 0.12)' },
   cardInfo: { flex: 1 },
-  cardTitle: { fontSize: 15, fontWeight: 'bold', color: '#1e293b', marginBottom: 2 },
-  cardSub: { fontSize: 12, color: '#64748b' },
-  refundReason: { fontSize: 11, color: '#ef4444', marginTop: 4, fontStyle: 'italic' },
+  cardTitle: { fontSize: 15, fontWeight: '800', color: '#f1f5f9', marginBottom: 2 },
+  cardSub: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+  refundReason: { fontSize: 11, color: '#f43f5e', marginTop: 4, fontStyle: 'italic', fontWeight: '600' },
   cardRight: { alignItems: 'flex-end' },
-  amountText: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 4 },
-  refundedText: { color: '#ef4444', textDecorationLine: 'line-through', opacity: 0.6 },
-  miniRefundBtn: { backgroundColor: '#f1f5f9', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
-  miniRefundText: { fontSize: 11, fontWeight: '600', color: '#64748b' },
-  refundedBadge: { fontSize: 10, fontWeight: 'bold', color: '#ef4444', backgroundColor: '#fee2e2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  amountText: { fontSize: 16, fontWeight: '800', color: '#f1f5f9', marginBottom: 6 },
+  refundedText: { color: '#f43f5e', textDecorationLine: 'line-through', opacity: 0.6 },
+  miniRefundBtn: { 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    paddingHorizontal: 12, 
+    paddingVertical: 6, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  miniRefundText: { fontSize: 11, fontWeight: '700', color: '#94a3b8' },
+  refundedBadge: { fontSize: 10, fontWeight: '800', color: '#f43f5e', backgroundColor: 'rgba(244, 63, 94, 0.12)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: 'rgba(244, 63, 94, 0.15)' },
 
   footerLoader: { paddingVertical: 20, alignItems: 'center' },
 
   filterRow: { flexDirection: 'row', marginTop: 15, gap: 10 },
-  filterChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.2)' },
-  activeFilterChip: { backgroundColor: 'white' },
-  filterText: { color: '#bfdbfe', fontSize: 13, fontWeight: '600' },
-  activeFilterText: { color: '#1e40af' },
+  filterChip: { 
+    paddingVertical: 8, 
+    paddingHorizontal: 14, 
+    borderRadius: 20, 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  activeFilterChip: { backgroundColor: '#2563eb', borderColor: '#3b82f6' },
+  filterText: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
+  activeFilterText: { color: 'white' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 400 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 5 },
-  refundInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top', fontSize: 16, marginBottom: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 8, 16, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { 
+    backgroundColor: '#0f172a', 
+    borderRadius: 24, 
+    padding: 24, 
+    width: '90%', 
+    maxWidth: 380, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#ffffff', marginBottom: 12 },
+  refundInput: { 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    color: 'white',
+    borderRadius: 12, 
+    padding: 12, 
+    height: 80, 
+    textAlignVertical: 'top', 
+    fontSize: 16, 
+    marginBottom: 20,
+    fontWeight: '600'
+  },
   modalActions: { flexDirection: 'row', gap: 12 },
-  modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  cancelBtn: { backgroundColor: '#f1f5f9' },
-  btnText: { fontWeight: 'bold', fontSize: 16, color: '#64748b' },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  cancelBtn: { backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  btnText: { fontWeight: '800', fontSize: 15, color: '#94a3b8' },
   shareBtn: { 
-    backgroundColor: '#1e40af', 
+    backgroundColor: '#2563eb', 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
     padding: 15, 
-    borderRadius: 12, 
-    marginTop: 20 
+    borderRadius: 14, 
+    marginTop: 20,
+    shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
   },
   shareBtnText: { 
     color: 'white', 
-    fontWeight: 'bold', 
-    fontSize: 16 
+    fontWeight: '800', 
+    fontSize: 15 
   },
   scrollTopButton: {
     position: 'absolute',
     bottom: 110,
     right: 20,
-    backgroundColor: '#1e40af',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    backgroundColor: '#2563eb',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
+    shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
   },
 });

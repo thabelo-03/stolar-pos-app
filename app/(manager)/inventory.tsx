@@ -5,11 +5,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar } from 'react-native';
 
 import { ThemedText } from '../../components/themed-text';
-import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
 
@@ -52,6 +51,10 @@ export default function ManagerInventoryScreen() {
   const [selectedHistoryItemName, setSelectedHistoryItemName] = useState('');
   const [manageModalVisible, setManageModalVisible] = useState(false);
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+
+  // Scroll to top
+  const flatListRef = useRef<FlatList>(null);
+  const [showScrollTop, setShowScrollTop] = useState(false);
 
   // Transfer State
   const [transferModalVisible, setTransferModalVisible] = useState(false);
@@ -211,9 +214,9 @@ export default function ManagerInventoryScreen() {
   }, [inventory, currency, rates]);
 
   const getStockStatus = (qty: number) => {
-    if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
-    if (qty < 5) return { label: 'Low Stock', color: '#f59e0b', bg: '#fef3c7' };
-    return { label: 'In Stock', color: '#10b981', bg: '#d1fae5' };
+    if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: 'rgba(239, 68, 68, 0.1)', border: '#fca5a5' };
+    if (qty < 5) return { label: 'Low Stock', color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.1)', border: '#fcd34d' };
+    return { label: 'In Stock', color: '#10b981', bg: 'rgba(16, 185, 129, 0.1)', border: '#a7f3d0' };
   };
 
   const handleEdit = (item: InventoryItem) => {
@@ -240,7 +243,6 @@ export default function ManagerInventoryScreen() {
             const res = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
             const data = await res.json();
             if (Array.isArray(data)) {
-                // Filter out current shop
                 setAvailableShops(data.filter((s: any) => s._id !== shopId));
             }
         } catch (e) {}
@@ -269,13 +271,11 @@ export default function ManagerInventoryScreen() {
       return;
     }
 
-    // Prepare updates based on filtered inventory
     const updates = filteredInventory.map(item => {
       let newCost = 0;
       if (bulkMode === 'fixed') {
         newCost = val;
       } else {
-        // Percentage of selling price (e.g. 70 means 70% of price)
         const price = Number(item.price) || 0;
         newCost = price * (val / 100);
       }
@@ -467,10 +467,11 @@ export default function ManagerInventoryScreen() {
   };
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       {/* Header with LinearGradient */}
       <LinearGradient
-        colors={['#0f172a', '#1e3a8a', '#2563eb']}
+        colors={['#4f46e5', '#7c3aed', '#9333ea']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -479,7 +480,7 @@ export default function ManagerInventoryScreen() {
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Manager Inventory</Text>
+          <Text style={styles.headerTitle}>Inventory Hub</Text>
           
           <View style={{ flexDirection: 'row' }}>
             <TouchableOpacity style={[styles.headerIconBtn, { marginRight: 10 }]} onPress={handleExportPDF}>
@@ -523,10 +524,10 @@ export default function ManagerInventoryScreen() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#64748b" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#7c3aed" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name or barcode"
+            placeholder="Search by name or barcode..."
             placeholderTextColor="#94a3b8"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -539,7 +540,7 @@ export default function ManagerInventoryScreen() {
               setIsScanning(true);
             }
           }}>
-            <MaterialCommunityIcons name="barcode-scan" size={22} color="#64748b" />
+            <MaterialCommunityIcons name="barcode-scan" size={22} color="#7c3aed" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -566,7 +567,7 @@ export default function ManagerInventoryScreen() {
             style={styles.filterChip} 
             onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
           >
-            <Text style={[styles.filterText, { color: '#2563eb' }]}>{currency}</Text>
+            <Text style={[styles.filterText, { color: '#7c3aed' }]}>{currency}</Text>
           </TouchableOpacity>
 
           <View style={styles.verticalDivider} />
@@ -630,11 +631,14 @@ export default function ManagerInventoryScreen() {
       </Modal>
 
       {loading ? (
-        <ActivityIndicator size="large" color={textColor} style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
+          ref={flatListRef}
           data={filteredInventory}
           keyExtractor={(item) => item._id || item.id || Math.random().toString()}
+          onScroll={(e) => setShowScrollTop(e.nativeEvent.contentOffset.y > 300)}
+          scrollEventThrottle={16}
           renderItem={({ item }) => {
             const qty = Number(item.quantity) || 0;
             const status = getStockStatus(qty);
@@ -646,7 +650,7 @@ export default function ManagerInventoryScreen() {
             const profit = price - cost;
 
             const hasWeight = /[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(item.name.trim());
-            const displayName = item.name.replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
+            const displayName = item.name.replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match: string, num: string, decimal: string, unit: string) => {
               return `${num}${unit.toUpperCase()}`;
             });
 
@@ -654,7 +658,7 @@ export default function ManagerInventoryScreen() {
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name="cube-outline" size={22} color="#2563eb" />
+                    <MaterialCommunityIcons name="cube-outline" size={22} color="#7c3aed" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{displayName}</Text>
@@ -663,8 +667,24 @@ export default function ManagerInventoryScreen() {
                     )}
                     <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
                   </View>
-                  <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+                  <View style={[styles.statusBadge, { backgroundColor: status.bg, borderColor: status.border }]}>
                     <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
+                  </View>
+                </View>
+
+                {/* Business Intelligence Visual Margin Meter */}
+                <View style={styles.marginMeterContainer}>
+                  <View style={styles.marginMeterLabelRow}>
+                    <Text style={styles.marginMeterLabel}>Profit Margin</Text>
+                    <Text style={[styles.marginMeterValue, { color: margin > 30 ? '#10b981' : margin >= 15 ? '#f59e0b' : '#ef4444' }]}>
+                      {margin.toFixed(0)}%
+                    </Text>
+                  </View>
+                  <View style={styles.marginMeterTrack}>
+                    <View style={[styles.marginMeterBar, { 
+                      width: `${Math.min(Math.max(margin, 0), 100)}%`, 
+                      backgroundColor: margin > 30 ? '#10b981' : margin >= 15 ? '#f59e0b' : '#ef4444' 
+                    }]} />
                   </View>
                 </View>
 
@@ -682,7 +702,7 @@ export default function ManagerInventoryScreen() {
                   <View>
                     <Text style={styles.priceLabel}>Profit</Text>
                     <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
-                      {symbol}{profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: '500'}}>({margin.toFixed(0)}%)</Text>
+                      {symbol}{profit.toFixed(2)}
                     </Text>
                   </View>
                   
@@ -699,11 +719,20 @@ export default function ManagerInventoryScreen() {
             );
           }}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />}
           ListEmptyComponent={
             <ThemedText style={styles.emptyText}>No inventory items found.</ThemedText>
           }
         />
+      )}
+
+      {showScrollTop && (
+        <TouchableOpacity 
+          style={styles.scrollTopButton} 
+          onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
+        >
+          <Ionicons name="arrow-up" size={22} color="white" />
+        </TouchableOpacity>
       )}
 
       {/* Bulk Update Modal */}
@@ -744,7 +773,7 @@ export default function ManagerInventoryScreen() {
               
               <TouchableOpacity style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }} onPress={handleBulkUpdate}>
                 <LinearGradient
-                  colors={['#2563eb', '#1d4ed8']}
+                  colors={['#4f46e5', '#7c3aed']}
                   style={{ padding: 14, alignItems: 'center', justifyContent: 'center' }}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -906,9 +935,9 @@ export default function ManagerInventoryScreen() {
                             style={[styles.shopOption, targetShopId === shop._id && styles.shopOptionActive]}
                             onPress={() => setTargetShopId(shop._id)}
                         >
-                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#2563eb' : '#64748b'} />
+                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#7c3aed' : '#64748b'} />
                             <Text style={[styles.shopOptionText, targetShopId === shop._id && styles.shopOptionTextActive]}>{shop.name}</Text>
-                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#2563eb" style={{marginLeft: 'auto'}} />}
+                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#7c3aed" style={{marginLeft: 'auto'}} />}
                         </TouchableOpacity>
                     ))
                 )}
@@ -921,7 +950,7 @@ export default function ManagerInventoryScreen() {
               
               <TouchableOpacity style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }} onPress={submitTransfer}>
                 <LinearGradient
-                  colors={['#2563eb', '#1d4ed8']}
+                  colors={['#4f46e5', '#7c3aed']}
                   style={{ padding: 14, alignItems: 'center', justifyContent: 'center' }}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -933,14 +962,14 @@ export default function ManagerInventoryScreen() {
           </View>
         </View>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4ff' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
   header: {
-    paddingTop: 60,
+    paddingTop: 50,
     paddingBottom: 24,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 28,
@@ -951,7 +980,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -960,7 +989,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.12)',
+    backgroundColor: 'rgba(255,255,255,0.15)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -973,11 +1002,11 @@ const styles = StyleSheet.create({
     padding: 16, 
     marginBottom: 20,
     borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.15)',
+    borderColor: 'rgba(255,255,255,0.18)',
   },
   statItem: { alignItems: 'center', flex: 1 },
   statValue: { color: 'white', fontSize: 18, fontWeight: '800' },
-  statLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statLabel: { color: 'rgba(255,255,255,0.65)', fontSize: 11, marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
 
   searchContainer: {
@@ -987,13 +1016,13 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     height: 52,
-    shadowColor: '#000',
+    shadowColor: '#7c3aed',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
     elevation: 4,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderWidth: 1.5,
+    borderColor: '#e9e3ff',
   },
   searchIcon: { marginRight: 10 },
   searchInput: { flex: 1, fontSize: 16, color: '#0f172a', height: '100%', fontWeight: '600' },
@@ -1004,7 +1033,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 18, 
     borderRadius: 22, 
     backgroundColor: 'white', 
-    borderWidth: 1, 
+    borderWidth: 1.5, 
     borderColor: '#cbd5e1',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1012,7 +1041,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  activeFilterChip: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  activeFilterChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
   filterText: { color: '#64748b', fontWeight: '700', fontSize: 13 },
   activeFilterText: { color: 'white' },
   verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
@@ -1022,7 +1051,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white', 
     borderRadius: 20, 
     padding: 16, 
-    shadowColor: '#000', 
+    shadowColor: '#7c3aed', 
     shadowOffset: { width: 0, height: 4 }, 
     shadowOpacity: 0.05, 
     shadowRadius: 10, 
@@ -1031,12 +1060,48 @@ const styles = StyleSheet.create({
     borderColor: '#cbd5e1',
   },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
+  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#f3e8ff', justifyContent: 'center', alignItems: 'center' },
   itemName: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
   itemBarcode: { fontSize: 12, color: '#94a3b8', fontWeight: '600', marginTop: 2 },
-  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
   statusText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   
+  marginMeterContainer: {
+    marginTop: 15,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0'
+  },
+  marginMeterLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  marginMeterLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  marginMeterValue: {
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  marginMeterTrack: {
+    height: 6,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 3,
+    overflow: 'hidden'
+  },
+  marginMeterBar: {
+    height: '100%',
+    borderRadius: 3
+  },
+
   cardDivider: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 12 },
   
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
@@ -1063,12 +1128,11 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, elevation: 1 },
   tabText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
-  activeTabText: { color: '#2563eb' },
+  activeTabText: { color: '#7c3aed' },
   modalInput: { borderWidth: 1.5, borderColor: '#cbd5e1', borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 20, textAlign: 'center', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: '700' },
   modalActions: { flexDirection: 'row', gap: 12 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
-  confirmBtn: { backgroundColor: '#2563eb' },
   btnText: { fontWeight: '800', color: '#475569', fontSize: 15 },
 
   modalHeader: {
@@ -1119,12 +1183,25 @@ const styles = StyleSheet.create({
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   historyUser: { fontWeight: '800', color: '#0f172a', fontSize: 14 },
   historyDate: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
-  historyAction: { fontSize: 12, color: '#2563eb', fontWeight: '800', marginBottom: 2 },
+  historyAction: { fontSize: 12, color: '#7c3aed', fontWeight: '800', marginBottom: 2 },
   historyDetails: { fontSize: 13, color: '#475569', fontWeight: '500' },
-  restoreBtn: { backgroundColor: '#eff6ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe' },
-  restoreText: { fontSize: 11, color: '#2563eb', fontWeight: '800' },
+  restoreBtn: { backgroundColor: '#f3e8ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#d8b4fe' },
+  restoreText: { fontSize: 11, color: '#7c3aed', fontWeight: '800' },
   shopOption: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', marginBottom: 8, backgroundColor: '#f8fafc' },
-  shopOptionActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
+  shopOptionActive: { borderColor: '#7c3aed', backgroundColor: '#f5f3ff' },
   shopOptionText: { marginLeft: 10, fontSize: 14, color: '#64748b', fontWeight: '600' },
-  shopOptionTextActive: { color: '#2563eb', fontWeight: '800' },
+  shopOptionTextActive: { color: '#7c3aed', fontWeight: '800' },
+  scrollTopButton: {
+    position: 'absolute',
+    bottom: 40,
+    right: 20,
+    backgroundColor: '#7c3aed',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
+  },
 });

@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -12,10 +13,11 @@ import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
 import { useRates } from '../../hooks/use-rates';
+import { Colors } from '../../constants/theme';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
-  const textColor = useThemeColor({}, 'text');
+  const textColor = Colors.dark.text;
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState({
     revenue: 0,
@@ -303,14 +305,14 @@ export default function ProfitReportScreen() {
   const renderHeader = () => (
     <View>
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={styles.header}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profit Report</Text>
           <TouchableOpacity onPress={handleExportPDF} style={styles.backButton}>
-            <Ionicons name="share-outline" size={24} color="white" />
+            <Ionicons name="share-outline" size={24} color="#f1f5f9" />
           </TouchableOpacity>
         </View>
         
@@ -323,9 +325,9 @@ export default function ProfitReportScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
-            <Ionicons name="calendar" size={20} color="#1e40af" />
+            <Ionicons name="calendar" size={18} color="#06b6d4" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
-            <Ionicons name="chevron-down" size={16} color="#1e40af" />
+            <Ionicons name="chevron-down" size={14} color="#06b6d4" />
           </TouchableOpacity>
 
           <View style={styles.viewToggle}>
@@ -340,7 +342,7 @@ export default function ProfitReportScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {showPicker && (
         <DateTimePicker value={date} mode="date" display="default" onChange={onChange} />
@@ -348,18 +350,18 @@ export default function ProfitReportScreen() {
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        <View style={[styles.card, { backgroundColor: '#e0f2fe' }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(56, 189, 248, 0.08)', borderColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1 }]}>
           <Text style={styles.cardLabel}>Revenue</Text>
-          <Text style={[styles.cardValue, { color: '#0284c7' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#38bdf8' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
         </View>
-        <View style={[styles.card, { backgroundColor: '#fee2e2' }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(244, 63, 94, 0.08)', borderColor: 'rgba(244, 63, 94, 0.15)', borderWidth: 1 }]}>
           <Text style={styles.cardLabel}>COGS</Text>
-          <Text style={[styles.cardValue, { color: '#dc2626' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#f43f5e' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
         </View>
-        <View style={[styles.card, { backgroundColor: '#dcfce7', width: '100%' }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.18)', borderWidth: 1, width: '100%' }]}>
           <Text style={styles.cardLabel}>Net Profit</Text>
-          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
-          <Text style={{ color: '#16a34a', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
+          <Text style={[styles.cardValue, { color: '#10b981', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
+          <Text style={{ color: '#34d399', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
         </View>
       </View>
 
@@ -368,19 +370,19 @@ export default function ProfitReportScreen() {
         <Text style={styles.sectionTitle}>Profit Trend</Text>
         <LineChart
           data={chartData}
-          width={Dimensions.get("window").width - 60}
+          width={Dimensions.get("window").width - 40}
           height={180}
           yAxisLabel={symbol === '$' ? '$' : ''}
           yAxisSuffix=""
           chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
+            backgroundColor: "#111827",
+            backgroundGradientFrom: "#111827",
+            backgroundGradientTo: "#111827",
             decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(22, 163, 74, ${opacity})`, // Green for profit
-            labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+            color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`, // Green for profit
+            labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
             style: { borderRadius: 16 },
-            propsForDots: { r: "4", strokeWidth: "2", stroke: "#16a34a" }
+            propsForDots: { r: "4", strokeWidth: "2", stroke: "#10b981" }
           }}
           bezier
           style={{ marginVertical: 8, borderRadius: 16 }}
@@ -397,17 +399,17 @@ export default function ProfitReportScreen() {
         data={salesList}
         keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#06b6d4" colors={["#06b6d4"]} />}
         renderItem={({ item }) => (
           <View style={styles.transactionCard}>
             <View style={styles.transLeft}>
-              <View style={[styles.iconBox, { backgroundColor: item.profit >= 0 ? '#dcfce7' : '#fee2e2' }]}>
-                <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#16a34a" : "#dc2626"} />
+              <View style={[styles.iconBox, { backgroundColor: item.profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)' }]}>
+                <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#10b981" : "#f43f5e"} />
               </View>
               <View>
                 <Text style={styles.transAmount}>{symbol} {convert(item.total || 0).toFixed(2)}</Text>
-                <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#16a34a' : '#dc2626' }]}>
+                <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#34d399' : '#f43f5e' }]}>
                   Profit: {symbol} {convert(item.profit).toFixed(2)}
                 </Text>
               </View>
@@ -423,9 +425,8 @@ export default function ProfitReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
   header: {
-    backgroundColor: '#1e40af',
     paddingTop: 50,
     paddingBottom: 60,
     paddingHorizontal: 20,
@@ -434,32 +435,32 @@ const styles = StyleSheet.create({
     marginBottom: -40,
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
   
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
-  currencySelector: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
-  dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 13 },
+  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
+  currencySelector: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
+  dateText: { color: Colors.dark.text, fontWeight: 'bold', fontSize: 13 },
 
-  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },
+  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16 },
-  toggleBtnActive: { backgroundColor: 'white' },
-  toggleText: { color: '#bfdbfe', fontWeight: '600', fontSize: 11 },
-  toggleTextActive: { color: '#1e40af', fontWeight: 'bold' },
+  toggleBtnActive: { backgroundColor: '#06b6d4' },
+  toggleText: { color: Colors.dark.textSecondary, fontWeight: '600', fontSize: 11 },
+  toggleTextActive: { color: '#0a0f1e', fontWeight: 'bold' },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 20, marginBottom: 20 },
-  card: { width: '48%', padding: 15, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 3 },
-  cardLabel: { fontSize: 12, fontWeight: '600', opacity: 0.7, marginBottom: 5 },
+  card: { width: '48%', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, padding: 15, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  cardLabel: { fontSize: 12, fontWeight: '600', color: Colors.dark.textSecondary, marginBottom: 5 },
   cardValue: { fontSize: 20, fontWeight: 'bold' },
   
-  chartCard: { backgroundColor: 'white', marginHorizontal: 20, borderRadius: 16, padding: 15, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 10 },
+  chartCard: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, marginHorizontal: 20, borderRadius: 16, padding: 10, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 10 },
 
-  transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
+  transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 12 },
   transLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  transAmount: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  transAmount: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text },
   transProfit: { fontSize: 12, fontWeight: '600' },
-  transTime: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+  transTime: { fontSize: 12, color: Colors.dark.textMuted, fontWeight: '500' },
 });

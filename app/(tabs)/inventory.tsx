@@ -2,11 +2,12 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as LocalAuthentication from 'expo-local-authentication';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useFocusEffect, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View, StatusBar } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedView } from '@/components/themed-view';
@@ -15,7 +16,6 @@ import { API_BASE_URL } from '../config';
 import { useActiveShop } from '../../hooks/use-active-shop';
 import { useProducts } from '../../hooks/use-products';
 import { useRates } from '../../hooks/use-rates';
-
 
 interface InventoryItem {
   _id: string;
@@ -96,11 +96,11 @@ export default function CashierInventoryScreen() {
     if (!password) return;
     setVerifying(true);
     try {
-      const userId = await AsyncStorage.getItem('userId');
+      const cashierId = await AsyncStorage.getItem('userId');
       const response = await fetch(`${API_BASE_URL}/auth/verify-manager`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cashierId: userId, password }),
+        body: JSON.stringify({ cashierId, password }),
       });
       
       const data = await response.json();
@@ -240,11 +240,9 @@ export default function CashierInventoryScreen() {
         const costB = Number(b.costPrice) || 0;
         valB = priceB - costB;
       } else if (sortBy === 'price' || sortBy === 'quantity') {
-        // Explicitly cast to keyof InventoryItem for safe access, though we know these specific keys exist
         valA = Number(a[sortBy as keyof InventoryItem]) || 0;
         valB = Number(b[sortBy as keyof InventoryItem]) || 0;
       } else {
-        // Default string sort (name)
         valA = (a.name || '').toString().toLowerCase();
         valB = (b.name || '').toString().toLowerCase();
       }
@@ -265,9 +263,9 @@ export default function CashierInventoryScreen() {
   }, [inventory, currency, rates]);
 
   const getStockStatus = (qty: number) => {
-    if (qty === 0) return { label: 'Out of Stock', color: '#ef4444', bg: '#fee2e2' };
-    if (qty < 5) return { label: 'Low Stock', color: '#f59e0b', bg: '#fef3c7' };
-    return { label: 'In Stock', color: '#10b981', bg: '#d1fae5' };
+    if (qty === 0) return { label: 'Out of Stock', color: '#f43f5e', bg: 'rgba(244, 63, 94, 0.12)', border: 'rgba(244, 63, 94, 0.2)' };
+    if (qty < 5) return { label: 'Low Stock', color: '#fbbf24', bg: 'rgba(251, 191, 36, 0.12)', border: 'rgba(251, 191, 36, 0.2)' };
+    return { label: 'In Stock', color: '#10b981', bg: 'rgba(16, 185, 129, 0.12)', border: 'rgba(16, 185, 129, 0.2)' };
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
@@ -287,13 +285,11 @@ export default function CashierInventoryScreen() {
       return;
     }
 
-    // Prepare updates based on filtered inventory
     const updates = filteredInventory.map(item => {
       let newCost = 0;
       if (bulkMode === 'fixed') {
         newCost = val;
       } else {
-        // Percentage of selling price (e.g. 70 means 70% of price)
         const price = Number(item.price) || 0;
         newCost = price * (val / 100);
       }
@@ -382,7 +378,6 @@ export default function CashierInventoryScreen() {
     const price = convert(Number(item.price) || 0);
     const cost = Number(item.costPrice) || 0;
     const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
-    const profit = price - cost;
     const hasWeight = /[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(item.name.trim());
     const displayName = item.name.replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
       return `${num}${unit.toUpperCase()}`;
@@ -392,16 +387,16 @@ export default function CashierInventoryScreen() {
       <View style={styles.card}>
         <View style={styles.cardHeader}>
           <View style={styles.iconBox}>
-            <MaterialCommunityIcons name="cube-outline" size={24} color="#1e40af" />
+            <MaterialCommunityIcons name="cube-outline" size={22} color="#06b6d4" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.itemName}>{displayName}</Text>
             {!hasWeight && (
-              <Text style={{ fontSize: 10, color: '#f59e0b', marginBottom: 2 }}>⚠️ Missing Weight/Volume (e.g. 1kg, 1L)</Text>
+              <Text style={{ fontSize: 10, color: '#fbbf24', marginBottom: 2, fontWeight: '600' }}>⚠️ Missing Weight/Volume (e.g. 1kg, 1L)</Text>
             )}
             <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: status.bg }]}>
+          <View style={[styles.statusBadge, { backgroundColor: status.bg, borderColor: status.border }]}>
             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
@@ -419,7 +414,7 @@ export default function CashierInventoryScreen() {
             <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
           </View>
           <View>
-            <Text style={styles.priceLabel}>Profit</Text>
+            <Text style={styles.priceLabel}>Margin</Text>
             <Text style={[styles.priceValue, { color: '#10b981' }]}>
               {margin.toFixed(0)}%
             </Text>
@@ -427,10 +422,10 @@ export default function CashierInventoryScreen() {
           
           <View style={styles.actions}>
             <TouchableOpacity style={styles.actionBtn} onPress={() => handleEdit(item)}>
-              <MaterialCommunityIcons name="pencil" size={20} color="#64748b" />
+              <MaterialCommunityIcons name="pencil" size={18} color="#94a3b8" />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, { backgroundColor: '#fee2e2' }]} onPress={() => handleDelete(item._id, item.name)}>
-              <MaterialCommunityIcons name="delete" size={20} color="#ef4444" />
+            <TouchableOpacity style={[styles.actionBtn, styles.deleteBtn]} onPress={() => handleDelete(item._id, item.name)}>
+              <MaterialCommunityIcons name="delete" size={18} color="#f43f5e" />
             </TouchableOpacity>
           </View>
         </View>
@@ -439,23 +434,26 @@ export default function CashierInventoryScreen() {
   }, [currency, rates]);
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+      <LinearGradient colors={['#0a0f1e', '#0f172a']} style={StyleSheet.absoluteFillObject} />
+
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 12 }]}>
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-          <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Inventory</Text>
+          <Text style={styles.headerTitle}>Inventory</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
-            <TouchableOpacity onPress={handleExportPDF} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="share-outline" size={24} color="white" />
+            <TouchableOpacity onPress={handleExportPDF} style={styles.iconButton}>
+              <Ionicons name="share-outline" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/profit-report')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="trending-up" size={24} color="white" />
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profit-report')} style={styles.iconButton}>
+              <Ionicons name="trending-up" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/stock-take')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="clipboard-outline" size={24} color="white" />
+            <TouchableOpacity onPress={() => router.push('/stock-take')} style={styles.iconButton}>
+              <Ionicons name="clipboard-outline" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/(tabs)/recent-actions')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
-              <Ionicons name="time-outline" size={24} color="white" />
+            <TouchableOpacity onPress={() => router.push('/(tabs)/recent-actions')} style={styles.iconButton}>
+              <Ionicons name="time-outline" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -472,18 +470,18 @@ export default function CashierInventoryScreen() {
           </View>
           <View style={styles.statDivider} />
           <View style={styles.statItem}>
-            <Text style={[styles.statValue, { color: stats.lowStock > 0 ? '#fca5a5' : 'white' }]}>{stats.lowStock}</Text>
+            <Text style={[styles.statValue, { color: stats.lowStock > 0 ? '#f43f5e' : 'white' }]}>{stats.lowStock}</Text>
             <Text style={styles.statLabel}>Low Stock</Text>
           </View>
         </View>
 
         {/* Search */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#64748b" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#94a3b8" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search products..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#64748b"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
@@ -495,7 +493,7 @@ export default function CashierInventoryScreen() {
               setIsScanning(true);
             }
           }} style={{ marginRight: 8 }}>
-            <MaterialCommunityIcons name="barcode-scan" size={24} color="#64748b" />
+            <MaterialCommunityIcons name="barcode-scan" size={22} color="#94a3b8" />
           </TouchableOpacity>
           {searchQuery.length > 0 && (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
@@ -512,7 +510,7 @@ export default function CashierInventoryScreen() {
             style={styles.filterChip} 
             onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
           >
-            <Text style={[styles.filterText, { color: '#1e40af' }]}>{currency}</Text>
+            <Text style={[styles.filterText, { color: '#06b6d4' }]}>{currency}</Text>
           </TouchableOpacity>
 
           <View style={styles.verticalDivider} />
@@ -549,19 +547,19 @@ export default function CashierInventoryScreen() {
             style={styles.filterChip} 
             onPress={() => setSortOrder(prev => prev === 'asc' ? 'desc' : 'asc')}
           >
-            <Ionicons name={sortOrder === 'asc' ? "arrow-up" : "arrow-down"} size={16} color="#64748b" />
+            <Ionicons name={sortOrder === 'asc' ? "arrow-up" : "arrow-down"} size={16} color="#94a3b8" />
           </TouchableOpacity>
         </ScrollView>
       </View>
 
       {loading || productsLoading ? (
-        <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color="#06b6d4" style={{ marginTop: 50 }} />
       ) : (
         <FlatList
           ref={flatListRef}
           data={filteredInventory}
           keyExtractor={(item) => item._id}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={textColor} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#f1f5f9" />}
           contentContainerStyle={styles.listContent}
           renderItem={renderInventoryItem}
           ListEmptyComponent={<Text style={styles.empty}>No products found.</Text>}
@@ -575,7 +573,7 @@ export default function CashierInventoryScreen() {
           style={styles.scrollTopButton} 
           onPress={() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true })}
         >
-          <Ionicons name="arrow-up" size={24} color="white" />
+          <Ionicons name="arrow-up" size={22} color="white" />
         </TouchableOpacity>
       )}
 
@@ -600,13 +598,14 @@ export default function CashierInventoryScreen() {
               style={styles.passwordInput} 
               secureTextEntry 
               placeholder="Enter Password"
+              placeholderTextColor="#64748b"
               value={password}
               onChangeText={setPassword}
               autoFocus
               keyboardType="default"
             />
             <TouchableOpacity style={{ alignSelf: 'center', marginBottom: 15 }} onPress={() => requestPassword(pendingAction.current!)}>
-               <Ionicons name="finger-print" size={32} color="#1e40af" />
+               <Ionicons name="finger-print" size={36} color="#06b6d4" />
             </TouchableOpacity>
             <View style={styles.modalButtons}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setPasswordVisible(false)}><Text style={styles.btnText}>Cancel</Text></TouchableOpacity>
@@ -643,6 +642,7 @@ export default function CashierInventoryScreen() {
             <TextInput
               style={styles.modalInput}
               placeholder={bulkMode === 'percent' ? "e.g. 70 (for 70% of price)" : "e.g. 50.00"}
+              placeholderTextColor="#64748b"
               keyboardType="numeric"
               value={bulkValue}
               onChangeText={setBulkValue}
@@ -659,68 +659,116 @@ export default function CashierInventoryScreen() {
           </View>
         </View>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#0a0f1e' },
   header: {
-    backgroundColor: '#1e40af',
-    paddingBottom: 20,
+    paddingBottom: 16,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
   },
-  headerTitle: { fontSize: 24, fontWeight: 'bold', color: 'white', marginBottom: 20 },
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 15, marginBottom: 20 },
+  headerTitle: { fontSize: 24, fontWeight: '800', color: 'white' },
+  iconButton: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    padding: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  statsRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    borderRadius: 20, 
+    padding: 16, 
+    marginVertical: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
   statItem: { alignItems: 'center', flex: 1 },
-  statValue: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  statLabel: { color: '#bfdbfe', fontSize: 12, marginTop: 2 },
-  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
+  statValue: { color: 'white', fontSize: 18, fontWeight: '800' },
+  statLabel: { color: '#94a3b8', fontSize: 11, marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
+  statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.1)' },
   
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 50,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    height: 52,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.08)',
   },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+  searchInput: { flex: 1, fontSize: 16, color: '#ffffff', height: '100%', fontWeight: '600' },
 
-  filterContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 15, gap: 10 },
-  filterChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'white', borderWidth: 1, borderColor: '#e2e8f0' },
-  activeFilterChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
-  filterText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
+  filterContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 10, gap: 10 },
+  filterChip: { 
+    paddingVertical: 8, 
+    paddingHorizontal: 16, 
+    borderRadius: 20, 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  activeFilterChip: { backgroundColor: '#2563eb', borderColor: '#3b82f6' },
+  filterText: { color: '#94a3b8', fontWeight: '700', fontSize: 13 },
   activeFilterText: { color: 'white' },
-  verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
+  verticalDivider: { width: 1, height: '100%', backgroundColor: 'rgba(255,255,255,0.1)', marginHorizontal: 5 },
 
   listContent: { padding: 20, gap: 15, paddingBottom: 120 },
-  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  card: { 
+    backgroundColor: 'rgba(255,255,255,0.04)', 
+    borderRadius: 20, 
+    padding: 18, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 3
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
-  itemName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  itemBarcode: { fontSize: 12, color: '#94a3b8' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  statusText: { fontSize: 10, fontWeight: 'bold' },
+  iconBox: { 
+    width: 42, 
+    height: 42, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(6, 182, 212, 0.12)', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
+  itemName: { fontSize: 16, fontWeight: '800', color: '#f1f5f9' },
+  itemBarcode: { fontSize: 12, color: '#94a3b8', fontWeight: '500', marginTop: 2 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
+  statusText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   
-  cardDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
+  cardDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 14 },
   
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  priceLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 2 },
-  priceValue: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  priceLabel: { fontSize: 11, color: '#64748b', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  priceValue: { fontSize: 16, fontWeight: '800', color: '#f1f5f9' },
   
   actions: { flexDirection: 'row', gap: 10 },
-  actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  actionBtn: { 
+    width: 38, 
+    height: 38, 
+    borderRadius: 12, 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    justifyContent: 'center', 
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)'
+  },
+  deleteBtn: {
+    backgroundColor: 'rgba(244, 63, 94, 0.08)',
+    borderColor: 'rgba(244, 63, 94, 0.15)'
+  },
   
-  empty: { textAlign: 'center', marginTop: 50, color: '#94a3b8' },
+  empty: { textAlign: 'center', marginTop: 50, color: '#64748b', fontWeight: '600' },
 
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
@@ -728,37 +776,75 @@ const styles = StyleSheet.create({
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  passwordContainer: { backgroundColor: 'white', padding: 20, borderRadius: 12, width: '80%', maxWidth: 300 },
-  passwordTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 15, textAlign: 'center', color: '#1e293b' },
-  passwordInput: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8, padding: 10, marginBottom: 20, fontSize: 16, textAlign: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 8, 16, 0.85)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  passwordContainer: { 
+    backgroundColor: '#0f172a', 
+    padding: 24, 
+    borderRadius: 24, 
+    width: '85%', 
+    maxWidth: 320, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  passwordTitle: { fontSize: 18, fontWeight: '800', marginBottom: 15, textAlign: 'center', color: '#ffffff' },
+  passwordInput: { 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    color: 'white',
+    borderRadius: 12, 
+    padding: 12, 
+    marginBottom: 20, 
+    fontSize: 16, 
+    textAlign: 'center',
+    fontWeight: '700'
+  },
   modalButtons: { flexDirection: 'row', gap: 10 },
-  cancelBtn: { flex: 1, padding: 12, backgroundColor: '#f1f5f9', borderRadius: 8, alignItems: 'center' },
-  confirmBtn: { flex: 1, padding: 12, backgroundColor: '#1e40af', borderRadius: 8, alignItems: 'center' },
-  btnText: { fontWeight: 'bold' },
+  cancelBtn: { flex: 1, padding: 14, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  confirmBtn: { flex: 1, padding: 14, backgroundColor: '#2563eb', borderRadius: 12, alignItems: 'center' },
+  btnText: { fontWeight: '800', color: '#94a3b8' },
 
-  modalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 350 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, textAlign: 'center' },
-  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, textAlign: 'center' },
-  tabRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 4, marginBottom: 20 },
-  tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  activeTabText: { color: '#1e40af' },
-  modalInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  modalContainer: { 
+    backgroundColor: '#0f172a', 
+    borderRadius: 24, 
+    padding: 24, 
+    width: '90%', 
+    maxWidth: 340, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)' 
+  },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#ffffff', marginBottom: 5, textAlign: 'center' },
+  modalSubtitle: { fontSize: 14, color: '#94a3b8', marginBottom: 20, textAlign: 'center', fontWeight: '500' },
+  tabRow: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 4, marginBottom: 20 },
+  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  activeTabBtn: { backgroundColor: 'rgba(255,255,255,0.08)', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  tabText: { fontSize: 13, fontWeight: '700', color: '#94a3b8' },
+  activeTabText: { color: '#06b6d4' },
+  modalInput: { 
+    borderWidth: 1.5, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    color: 'white',
+    borderRadius: 12, 
+    padding: 12, 
+    fontSize: 16, 
+    marginBottom: 20, 
+    textAlign: 'center',
+    fontWeight: '700'
+  },
   modalActions: { flexDirection: 'row', gap: 10 },
-  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
   scrollTopButton: {
     position: 'absolute',
     bottom: 110,
     right: 20,
-    backgroundColor: '#1e40af',
-    width: 50,
-    height: 50,
-    borderRadius: 25,
+    backgroundColor: '#2563eb',
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 3.84,
+    shadowColor: '#2563eb', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
   },
 });

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,6 +16,7 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
 // Define User Interface
@@ -34,6 +36,7 @@ const API_CASH_PAYERS = `${API_BASE_URL}/users/cash-payers`;
 
 export default function ManageStaff() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const [staff, setStaff] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -359,14 +362,6 @@ export default function ManageStaff() {
     );
   };
 
-  const getRoleColor = (role: string) => {
-    switch(role) {
-      case 'admin': return '#7c3aed'; // Purple
-      case 'manager': return '#2563eb'; // Blue
-      case 'cashier': return '#059669'; // Green
-      default: return '#64748b'; // Grey
-    }
-  };
 
   const getDisplayedStaff = () => {
     let result = staff;
@@ -378,12 +373,20 @@ export default function ManageStaff() {
         return u.subscriptionExpiry ? new Date(u.subscriptionExpiry) < new Date() : false;
       });
     }
-
-    if (searchQuery) {
+      if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
     }
     return result;
+  };
+
+  const getRoleColor = (role: string) => {
+    switch(role) {
+      case 'admin': return '#7c3aed'; // Purple
+      case 'manager': return '#4f46e5'; // Indigo/Blue
+      case 'cashier': return '#10b981'; // Green
+      default: return '#8b5cf6'; // Grey/Lavender
+    }
   };
 
   const renderUserItem = ({ item }: { item: User }) => {
@@ -397,8 +400,8 @@ export default function ManageStaff() {
       <View style={styles.cardContent}>
         
         {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: item.status === 'blocked' ? '#fee2e2' : '#eff6ff' }]}>
-          <Text style={[styles.avatarText, { color: item.status === 'blocked' ? '#dc2626' : '#1e40af' }]}>
+        <View style={[styles.avatar, { backgroundColor: item.status === 'blocked' ? '#fee2e2' : '#f5f3ff' }]}>
+          <Text style={[styles.avatarText, { color: item.status === 'blocked' ? '#dc2626' : '#7c3aed' }]}>
             {item.name.charAt(0).toUpperCase()}
           </Text>
         </View>
@@ -425,7 +428,7 @@ export default function ManageStaff() {
              <Text style={styles.emailText}> • {item.email}</Text>
              {item.role === 'manager' && (
                 <Text style={[styles.expiryText, { color: isExpired ? '#ef4444' : '#10b981' }]}>
-                  {isExpired ? ' • Expired' : ' • Active'}
+                   {isExpired ? ' • Expired' : ' • Active'}
                 </Text>
              )}
           </View>
@@ -436,13 +439,13 @@ export default function ManageStaff() {
       {/* Action Buttons Row */}
       <View style={styles.actionRow}>
         <TouchableOpacity onPress={() => Linking.openURL(`mailto:${item.email}`)} style={styles.actionButton}>
-          <Ionicons name="mail-outline" size={20} color="#64748b" />
-          <Text style={styles.actionText}>Email</Text>
+          <Ionicons name="mail-outline" size={18} color="#7c3aed" />
+          <Text style={[styles.actionText, { color: '#7c3aed' }]}>Email</Text>
         </TouchableOpacity>
 
         {item.role === 'manager' && (
           <TouchableOpacity onPress={() => openActivationModal(item)} style={styles.actionButton}>
-            <Ionicons name="card-outline" size={20} color="#10b981" />
+            <Ionicons name="card-outline" size={18} color="#10b981" />
             <Text style={[styles.actionText, { color: '#10b981' }]}>Activate</Text>
           </TouchableOpacity>
         )}
@@ -450,16 +453,16 @@ export default function ManageStaff() {
         <TouchableOpacity onPress={() => handleToggleBlock(item)} style={styles.actionButton}>
           <Ionicons 
             name={item.status === 'blocked' ? "lock-open-outline" : "ban-outline"} 
-            size={20} 
-            color={item.status === 'blocked' ? "#059669" : "#f59e0b"} 
+            size={18} 
+            color={item.status === 'blocked' ? "#10b981" : "#f59e0b"} 
           />
-          <Text style={[styles.actionText, { color: item.status === 'blocked' ? "#059669" : "#f59e0b" }]}>
+          <Text style={[styles.actionText, { color: item.status === 'blocked' ? "#10b981" : "#f59e0b" }]}>
             {item.status === 'blocked' ? "Unblock" : "Block"}
           </Text>
         </TouchableOpacity>
 
         <TouchableOpacity onPress={() => handleDelete(item._id, item.name)} style={styles.actionButton}>
-          <Ionicons name="trash-outline" size={20} color="#ef4444" />
+          <Ionicons name="trash-outline" size={18} color="#ef4444" />
           <Text style={[styles.actionText, { color: "#ef4444" }]}>Delete</Text>
         </TouchableOpacity>
       </View>
@@ -474,51 +477,69 @@ export default function ManageStaff() {
     // Fix: Default to false (Active) if expiry is missing
     (u.subscriptionExpiry ? new Date(u.subscriptionExpiry) < new Date() : false)
   );
-
-  return (
+    return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" />
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={['#4f46e5', '#7c3aed', '#9333ea']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.header, { paddingTop: insets.top + 15 }]}
+      >
         <View style={styles.headerTop}>
-          <View>
-             <Text style={styles.title}>Team Members</Text>
-             <Text style={styles.subtitle}>{staff.length} Active Users</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color="white" />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+               <Text style={styles.title}>Team Members</Text>
+               <Text style={styles.subtitle}>{staff.length} Active Users</Text>
+            </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity 
-              style={[styles.addButton, { backgroundColor: '#fee2e2' }]}
+              style={[styles.addButton, { backgroundColor: 'rgba(239, 68, 68, 0.2)' }]}
               onPress={handleExpireManagers}
             >
-              <Ionicons name="bug" size={24} color="#ef4444" />
+              <Ionicons name="bug" size={20} color="#fca5a5" />
             </TouchableOpacity>
 
             <TouchableOpacity 
               style={styles.addButton}
               onPress={() => setHistoryModalVisible(true)}
             >
-              <Ionicons name="time" size={24} color="#1e3a8a" />
+              <Ionicons name="time" size={20} color="white" />
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.addButton}
               onPress={() => router.push('/(auth)/signup')} // Navigate to create user
             >
-              <Ionicons name="add" size={24} color="#1e3a8a" />
+              <Ionicons name="add" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </View>
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#94a3b8" style={{ marginRight: 8 }} />
+          <Ionicons name="search" size={20} color="#ddd6fe" style={{ marginRight: 8 }} />
           <TextInput 
             placeholder="Search by name or email..." 
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#ddd6fe"
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
+            autoCapitalize="none"
           />
+          {searchQuery.length > 0 && (
+            <Ionicons 
+              name="close-circle" 
+              size={20} 
+              color="#ddd6fe" 
+              onPress={() => setSearchQuery('')} 
+            />
+          )}
         </View>
 
         {/* Filter Tabs */}
@@ -542,12 +563,12 @@ export default function ManageStaff() {
             <Text style={[styles.filterText, filterMode === 'cash' && styles.filterTextActive]}>Cash Payers</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* List */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1e3a8a" />
+          <ActivityIndicator size="large" color="#7c3aed" />
         </View>
       ) : (
         <FlatList
@@ -556,7 +577,7 @@ export default function ManageStaff() {
           renderItem={renderUserItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#1e3a8a']} />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
           }
           ListEmptyComponent={
             <View style={styles.center}>
@@ -568,8 +589,15 @@ export default function ManageStaff() {
 
       {/* Floating Action Button for Manual Cash Payment */}
       <TouchableOpacity style={styles.fab} onPress={() => openActivationModal()}>
-        <Ionicons name="cash" size={24} color="white" />
-        <Text style={styles.fabText}>Record Cash</Text>
+        <LinearGradient
+          colors={['#4f46e5', '#7c3aed']}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.fabGradient}
+        >
+          <Ionicons name="cash" size={22} color="white" />
+          <Text style={styles.fabText}>Record Cash</Text>
+        </LinearGradient>
       </TouchableOpacity>
 
       {/* ACTIVATION MODAL */}
@@ -582,10 +610,10 @@ export default function ManageStaff() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <View style={{ padding: 8, backgroundColor: '#dcfce7', borderRadius: 20, marginRight: 10 }}>
-                    <Ionicons name="cash" size={24} color="#16a34a" />
+                <View style={{ padding: 8, backgroundColor: '#f5f3ff', borderRadius: 20, marginRight: 10 }}>
+                    <Ionicons name="cash" size={24} color="#7c3aed" />
                 </View>
-                <View>
+                <View style={{ flex: 1 }}>
                     <Text style={styles.modalTitle}>Record Payment</Text>
                     <Text style={{ fontSize: 12, color: '#64748b' }}>Activate user via cash payment</Text>
                 </View>
@@ -618,7 +646,7 @@ export default function ManageStaff() {
               </>
             ) : (
               <>
-                <Text style={styles.modalSubtitle}>Extend subscription for <Text style={{fontWeight: 'bold', color: '#1e293b'}}>{selectedUser.name}</Text></Text>
+                <Text style={styles.modalSubtitle}>Extend subscription for <Text style={{fontWeight: 'bold', color: '#1e1b4b'}}>{selectedUser.name}</Text></Text>
                 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Months to Add:</Text>
@@ -701,34 +729,34 @@ export default function ManageStaff() {
         animationType="slide"
         onRequestClose={() => setHistoryModalVisible(false)}
       >
-        <View style={styles.historyContainer}>
+        <View style={[styles.historyContainer, { paddingTop: insets.top }]}>
           <View style={styles.historyHeader}>
             <Text style={styles.historyTitle}>Payment History</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
               <TouchableOpacity onPress={() => historyView === 'active' ? fetchPaymentHistory() : fetchDeletedHistory()}>
-                  <Ionicons name="refresh-circle" size={30} color="#1e40af" />
+                  <Ionicons name="refresh-circle" size={30} color="#7c3aed" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
-                  <Ionicons name="close-circle" size={30} color="#64748b" />
+                  <Ionicons name="close-circle" size={30} color="#94a3b8" />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* TABS & FILTERS */}
-          <View style={{ paddingHorizontal: 20, paddingBottom: 10, backgroundColor: '#fff' }}>
+          <View style={{ paddingHorizontal: 20, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
             {/* View Toggle */}
-            <View style={{ flexDirection: 'row', marginBottom: 15, backgroundColor: '#f1f5f9', borderRadius: 8, padding: 4 }}>
+            <View style={styles.historyToggleContainer}>
               <TouchableOpacity 
-                style={[styles.filterTab, historyView === 'active' && styles.filterTabActive]} 
+                style={[styles.historyTab, historyView === 'active' && styles.historyTabActive]} 
                 onPress={() => setHistoryView('active')}
               >
-                <Text style={[styles.filterText, historyView === 'active' && styles.filterTextActive]}>Active Records</Text>
+                <Text style={[styles.historyTabText, historyView === 'active' && styles.historyTabTextActive]}>Active Records</Text>
               </TouchableOpacity>
               <TouchableOpacity 
-                style={[styles.filterTab, historyView === 'deleted' && styles.filterTabActive]} 
+                style={[styles.historyTab, historyView === 'deleted' && styles.historyTabActive]} 
                 onPress={() => setHistoryView('deleted')}
               >
-                <Text style={[styles.filterText, historyView === 'deleted' && styles.filterTextActive]}>Deleted Logs</Text>
+                <Text style={[styles.historyTabText, historyView === 'deleted' && styles.historyTabTextActive]}>Deleted Logs</Text>
               </TouchableOpacity>
             </View>
 
@@ -748,14 +776,14 @@ export default function ManageStaff() {
                 </View>
                 <View>
                   <Text style={{ fontSize: 10, color: '#64748b', textTransform: 'uppercase' }}>Total</Text>
-                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#16a34a' }}>R{totalHistoryAmount}</Text>
+                  <Text style={{ fontSize: 18, fontWeight: 'bold', color: '#10b981' }}>R{totalHistoryAmount}</Text>
                 </View>
               </View>
             )}
           </View>
 
           {loadingHistory ? (
-            <ActivityIndicator size="large" color="#1e3a8a" style={{ marginTop: 50 }} />
+            <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 50 }} />
           ) : (
             <FlatList
               data={historyView === 'active' ? paymentHistory : deletedHistory}
@@ -765,7 +793,7 @@ export default function ManageStaff() {
               renderItem={({ item }) => (
                 <View style={styles.historyItem}>
                   <View style={[styles.historyIcon, historyView === 'deleted' && { backgroundColor: '#fee2e2' }]}>
-                    <Ionicons name={historyView === 'active' ? "cash" : "trash"} size={20} color={historyView === 'active' ? "#16a34a" : "#ef4444"} />
+                    <Ionicons name={historyView === 'active' ? "cash" : "trash"} size={20} color={historyView === 'active' ? "#10b981" : "#ef4444"} />
                   </View>
                   
                   <View style={{ flex: 1 }}>
@@ -807,52 +835,50 @@ export default function ManageStaff() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f1f5f9' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   // Header
   header: {
-    backgroundColor: '#1e3a8a',
-    paddingHorizontal: 24,
-    paddingTop: 60,
-    paddingBottom: 24,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: "#000",
+    shadowColor: "#4f46e5",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 8,
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 4,
   },
   headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 28, fontWeight: '800', color: 'white' },
-  subtitle: { fontSize: 14, color: '#bfdbfe', marginTop: 4 },
+  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, marginRight: 12 },
+  title: { fontSize: 22, fontWeight: 'bold', color: 'white', letterSpacing: 0.5 },
+  subtitle: { fontSize: 13, color: 'rgba(255, 255, 255, 0.8)', marginTop: 2 },
   
   addButton: {
-    backgroundColor: 'white',
-    width: 44, height: 44,
-    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 40, height: 40,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
-    elevation: 5
   },
 
   // Search
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255,255,255,0.15)',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 50,
     marginBottom: 16,
   },
-  searchInput: { flex: 1, color: 'white', fontSize: 16 },
+  searchInput: { flex: 1, color: 'white', fontSize: 16, marginLeft: 10 },
 
   // Filters
   filterContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(255,255,255,0.1)',
+    backgroundColor: 'rgba(255, 255, 255, 0.12)',
     borderRadius: 12,
     padding: 4,
   },
@@ -863,8 +889,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   filterTabActive: { backgroundColor: 'white' },
-  filterText: { color: '#bfdbfe', fontWeight: '600' },
-  filterTextActive: { color: '#1e3a8a', fontWeight: 'bold' },
+  filterText: { color: '#ddd6fe', fontWeight: '600', fontSize: 13 },
+  filterTextActive: { color: '#7c3aed', fontWeight: '700' },
 
   // Card
   card: {
@@ -872,25 +898,25 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 16,
     padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
     elevation: 3,
   },
-  cardBlocked: { opacity: 0.8, backgroundColor: '#f8fafc' },
+  cardBlocked: { opacity: 0.8, backgroundColor: '#fafafa' },
   
   cardContent: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
   avatar: {
-    width: 50, height: 50, borderRadius: 16,
+    width: 48, height: 48, borderRadius: 14,
     justifyContent: 'center', alignItems: 'center',
     marginRight: 16,
   },
-  avatarText: { fontSize: 20, fontWeight: 'bold' },
+  avatarText: { fontSize: 18, fontWeight: 'bold' },
   
   infoContainer: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
+  name: { fontSize: 16, fontWeight: '700', color: '#1e1b4b' },
   blockedBadge: { backgroundColor: '#fee2e2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
   blockedText: { color: '#dc2626', fontSize: 10, fontWeight: 'bold' },
 
@@ -904,7 +930,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#f1f5f9',
+    borderTopColor: '#f5f3ff',
     paddingTop: 12,
   },
   actionButton: {
@@ -914,35 +940,35 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
   },
-  actionText: { fontSize: 12, fontWeight: '600', color: '#64748b' },
+  actionText: { fontSize: 12, fontWeight: '600' },
 
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 24, width: '100%', maxWidth: 340 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e293b', marginBottom: 8 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { backgroundColor: '#fff', borderRadius: 24, padding: 24, width: '100%', maxWidth: 350, shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 16, elevation: 5 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e1b4b', marginBottom: 4 },
   modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20 },
   inputGroup: { marginBottom: 24 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, backgroundColor: '#f8fafc' },
+  label: { fontSize: 14, fontWeight: '600', color: '#1e1b4b', marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: '#ddd6fe', borderRadius: 12, padding: 12, fontSize: 16, backgroundColor: '#f9f5ff', color: '#1e1b4b' },
   
   planSelector: { flexDirection: 'row', gap: 10 },
-  planOption: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#cbd5e1', alignItems: 'center', backgroundColor: '#fff' },
-  planOptionActive: { backgroundColor: '#eff6ff', borderColor: '#1e40af' },
-  planText: { color: '#64748b', fontWeight: '600' },
-  planTextActive: { color: '#1e40af', fontWeight: 'bold' },
+  planOption: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ddd6fe', alignItems: 'center', backgroundColor: '#fff' },
+  planOptionActive: { backgroundColor: '#f5f3ff', borderColor: '#7c3aed' },
+  planText: { color: '#64748b', fontWeight: '600', fontSize: 12 },
+  planTextActive: { color: '#7c3aed', fontWeight: 'bold' },
 
   modalActions: { flexDirection: 'row', gap: 12 },
-  modalBtn: { flex: 1, padding: 14, borderRadius: 8, alignItems: 'center' },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
   cancelBtnText: { color: '#64748b', fontWeight: 'bold' },
-  confirmBtn: { backgroundColor: '#1e40af' },
+  confirmBtn: { backgroundColor: '#7c3aed' },
   confirmBtnText: { color: '#fff', fontWeight: 'bold' },
 
   // User Selection List
   userSelectItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  userSelectAvatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  userSelectAvatarText: { color: '#1e40af', fontWeight: 'bold', fontSize: 16 },
-  userSelectName: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
+  userSelectAvatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f5f3ff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  userSelectAvatarText: { color: '#7c3aed', fontWeight: 'bold', fontSize: 16 },
+  userSelectName: { fontSize: 14, fontWeight: 'bold', color: '#1e1b4b' },
   userSelectEmail: { fontSize: 12, color: '#64748b' },
 
   // FAB
@@ -950,33 +976,41 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     right: 24,
-    backgroundColor: '#1e40af',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 30,
+    borderRadius: 24,
     elevation: 5,
-    shadowColor: '#000',
+    shadowColor: '#7c3aed',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
-    shadowRadius: 4,
+    shadowRadius: 6,
+    overflow: 'hidden',
   },
-  fabText: { color: 'white', fontWeight: 'bold', marginLeft: 8 },
+  fabGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 14,
+    paddingHorizontal: 22,
+    gap: 8,
+  },
+  fabText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 
   // History Modal
-  historyContainer: { flex: 1, backgroundColor: '#f8fafc' },
-  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', paddingTop: 50 },
-  historyTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b' },
-  historyItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 12, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 2, elevation: 1 },
-  historyIcon: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#dcfce7', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  historyName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  historyContainer: { flex: 1, backgroundColor: '#f5f3ff' },
+  historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  historyTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e1b4b' },
+  historyToggleContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f5f3ff', borderRadius: 12, padding: 4 },
+  historyTab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
+  historyTabActive: { backgroundColor: 'white' },
+  historyTabText: { color: '#7c3aed', fontWeight: '600' },
+  historyTabTextActive: { color: '#7c3aed', fontWeight: 'bold' },
+  historyItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 10, shadowColor: '#4f46e5', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  historyIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#ecfdf5', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  historyName: { fontSize: 15, fontWeight: 'bold', color: '#1e1b4b' },
   historyDate: { fontSize: 12, color: '#64748b' },
-  historyAmount: { fontSize: 16, fontWeight: 'bold', color: '#16a34a' },
+  historyAmount: { fontSize: 16, fontWeight: '800', color: '#10b981' },
   historyMethod: { fontSize: 12, color: '#94a3b8', textTransform: 'capitalize' },
   
   dateFilterBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#f1f5f9' },
-  dateFilterBtnActive: { backgroundColor: '#1e3a8a' },
+  dateFilterBtnActive: { backgroundColor: '#7c3aed' },
   dateFilterText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
   dateFilterTextActive: { color: 'white' },
 });

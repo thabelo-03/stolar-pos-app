@@ -1,17 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ThemedText } from '../../components/themed-text';
 import { ThemedView } from '../../components/themed-view';
-import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
 
 export default function ProfileSettingsScreen() {
   const router = useRouter();
-  const textColor = useThemeColor({}, 'text');
+  const insets = useSafeAreaInsets();
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -67,99 +69,172 @@ export default function ProfileSettingsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-      <View style={styles.header}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={textColor} />
+          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
-        <ThemedText type="title">Profile Settings</ThemedText>
-      </View>
+        <Text style={styles.headerTitle}>Profile Settings</Text>
+      </LinearGradient>
 
-      {userRole === 'manager' && (
-        <TouchableOpacity 
-          style={[styles.saveButton, { backgroundColor: '#0f172a', marginBottom: 20, marginTop: 0 }]} 
-          onPress={() => router.replace('/(manager)')}
-        >
-          <ThemedText style={styles.saveButtonText}>Switch to Manager Dashboard</ThemedText>
-        </TouchableOpacity>
-      )}
+      <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+        {userRole === 'manager' && (
+          <TouchableOpacity 
+            style={styles.switchDashboardButton} 
+            onPress={() => router.replace('/(manager)')}
+          >
+            <LinearGradient 
+              colors={['#8b5cf6', '#4f46e5']} 
+              start={{ x: 0, y: 0 }} 
+              end={{ x: 1, y: 0 }} 
+              style={styles.gradientButton}
+            >
+              <Text style={styles.switchDashboardText}>Switch to Manager Workspace</Text>
+              <Ionicons name="swap-horizontal" size={20} color="white" />
+            </LinearGradient>
+          </TouchableOpacity>
+        )}
 
-      <View style={styles.form}>
-        <ThemedText type="subtitle" style={styles.sectionTitle}>Security</ThemedText>
-        <View style={styles.switchRow}>
-          <View>
-            <ThemedText style={styles.label}>Biometric Approval</ThemedText>
-            <ThemedText style={styles.subLabel}>Use Fingerprint/FaceID for manager overrides</ThemedText>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Security Settings</Text>
+          
+          <View style={styles.switchRow}>
+            <View style={{ flex: 1, paddingRight: 10 }}>
+              <Text style={styles.label}>Biometric Approval</Text>
+              <Text style={styles.subLabel}>Use Fingerprint/FaceID for manager overrides</Text>
+            </View>
+            <Switch 
+              value={biometricEnabled} 
+              onValueChange={toggleBiometric} 
+              trackColor={{ false: 'rgba(255,255,255,0.1)', true: '#06b6d4' }} 
+              thumbColor={biometricEnabled ? '#fff' : '#94a3b8'} 
+            />
           </View>
-          <Switch value={biometricEnabled} onValueChange={toggleBiometric} trackColor={{ false: '#767577', true: '#1e40af' }} thumbColor={biometricEnabled ? '#fff' : '#f4f3f4'} />
         </View>
 
-        <ThemedText type="subtitle" style={styles.sectionTitle}>Change Password</ThemedText>
-        
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.label}>Current Password</ThemedText>
-          <TextInput
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
-            secureTextEntry
-            value={currentPassword}
-            onChangeText={setCurrentPassword}
-            placeholder="Enter current password"
-            placeholderTextColor="#888"
-          />
-        </View>
+        <View style={styles.sectionCard}>
+          <Text style={styles.sectionTitle}>Change Password</Text>
+          
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Current Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={currentPassword}
+              onChangeText={setCurrentPassword}
+              placeholder="Enter current password"
+              placeholderTextColor="#64748b"
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.label}>New Password</ThemedText>
-          <TextInput
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
-            secureTextEntry
-            value={newPassword}
-            onChangeText={setNewPassword}
-            placeholder="Enter new password"
-            placeholderTextColor="#888"
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>New Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={newPassword}
+              onChangeText={setNewPassword}
+              placeholder="Enter new password"
+              placeholderTextColor="#64748b"
+            />
+          </View>
 
-        <View style={styles.inputGroup}>
-          <ThemedText style={styles.label}>Confirm New Password</ThemedText>
-          <TextInput
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
-            secureTextEntry
-            value={confirmPassword}
-            onChangeText={setConfirmPassword}
-            placeholder="Confirm new password"
-            placeholderTextColor="#888"
-          />
-        </View>
+          <View style={styles.inputGroup}>
+            <Text style={styles.inputLabel}>Confirm New Password</Text>
+            <TextInput
+              style={styles.input}
+              secureTextEntry
+              value={confirmPassword}
+              onChangeText={setConfirmPassword}
+              placeholder="Confirm new password"
+              placeholderTextColor="#64748b"
+            />
+          </View>
 
-        <TouchableOpacity 
-          style={styles.saveButton} 
-          onPress={handleChangePassword}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <ThemedText style={styles.saveButtonText}>Update Password</ThemedText>
-          )}
-        </TouchableOpacity>
-      </View>
+          <TouchableOpacity 
+            style={styles.saveButton} 
+            onPress={handleChangePassword}
+            disabled={loading}
+          >
+            <LinearGradient 
+              colors={['#0891b2', '#06b6d4']} 
+              start={{ x: 0, y: 0 }} 
+              end={{ x: 1, y: 0 }} 
+              style={styles.gradientButton}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <>
+                  <Text style={styles.saveButtonText}>Update Password</Text>
+                  <Ionicons name="lock-closed" size={20} color="white" />
+                </>
+              )}
+            </LinearGradient>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 30, gap: 15 },
-  backButton: { padding: 5 },
-  form: { gap: 20 },
-  sectionTitle: { marginBottom: 10 },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
+  header: {
+    paddingBottom: 20,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backButton: { 
+    marginRight: 15, 
+    padding: 8, 
+    backgroundColor: 'rgba(255,255,255,0.06)', 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    borderRadius: 12 
+  },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  scrollContent: { padding: 20, paddingBottom: 40, gap: 20 },
+  switchDashboardButton: { borderRadius: 16, overflow: 'hidden' },
+  gradientButton: {
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 10,
+  },
+  switchDashboardText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  sectionCard: {
+    backgroundColor: 'rgba(255,255,255,0.05)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 16,
+    padding: 20,
+    gap: 15,
+  },
+  sectionTitle: { fontSize: 18, fontWeight: '700', color: '#06b6d4', marginBottom: 5 },
+  switchRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+    paddingVertical: 10
+  },
+  label: { fontSize: 15, fontWeight: '600', color: Colors.dark.text },
+  subLabel: { fontSize: 12, color: Colors.dark.textSecondary, marginTop: 4 },
   inputGroup: { gap: 8 },
-  label: { fontSize: 14, fontWeight: '600', opacity: 0.8 },
-  input: { borderWidth: 1, borderRadius: 8, padding: 12, fontSize: 16, opacity: 0.8 },
-  saveButton: { backgroundColor: '#1e40af', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+  inputLabel: { fontSize: 14, fontWeight: '600', color: Colors.dark.textSecondary },
+  input: { 
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 12, 
+    padding: 14, 
+    fontSize: 16, 
+    color: Colors.dark.text 
+  },
+  saveButton: { borderRadius: 16, overflow: 'hidden', marginTop: 10 },
   saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
-  switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#e2e8f0', marginBottom: 10 },
-  subLabel: { fontSize: 12, color: '#64748b', marginTop: 2 },
-});
+});

@@ -1,16 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Platform, ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from './config';
 
 export default function StockTakeScreen() {
   const router = useRouter();
   const { shopId } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [startDate, setStartDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
   const [endDate, setEndDate] = useState(new Date(new Date().getFullYear(), new Date().getMonth() + 1, 0));
   const [showDatePicker, setShowDatePicker] = useState(false);
@@ -69,6 +72,11 @@ export default function StockTakeScreen() {
 
   const fetchUserAndShops = async () => {
     try {
+      const storedRole = await AsyncStorage.getItem('userRole');
+      if (storedRole) {
+        setUserRole(storedRole);
+      }
+
       const userId = await AsyncStorage.getItem('userId');
       if (!userId) return;
 
@@ -282,39 +290,72 @@ export default function StockTakeScreen() {
   };
 
   const currentShopName = selectedShop === 'all' ? 'All Shops' : shops.find(s => s._id === selectedShop)?.name || 'My Shop';
+  const isDark = userRole === 'cashier';
+
+  // Dynamic Theme Colors
+  const colors = {
+    bg: isDark ? '#0a0f1e' : '#f5f3ff',
+    cardBg: isDark ? 'rgba(255, 255, 255, 0.05)' : 'white',
+    cardBorder: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9',
+    primary: isDark ? '#06b6d4' : '#7c3aed',
+    primaryLight: isDark ? 'rgba(6, 182, 212, 0.12)' : '#f5f3ff',
+    primaryBorder: isDark ? 'rgba(6, 182, 212, 0.15)' : '#ddd6fe',
+    textMain: isDark ? '#f1f5f9' : '#0f172a',
+    textMuted: isDark ? '#94a3b8' : '#64748b',
+    textHighlight: isDark ? '#06b6d4' : '#7c3aed',
+    divider: isDark ? 'rgba(255, 255, 255, 0.08)' : '#f1f5f9',
+    shadowColor: isDark ? '#000' : '#4f46e5',
+    shadowOpacity: isDark ? 0.4 : 0.04,
+    inputBg: isDark ? 'rgba(255, 255, 255, 0.04)' : '#f5f3ff',
+  };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, { backgroundColor: colors.bg }]}>
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient
+        colors={isDark ? ['#111827', '#0f172a'] : ['#4f46e5', '#7c3aed', '#9333ea']}
+        style={[styles.header, { paddingTop: insets.top + 15 }]}
+      >
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { flex: 1 }]}>Stock Report</Text>
-        <TouchableOpacity onPress={handleExportPDF}>
+        <TouchableOpacity onPress={handleExportPDF} style={styles.printBtn}>
           <Ionicons name="print-outline" size={24} color="white" />
         </TouchableOpacity>
-      </View>
+      </LinearGradient>
 
       {/* Filters */}
-      <View style={styles.filterSection}>
-        <View style={{flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap'}}>
+      <View style={[
+        styles.filterSection, 
+        { 
+          backgroundColor: isDark ? 'rgba(255, 255, 255, 0.02)' : 'white', 
+          borderColor: colors.cardBorder,
+          shadowColor: colors.shadowColor,
+          shadowOpacity: colors.shadowOpacity,
+        }
+      ]}>
+        <View style={styles.filterRow}>
           <TouchableOpacity 
-              style={styles.currencySelector} 
+              style={[styles.currencySelector, { backgroundColor: colors.inputBg, borderColor: colors.primaryBorder }]} 
               onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
           >
-              <Text style={styles.currencyText}>{currency}</Text>
+              <Text style={[styles.currencyText, { color: colors.primary }]}>{currency}</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.dateSelector} onPress={() => openDatePicker('start')}>
-            <Text style={styles.dateText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
+          <TouchableOpacity style={[styles.dateSelector, { backgroundColor: colors.inputBg, borderColor: colors.primaryBorder }]} onPress={() => openDatePicker('start')}>
+            <Text style={[styles.dateText, { color: colors.primary }]}>
+              {startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}
+            </Text>
           </TouchableOpacity>
           
-          <Text style={{color: '#64748b', marginHorizontal: 5, marginBottom: 15}}>-</Text>
+          <Text style={{color: colors.textMuted, marginHorizontal: 5}}>-</Text>
 
-          <TouchableOpacity style={styles.dateSelector} onPress={() => openDatePicker('end')}>
-            <Text style={styles.dateText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
-            <Ionicons name="calendar-outline" size={16} color="#1e40af" style={{marginLeft: 4}} />
+          <TouchableOpacity style={[styles.dateSelector, { backgroundColor: colors.inputBg, borderColor: colors.primaryBorder }]} onPress={() => openDatePicker('end')}>
+            <Text style={[styles.dateText, { color: colors.primary }]}>
+              {endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}
+            </Text>
+            <Ionicons name="calendar-outline" size={16} color={colors.primary} style={{marginLeft: 6}} />
           </TouchableOpacity>
         </View>
 
@@ -322,18 +363,28 @@ export default function StockTakeScreen() {
         {userRole === 'manager' && shops.length > 0 && (
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.shopScroll}>
             <TouchableOpacity 
-                style={[styles.shopChip, selectedShop === 'all' && styles.activeShopChip]} 
+                style={[
+                  styles.shopChip, 
+                  { backgroundColor: colors.inputBg, borderColor: colors.primaryBorder },
+                  selectedShop === 'all' && [styles.activeShopChip, { backgroundColor: colors.primary, borderColor: colors.primary }]
+                ]} 
                 onPress={() => setSelectedShop('all')}
             >
-                <Text style={[styles.shopChipText, selectedShop === 'all' && styles.activeShopChipText]}>All Shops</Text>
+                <Text style={[styles.shopChipText, { color: colors.primary }, selectedShop === 'all' && styles.activeShopChipText]}>All Shops</Text>
             </TouchableOpacity>
             {shops.map((shop) => (
                 <TouchableOpacity 
-                key={shop._id} 
-                style={[styles.shopChip, selectedShop === shop._id && styles.activeShopChip]} 
-                onPress={() => setSelectedShop(shop._id)}
+                  key={shop._id} 
+                  style={[
+                    styles.shopChip, 
+                    { backgroundColor: colors.inputBg, borderColor: colors.primaryBorder },
+                    selectedShop === shop._id && [styles.activeShopChip, { backgroundColor: colors.primary, borderColor: colors.primary }]
+                  ]} 
+                  onPress={() => setSelectedShop(shop._id)}
                 >
-                <Text style={[styles.shopChipText, selectedShop === shop._id && styles.activeShopChipText]}>{shop.name}</Text>
+                  <Text style={[styles.shopChipText, { color: colors.primary }, selectedShop === shop._id && styles.activeShopChipText]}>
+                    {shop.name}
+                  </Text>
                 </TouchableOpacity>
             ))}
             </ScrollView>
@@ -346,65 +397,71 @@ export default function StockTakeScreen() {
 
       <ScrollView contentContainerStyle={styles.content}>
         {loading ? (
-          <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 40 }} />
         ) : (
-          <>
-            <View style={styles.paperPreview}>
-              {/* Document Header */}
-              <View style={styles.paperHeader}>
-                <Text style={styles.paperTitle}>Stock Report</Text>
-                <Text style={styles.paperSubtitle}>{currentShopName}</Text>
-                <Text style={styles.paperDate}>{startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
-              </View>
+          <View style={[
+            styles.paperPreview, 
+            { 
+              backgroundColor: colors.cardBg, 
+              borderColor: colors.cardBorder, 
+              shadowColor: colors.shadowColor,
+              shadowOpacity: colors.shadowOpacity,
+            }
+          ]}>
+            {/* Document Header */}
+            <View style={styles.paperHeader}>
+              <Text style={[styles.paperTitle, { color: colors.primary }]}>Stock Report</Text>
+              <Text style={[styles.paperSubtitle, { color: colors.textMain }]}>{currentShopName}</Text>
+              <Text style={[styles.paperDate, { color: colors.textMuted }]}>{startDate.toLocaleDateString()} - {endDate.toLocaleDateString()}</Text>
+            </View>
 
-              <View style={styles.divider} />
+            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
-              {/* 1. Monthly Cash */}
-              <View style={styles.section}>
-                <Text style={styles.sectionHeader}>Cash Flow</Text>
-                <View style={styles.row}>
-                  <Text style={styles.rowLabel}>Total Cash Sales</Text>
-                  <Text style={styles.rowValue}>{symbol}{convert(metrics.totalSalesCash).toFixed(2)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* 2. Stock Breakdown */}
-              <View style={styles.section}>
-                <Text style={styles.sectionHeader}>Stock Inventory</Text>
-                
-                <View style={styles.row}>
-                  <View>
-                    <Text style={styles.rowLabel}>Items Sold</Text>
-                    <Text style={styles.rowSub}>{metrics.itemsSold} units</Text>
-                  </View>
-                  <Text style={styles.rowValue}>{symbol}{convert(metrics.soldCost).toFixed(2)}</Text>
-                </View>
-
-                <View style={[styles.row, { marginTop: 15 }]}>
-                  <View>
-                    <Text style={styles.rowLabel}>Available Stock (Retail)</Text>
-                    <Text style={styles.rowSub}>{metrics.itemsInStock} units</Text>
-                  </View>
-                  <Text style={styles.rowValue}>{symbol}{convert(metrics.inventoryValue).toFixed(2)}</Text>
-                </View>
-                <View style={[styles.row, { marginTop: 5 }]}>
-                  <Text style={[styles.rowLabel, { fontSize: 12, color: '#94a3b8' }]}>Cost Value</Text>
-                  <Text style={styles.rowValue}>{symbol}{convert(metrics.inventoryCost).toFixed(2)}</Text>
-                </View>
-              </View>
-
-              <View style={styles.divider} />
-
-              {/* 3. Total Stock */}
-              <View style={styles.totalSection}>
-                <Text style={styles.totalLabel}>Total Stock Managed</Text>
-                <Text style={styles.totalValue}>{symbol}{convert(metrics.totalStockManaged).toFixed(2)}</Text>
-                <Text style={styles.totalSub}>(Sold + Available)</Text>
+            {/* 1. Monthly Cash */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>Cash Flow</Text>
+              <View style={styles.row}>
+                <Text style={[styles.rowLabel, { color: colors.textMain }]}>Total Cash Sales</Text>
+                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{convert(metrics.totalSalesCash).toFixed(2)}</Text>
               </View>
             </View>
-          </>
+
+            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+            {/* 2. Stock Breakdown */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>Stock Inventory</Text>
+              
+              <View style={styles.row}>
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.textMain }]}>Items Sold</Text>
+                  <Text style={[styles.rowSub, { color: colors.textMuted }]}>{metrics.itemsSold} units</Text>
+                </View>
+                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{convert(metrics.soldCost).toFixed(2)}</Text>
+              </View>
+
+              <View style={[styles.row, { marginTop: 15 }]}>
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.textMain }]}>Available Stock (Retail)</Text>
+                  <Text style={[styles.rowSub, { color: colors.textMuted }]}>{metrics.itemsInStock} units</Text>
+                </View>
+                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{convert(metrics.inventoryValue).toFixed(2)}</Text>
+              </View>
+              <View style={[styles.row, { marginTop: 8 }]}>
+                <Text style={[styles.rowLabel, { fontSize: 13, color: colors.textMuted }]}>Cost Value</Text>
+                <Text style={[styles.rowValue, { fontSize: 15, color: colors.textMuted }]}>{symbol}{convert(metrics.inventoryCost).toFixed(2)}</Text>
+              </View>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
+            {/* 3. Total Stock */}
+            <View style={styles.totalSection}>
+              <Text style={[styles.totalLabel, { color: colors.textMuted }]}>Total Stock Managed</Text>
+              <Text style={[styles.totalValue, { color: colors.primary }]}>{symbol}{convert(metrics.totalStockManaged).toFixed(2)}</Text>
+              <Text style={[styles.totalSub, { color: colors.textMuted }]}>(Sold + Available)</Text>
+            </View>
+          </View>
         )}
       </ScrollView>
     </View>
@@ -412,49 +469,51 @@ export default function StockTakeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1 },
   header: {
-    backgroundColor: '#1e3a8a',
-    padding: 25,
-    paddingTop: 60,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     flexDirection: 'row',
     alignItems: 'center',
   },
-  backButton: { marginRight: 15 },
-  headerTitle: { color: 'white', fontSize: 22, fontWeight: 'bold' },
+  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 12, marginRight: 15 },
+  headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 },
+  printBtn: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.15)', borderRadius: 12 },
   
-  filterSection: { padding: 20, paddingBottom: 10 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', padding: 12, borderRadius: 12, alignSelf: 'flex-start', marginBottom: 15, borderWidth: 1, borderColor: '#e2e8f0', marginRight: 10 },
-  dateText: { marginHorizontal: 8, fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  shopScroll: { flexDirection: 'row' },
-  shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0' },
-  activeShopChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
-  shopChipText: { color: '#64748b', fontWeight: '600' },
+  filterSection: { padding: 20, paddingBottom: 15, borderBottomLeftRadius: 24, borderBottomRightRadius: 24, borderWidth: 1, borderTopWidth: 0, shadowOffset: { width: 0, height: 4 }, shadowRadius: 12, elevation: 2, marginBottom: 15 },
+  filterRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 10 },
+  currencySelector: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1, justifyContent: 'center' },
+  currencyText: { fontWeight: 'bold', fontSize: 14 },
+  dateSelector: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 12, borderWidth: 1 },
+  dateText: { fontSize: 14, fontWeight: 'bold' },
+  
+  shopScroll: { flexDirection: 'row', marginTop: 15 },
+  shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10, borderWidth: 1 },
+  activeShopChip: {},
+  shopChipText: { fontWeight: '600', fontSize: 13 },
   activeShopChipText: { color: 'white' },
 
-  content: { padding: 20, paddingTop: 0 },
+  content: { padding: 20, paddingTop: 5 },
   
-  paperPreview: { backgroundColor: 'white', borderRadius: 8, padding: 25, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4, marginBottom: 30 },
+  paperPreview: { borderRadius: 20, padding: 25, shadowOffset: { width: 0, height: 4 }, shadowRadius: 16, elevation: 4, marginBottom: 30, borderWidth: 1 },
   paperHeader: { alignItems: 'center', marginBottom: 20 },
-  paperTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e3a8a', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 1 },
-  paperSubtitle: { fontSize: 16, color: '#334155', fontWeight: '600' },
-  paperDate: { fontSize: 14, color: '#64748b', marginTop: 2 },
+  paperTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 5, textTransform: 'uppercase', letterSpacing: 1 },
+  paperSubtitle: { fontSize: 16, fontWeight: '600' },
+  paperDate: { fontSize: 13, marginTop: 2 },
   
-  divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 20 },
+  divider: { height: 1, marginVertical: 20 },
   
   section: { marginBottom: 5 },
-  sectionHeader: { fontSize: 12, color: '#94a3b8', fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 15, letterSpacing: 0.5 },
+  sectionHeader: { fontSize: 12, fontWeight: 'bold', textTransform: 'uppercase', marginBottom: 15, letterSpacing: 0.5 },
   row: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  rowLabel: { fontSize: 16, color: '#334155', fontWeight: '500' },
-  rowSub: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  rowValue: { fontSize: 18, fontWeight: 'bold', color: '#1e293b' },
+  rowLabel: { fontSize: 15, fontWeight: '600' },
+  rowSub: { fontSize: 12, marginTop: 2 },
+  rowValue: { fontSize: 16, fontWeight: 'bold' },
   
   totalSection: { alignItems: 'center', marginTop: 10 },
-  totalLabel: { fontSize: 14, color: '#64748b', textTransform: 'uppercase', fontWeight: 'bold' },
-  totalValue: { fontSize: 32, fontWeight: 'bold', color: '#1e3a8a', marginVertical: 5 },
-  totalSub: { fontSize: 12, color: '#94a3b8' },
-  currencySelector: { backgroundColor: 'white', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginRight: 10, justifyContent: 'center', marginBottom: 15 },
-  currencyText: { color: '#1e40af', fontWeight: 'bold', fontSize: 16 },
+  totalLabel: { fontSize: 13, textTransform: 'uppercase', fontWeight: 'bold' },
+  totalValue: { fontSize: 32, fontWeight: 'bold', marginVertical: 5 },
+  totalSub: { fontSize: 12 },
 });

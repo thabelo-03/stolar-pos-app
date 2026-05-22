@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, FlatList, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '../../components/themed-view';
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
 
 interface Notification {
   _id: string;
@@ -62,8 +64,8 @@ export default function NotificationsScreen() {
       onPress={() => markAsRead(item._id)}
     >
       <View style={styles.row}>
-        <View style={[styles.iconBox, { backgroundColor: item.type === 'link_request' ? '#e0f2fe' : '#fef3c7' }]}>
-           <Ionicons name={item.type === 'link_request' ? 'link' : 'notifications'} size={24} color={item.type === 'link_request' ? '#0284c7' : '#d97706'} />
+        <View style={[styles.iconBox, { backgroundColor: item.type === 'link_request' ? 'rgba(6, 182, 212, 0.12)' : 'rgba(245, 158, 11, 0.12)' }]}>
+           <Ionicons name={item.type === 'link_request' ? 'link' : 'notifications'} size={24} color={item.type === 'link_request' ? '#06b6d4' : '#f59e0b'} />
         </View>
         <View style={styles.content}>
           <Text style={[styles.message, !item.isRead && styles.boldText]}>
@@ -80,15 +82,15 @@ export default function NotificationsScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Notifications</Text>
-      </View>
+      </LinearGradient>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#1e40af" style={{ marginTop: 20 }} />
+        <ActivityIndicator size="large" color="#06b6d4" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           data={notifications}
@@ -96,7 +98,7 @@ export default function NotificationsScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNotifications(); }} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchNotifications(); }} tintColor="#06b6d4" />
           }
           ListEmptyComponent={<Text style={styles.emptyText}>No new notifications</Text>}
         />
@@ -106,9 +108,8 @@ export default function NotificationsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
   header: {
-    backgroundColor: '#1e40af',
     paddingBottom: 20,
     paddingHorizontal: 20,
     flexDirection: 'row',
@@ -116,17 +117,17 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
-  backButton: { marginRight: 15 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-  list: { padding: 20 },
-  card: { backgroundColor: 'white', padding: 16, borderRadius: 12, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  unreadCard: { borderLeftWidth: 4, borderLeftColor: '#1e40af', backgroundColor: '#eff6ff' },
+  backButton: { marginRight: 15, padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  list: { padding: 20, paddingBottom: 120 },
+  card: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, padding: 16, borderRadius: 12, marginBottom: 10 },
+  unreadCard: { borderLeftWidth: 4, borderLeftColor: '#06b6d4', backgroundColor: 'rgba(6, 182, 212, 0.04)', borderColor: 'rgba(6, 182, 212, 0.15)' },
   row: { flexDirection: 'row', alignItems: 'center' },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   content: { flex: 1 },
-  message: { fontSize: 14, color: '#333', marginBottom: 4 },
-  boldText: { fontWeight: 'bold', color: '#1e293b' },
-  date: { fontSize: 12, color: '#94a3b8' },
-  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#1e40af', marginLeft: 8 },
-  emptyText: { textAlign: 'center', color: '#94a3b8', marginTop: 50 }
+  message: { fontSize: 14, color: Colors.dark.textSecondary, marginBottom: 4 },
+  boldText: { fontWeight: 'bold', color: Colors.dark.text },
+  date: { fontSize: 12, color: Colors.dark.textMuted },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: '#06b6d4', marginLeft: 8 },
+  emptyText: { textAlign: 'center', color: Colors.dark.textMuted, marginTop: 50 }
 });
