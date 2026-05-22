@@ -56,7 +56,7 @@ export default function CartScreen() {
   const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
 
   const { shopId, shopName, userRole, userId, loading: shopLoading } = useActiveShop();
-  const { products: allProducts, fetchProducts } = useProducts();
+  const { products: allProducts, fetchProducts, loading: productsLoading } = useProducts();
   const { rates } = useRates();
 
   // --- 2. FETCH PRODUCTS ---
@@ -172,6 +172,29 @@ export default function CartScreen() {
     setSearchQuery('');
     setSearchResults([]);
   };
+
+  // Reactively process barcode transitioned from the Scan Screen
+  useEffect(() => {
+    if (barcode) {
+      const barcodeStr = Array.isArray(barcode) ? barcode[0] : barcode;
+      if (barcodeStr && !productsLoading) {
+        // 1. Populate search query input and trigger matching dropdown
+        setSearchQuery(barcodeStr);
+        handleSearch(barcodeStr);
+
+        // 2. Add matching item automatically to active cart
+        const matched = allProducts.find(p => p.barcode === barcodeStr);
+        if (matched) {
+          addItemToCart(matched);
+        } else {
+          Alert.alert("Product Not Found", `Product with barcode "${barcodeStr}" was not found in inventory.`);
+        }
+
+        // 3. Reset router param to prevent duplicate additions on tab refocus
+        router.setParams({ barcode: undefined });
+      }
+    }
+  }, [barcode, allProducts, productsLoading]);
 
   const updateQuantity = (itemId: string, amount: number) => {
     const item = cartItems.find(i => i.id === itemId);
