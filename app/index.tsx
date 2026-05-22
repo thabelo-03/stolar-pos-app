@@ -122,7 +122,7 @@ export default function LoginScreen() {
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
@@ -138,7 +138,7 @@ export default function LoginScreen() {
         <Text style={styles.welcomeText}>Welcome Back</Text>
         <Text style={styles.instructionText}>Sign in to continue</Text>
 
-        <View style={styles.inputWrapper}>
+        <View collapsable={false} style={styles.inputWrapper}>
           <MaterialCommunityIcons name="email-outline" size={20} color="#64748b" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
@@ -151,7 +151,7 @@ export default function LoginScreen() {
           />
         </View>
 
-        <View style={styles.inputWrapper}>
+        <View collapsable={false} style={styles.inputWrapper}>
           <MaterialCommunityIcons name="lock-outline" size={20} color="#64748b" style={styles.inputIcon} />
           <TextInput
             style={styles.input}
@@ -175,7 +175,7 @@ export default function LoginScreen() {
         </TouchableOpacity>
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>Don't have an account? </Text>
+          <Text style={styles.footerText}>{"Don't have an account? "}</Text>
           <TouchableOpacity onPress={() => router.push('/(auth)/signup')}>
             <Text style={styles.signupText}>Sign Up</Text>
           </TouchableOpacity>

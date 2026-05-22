@@ -3,10 +3,11 @@ import { ThemedView } from '@/components/themed-view';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
-import { BarChart, LineChart, PieChart } from 'react-native-chart-kit';
+import { BarChart, PieChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
@@ -388,25 +389,69 @@ const ManagerIndex = () => {
     );
   }
 
+  const totalRevenue = allSales
+    .filter((s: any) => {
+      const d = new Date(s.date);
+      const start = new Date(startDate); start.setHours(0,0,0,0);
+      const end = new Date(endDate); end.setHours(23,59,59,999);
+      return d >= start && d <= end;
+    })
+    .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
+
+  const ordersToday = allSales.filter((s: any) => {
+    const d = new Date(s.date);
+    const today = new Date();
+    return d.getDate() === today.getDate() &&
+      d.getMonth() === today.getMonth() &&
+      d.getFullYear() === today.getFullYear();
+  }).length;
+
   const renderHeader = () => (
     <View>
-      <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
-        <View>
-          <Text style={styles.headerTitle}>Welcome, {user?.name}</Text>
+      <LinearGradient
+        colors={['#0f172a', '#1e3a8a', '#2563eb']}
+        style={[styles.header, { paddingTop: insets.top + 16, paddingBottom: 40 }]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
+        <View style={{ flex: 1 }}>
+          <Text style={styles.headerGreeting}>Manager Dashboard</Text>
+          <Text style={styles.headerTitle}>Welcome, {user?.name?.split(' ')[0]} 👋</Text>
           <Text style={styles.headerSubtitle}>{user?.email}</Text>
         </View>
         <View style={styles.headerIcons}>
-          <TouchableOpacity onPress={() => router.push('/(manager)/notifications')}>
-            <Ionicons name="notifications-outline" size={24} color="#fff" />
+          <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.push('/(manager)/notifications')}>
+            <Ionicons name="notifications-outline" size={22} color="rgba(255,255,255,0.85)" />
             {unreadCount > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
               </View>
             )}
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => setMenuVisible(true)}>
-            <Ionicons name="menu" size={24} color="#fff" style={{ marginLeft: 15 }} />
+          <TouchableOpacity style={styles.headerIconBtn} onPress={() => setMenuVisible(true)}>
+            <Ionicons name="menu" size={22} color="rgba(255,255,255,0.85)" />
           </TouchableOpacity>
+        </View>
+      </LinearGradient>
+
+      {/* KPI Metrics Row */}
+      <View style={styles.kpiContainer}>
+        <View style={[styles.kpiCard, styles.kpiCardBlue]}>
+          <Ionicons name="cash-outline" size={18} color="#2563eb" style={styles.kpiIcon} />
+          <Text style={styles.kpiLabel}>Revenue</Text>
+          <Text style={styles.kpiValue}>${totalRevenue.toFixed(0)}</Text>
+        </View>
+
+        <View style={[styles.kpiCard, styles.kpiCardGreen]}>
+          <Ionicons name="receipt-outline" size={18} color="#10b981" style={styles.kpiIcon} />
+          <Text style={styles.kpiLabel}>Orders Today</Text>
+          <Text style={styles.kpiValue}>{ordersToday}</Text>
+        </View>
+
+        <View style={[styles.kpiCard, styles.kpiCardRose]}>
+          <Ionicons name="alert-circle-outline" size={18} color="#f43f5e" style={styles.kpiIcon} />
+          <Text style={styles.kpiLabel}>Low Stock</Text>
+          <Text style={styles.kpiValue}>{lowStockItems.length}</Text>
         </View>
       </View>
 
@@ -542,8 +587,10 @@ const ManagerIndex = () => {
       <View style={styles.sectionHeader}>
         <Text style={styles.title}>My Shops</Text>
         <TouchableOpacity style={styles.addShopButton} onPress={() => router.push('/(manager)/register-shop')}>
-          <Ionicons name="add" size={20} color="white" />
-          <Text style={styles.addShopButtonText}>Add Shop</Text>
+          <LinearGradient colors={['#2563eb', '#1d4ed8']} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+            <Ionicons name="add" size={18} color="white" />
+            <Text style={styles.addShopButtonText}>Add Shop</Text>
+          </LinearGradient>
         </TouchableOpacity>
       </View>
     </View>
@@ -742,23 +789,34 @@ const ManagerIndex = () => {
         data={shops}
         ListHeaderComponent={renderHeader}
         keyExtractor={(item) => item._id}
+        contentContainerStyle={{ paddingBottom: 40 }}
         renderItem={({ item }) => (
-          <TouchableOpacity style={styles.shopItem} onPress={() => handleShopPress(item)}>
-            <View style={styles.shopItemContent}>
-              <Ionicons name="storefront-outline" size={24} color="#1e40af" style={styles.shopIcon} />
-              <View>
-                <ThemedText style={styles.shopName}>{item.name}</ThemedText>
-                <ThemedText style={styles.shopLocation}>{item.location}</ThemedText>
+          <TouchableOpacity style={styles.shopItem} onPress={() => handleShopPress(item)} activeOpacity={0.85}>
+            <LinearGradient
+              colors={['#1e3a8a', '#2563eb']}
+              style={styles.shopItemGrad}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+            >
+              <View style={styles.shopItemIconWrap}>
+                <Ionicons name="storefront" size={22} color="white" />
+              </View>
+            </LinearGradient>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.shopName}>{item.name}</Text>
+              <View style={styles.shopLocationRow}>
+                <Ionicons name="location-outline" size={12} color="#94a3b8" />
+                <Text style={styles.shopLocation}>{item.location}</Text>
               </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => handleEditPress(item)} style={{ padding: 8 }}>
-                <Ionicons name="create-outline" size={24} color="#1e40af" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+              <TouchableOpacity onPress={() => handleEditPress(item)} style={styles.shopActionBtn}>
+                <Ionicons name="create-outline" size={18} color="#2563eb" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDeleteShop(item._id, item.name)} style={{ padding: 8 }}>
-                <Ionicons name="trash-outline" size={24} color="#ef4444" />
+              <TouchableOpacity onPress={() => handleDeleteShop(item._id, item.name)} style={[styles.shopActionBtn, { backgroundColor: '#fee2e2' }]}>
+                <Ionicons name="trash-outline" size={18} color="#f43f5e" />
               </TouchableOpacity>
-              <Ionicons name="chevron-forward" size={24} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
             </View>
           </TouchableOpacity>
         )}
@@ -767,8 +825,9 @@ const ManagerIndex = () => {
             style={styles.registerShopButton}
             onPress={() => router.push('/(manager)/register-shop')}
           >
-            <Ionicons name="add-circle-outline" size={24} color="#1e40af" />
-            <Text style={styles.registerShopButtonText}>Register a New Shop</Text>
+            <Ionicons name="add-circle-outline" size={28} color="#2563eb" />
+            <Text style={styles.registerShopButtonText}>Register Your First Shop</Text>
+            <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Tap to get started</Text>
           </TouchableOpacity>
         )}
       />
@@ -777,419 +836,264 @@ const ManagerIndex = () => {
 };
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#f8fafc',
-    },
-    header: {
-        backgroundColor: '#1e3a8a',
-        padding: 25,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
+    // RENOVATED STYLES
+    container: { flex: 1, backgroundColor: '#f0f4ff' },
+
+    // KPI Metrics
+    kpiContainer: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    },
-    headerTitle: {
-        color: 'white',
-        fontSize: 22,
-        fontWeight: 'bold',
-    },
-    headerSubtitle: {
-        color: '#93c5fd',
-        fontSize: 14,
-    },
-    headerIcons: {
-        flexDirection: 'row',
-    },
-    sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
         paddingHorizontal: 20,
-        marginTop: 20,
+        marginTop: -20,
+        gap: 10,
         marginBottom: 10,
+        zIndex: 10,
     },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#1e3a8a',
-    },
-    addShopButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#1e40af',
-        paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    addShopButtonText: {
-        color: 'white',
-        fontWeight: 'bold',
-        marginLeft: 4,
-        fontSize: 14,
-    },
-    shopItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        backgroundColor: '#fff',
-        padding: 15,
-        borderRadius: 15,
-        marginBottom: 10,
-        marginHorizontal: 20,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 3,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
-    },
-    shopItemContent: {
-      flexDirection: 'row',
-      alignItems: 'center',
-    },
-    shopIcon: {
-        marginRight: 15,
-    },
-    shopName: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#1e293b',
-    },
-    shopLocation: {
-        fontSize: 14,
-        color: '#64748b',
-    },
-    errorText: {
-        color: 'red',
-        fontSize: 16,
-    },
-    registerShopButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#e0f2fe',
-        padding: 15,
-        borderRadius: 10,
-        margin: 20,
+    kpiCard: {
+        flex: 1,
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 14,
         borderWidth: 1,
-        borderColor: '#1e40af',
+        borderColor: '#e2e8f0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 10,
+        elevation: 3,
+    },
+    kpiCardBlue: {
+        borderTopWidth: 3,
+        borderTopColor: '#2563eb',
+    },
+    kpiCardGreen: {
+        borderTopWidth: 3,
+        borderTopColor: '#10b981',
+    },
+    kpiCardRose: {
+        borderTopWidth: 3,
+        borderTopColor: '#f43f5e',
+    },
+    kpiIcon: {
+        marginBottom: 6,
+    },
+    kpiLabel: {
+        fontSize: 11,
+        color: '#64748b',
+        fontWeight: '600',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    kpiValue: {
+        fontSize: 16,
+        fontWeight: '800',
+        color: '#0f172a',
+        marginTop: 4,
+    },
+
+    // Header
+    header: {
+        padding: 22,
+        paddingBottom: 28,
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+    },
+    headerGreeting: { fontSize: 11, color: 'rgba(255,255,255,0.5)', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 },
+    headerTitle: { color: 'white', fontSize: 24, fontWeight: '800', marginBottom: 2 },
+    headerSubtitle: { color: 'rgba(255,255,255,0.55)', fontSize: 13 },
+    headerIcons: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+    headerIconBtn: {
+        width: 40, height: 40, borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.12)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+
+    // Section
+    sectionHeader: {
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', paddingHorizontal: 20,
+        marginTop: 20, marginBottom: 12,
+    },
+    title: { fontSize: 18, fontWeight: '800', color: '#0f172a' },
+    addShopButton: { borderRadius: 20, overflow: 'hidden' },
+    addShopButtonText: { color: 'white', fontWeight: '700', marginLeft: 4, fontSize: 13 },
+
+    // Shop cards
+    shopItem: {
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: 'white', paddingRight: 16, paddingVertical: 14,
+        borderRadius: 18, marginBottom: 12, marginHorizontal: 20,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.07, shadowRadius: 8, elevation: 4,
+        gap: 14, overflow: 'hidden',
+    },
+    shopItemGrad: { width: 56, height: '100%', justifyContent: 'center', alignItems: 'center', paddingVertical: 14 },
+    shopItemIconWrap: {
+        width: 40, height: 40, borderRadius: 12,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        justifyContent: 'center', alignItems: 'center',
+    },
+    shopName: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+    shopLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 3 },
+    shopLocation: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+    shopActionBtn: {
+        width: 34, height: 34, borderRadius: 10,
+        backgroundColor: '#eff6ff',
+        justifyContent: 'center', alignItems: 'center',
+    },
+
+    errorText: { color: '#f43f5e', fontSize: 16 },
+    registerShopButton: {
+        alignItems: 'center', justifyContent: 'center',
+        backgroundColor: 'white', padding: 32, margin: 20,
+        borderRadius: 20, borderWidth: 2, borderColor: '#e0e9ff',
+        borderStyle: 'dashed',
     },
     registerShopButtonText: {
-        marginLeft: 10,
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#1e40af',
+        marginTop: 12, fontSize: 16, fontWeight: '800', color: '#2563eb',
     },
-    menuOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-    },
+
+    // Menu
+    menuOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)' },
     menuContainer: {
-        backgroundColor: '#fff',
-        padding: 20,
-        borderRadius: 10,
-        position: 'absolute',
-        top: 110,
-        right: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.25,
-        shadowRadius: 3.84,
-        elevation: 5,
+        backgroundColor: '#111827', padding: 8,
+        borderRadius: 18, position: 'absolute',
+        top: 110, right: 20, minWidth: 210,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.4, shadowRadius: 16, elevation: 12,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
     },
     menuItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 12, paddingHorizontal: 16, borderRadius: 12,
     },
-    menuItemText: {
-        marginLeft: 15,
-        fontSize: 16,
-        color: '#1e293b',
-    },
+    menuItemText: { marginLeft: 14, fontSize: 15, color: '#f1f5f9', fontWeight: '600' },
+
     shopSelectionItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 15,
-        backgroundColor: '#f8fafc',
-        borderRadius: 12,
-        marginBottom: 10,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
+        flexDirection: 'row', alignItems: 'center',
+        padding: 15, backgroundColor: 'rgba(255,255,255,0.07)',
+        borderRadius: 14, marginBottom: 10,
+        borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
     },
-    shopSelectionText: { fontSize: 16, fontWeight: '600', color: '#1e293b' },
-    
+    shopSelectionText: { fontSize: 16, fontWeight: '600', color: '#f1f5f9' },
+
     centeredModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
+        flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
+        justifyContent: 'center', alignItems: 'center', padding: 20,
     },
     editModalContent: {
-        backgroundColor: 'white',
-        width: '85%',
-        borderRadius: 20,
-        padding: 20,
+        backgroundColor: 'white', width: '92%',
+        borderRadius: 24, padding: 24,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.2, shadowRadius: 20, elevation: 15,
     },
-    modalTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        marginBottom: 15,
-        textAlign: 'center',
-        color: '#1e293b',
-    },
-    label: {
-        fontSize: 14,
-        fontWeight: '600',
-        marginBottom: 5,
-        color: '#334155',
-    },
+    modalTitle: { fontSize: 20, fontWeight: '800', marginBottom: 16, textAlign: 'center', color: '#0f172a' },
+    label: { fontSize: 13, fontWeight: '700', marginBottom: 6, color: '#475569', textTransform: 'uppercase', letterSpacing: 0.5 },
     input: {
-        borderWidth: 1,
-        borderColor: '#cbd5e1',
-        borderRadius: 8,
-        padding: 10,
-        marginBottom: 15,
-        fontSize: 16,
+        borderWidth: 1.5, borderColor: '#e2e8f0', borderRadius: 12,
+        padding: 14, marginBottom: 16, fontSize: 15, color: '#0f172a',
+        backgroundColor: '#f8faff',
     },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginTop: 10,
-    },
-    modalButton: {
-        flex: 1,
-        padding: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-        marginHorizontal: 5,
-    },
-    cancelButton: {
-        backgroundColor: '#e2e8f0',
-    },
-    saveButton: {
-        backgroundColor: '#1e40af',
-    },
-    buttonText: {
-        fontWeight: 'bold',
-    },
+    modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 12 },
+    modalButton: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
+    cancelButton: { backgroundColor: '#f1f5f9' },
+    saveButton: { backgroundColor: '#2563eb' },
+    buttonText: { fontWeight: '700', color: '#475569' },
+
     notificationBadge: {
-        position: 'absolute',
-        right: -6,
-        top: -6,
-        backgroundColor: '#ef4444',
-        borderRadius: 10,
-        minWidth: 18,
-        height: 18,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 4,
-        borderWidth: 1.5,
-        borderColor: '#1e3a8a',
+        position: 'absolute', right: -5, top: -5,
+        backgroundColor: '#f43f5e', borderRadius: 10,
+        minWidth: 18, height: 18, justifyContent: 'center',
+        alignItems: 'center', paddingHorizontal: 4,
+        borderWidth: 1.5, borderColor: '#0f172a',
     },
-    notificationBadgeText: {
-        color: 'white',
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    quickActionsRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginHorizontal: 20,
-        marginTop: 20,
-        marginBottom: 5,
-    },
-    quickActionCard: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        paddingVertical: 20,
-        paddingHorizontal: 15,
-        alignItems: 'center',
-        justifyContent: 'center',
-        width: '48%',
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4.65,
-        elevation: 8,
-    },
-    actionIconCircle: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#eff6ff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    quickActionText: {
-        color: '#1e3a8a',
-        fontWeight: 'bold',
-        fontSize: 14,
-        textAlign: 'center',
-    },
+    notificationBadgeText: { color: 'white', fontSize: 9, fontWeight: '800' },
+
     chartContainer: {
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 15,
-        margin: 20,
-        marginBottom: 10,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 4,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 4.65,
-        elevation: 8,
+        backgroundColor: 'white', borderRadius: 20,
+        padding: 16, margin: 20, marginBottom: 12,
+        shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.08, shadowRadius: 12, elevation: 6,
     },
     chartHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 10,
+        flexDirection: 'row', justifyContent: 'space-between',
+        alignItems: 'center', marginBottom: 12,
     },
-    chartTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#1e293b',
-    },
+    chartTitle: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
     dateButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#f1f5f9',
-        padding: 6,
-        borderRadius: 8,
+        flexDirection: 'row', alignItems: 'center',
+        backgroundColor: '#eff6ff', paddingHorizontal: 10,
+        paddingVertical: 6, borderRadius: 10,
     },
-    dateButtonText: {
-        marginLeft: 5,
-        color: '#1e40af',
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    viewReportButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginTop: 10,
-        paddingTop: 15,
-        borderTopWidth: 1,
-        borderTopColor: '#f1f5f9',
-        paddingVertical: 12,
-        backgroundColor: '#f8fafc',
-        borderRadius: 10,
-    },
-    viewReportText: {
-        color: '#1e40af',
-        fontWeight: 'bold',
-        fontSize: 14,
-        marginRight: 5,
-    },
+    dateButtonText: { marginLeft: 5, color: '#2563eb', fontSize: 12, fontWeight: '700' },
+
     rowContainer: {
-        flexDirection: 'row',
-        marginHorizontal: 15,
-        marginBottom: 10,
-        justifyContent: 'space-between',
+        flexDirection: 'row', marginHorizontal: 15,
+        marginBottom: 10, justifyContent: 'space-between',
     },
-    halfCard: {
-        flex: 1,
-        margin: 5,
-        padding: 12,
-        minHeight: 200,
-    },
+    halfCard: { flex: 1, margin: 5, padding: 14, minHeight: 180 },
+
     miniTopItemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 8,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f1f5f9',
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
     },
     miniRankBadge: {
-        width: 20,
-        height: 20,
-        borderRadius: 10,
-        backgroundColor: '#eff6ff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 8,
+        width: 22, height: 22, borderRadius: 11,
+        backgroundColor: '#eff6ff', justifyContent: 'center',
+        alignItems: 'center', marginRight: 8,
     },
-    miniRankText: { color: '#1e40af', fontWeight: 'bold', fontSize: 10 },
+    miniRankText: { color: '#2563eb', fontWeight: '800', fontSize: 10 },
     miniTopItemName: { fontSize: 12, color: '#334155', fontWeight: '600' },
-    miniTopItemQty: { fontSize: 10, color: '#64748b' },
+    miniTopItemQty: { fontSize: 10, color: '#94a3b8' },
+
     topItemRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f1f5f9',
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9',
     },
     rankBadge: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#eff6ff',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 10,
+        width: 28, height: 28, borderRadius: 14,
+        backgroundColor: '#fee2e2', justifyContent: 'center',
+        alignItems: 'center', marginRight: 10,
     },
-    rankText: { color: '#1e40af', fontWeight: 'bold', fontSize: 12 },
-    topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '500' },
-    topItemQty: { fontSize: 12, color: '#64748b' },
+    rankText: { color: '#2563eb', fontWeight: '800', fontSize: 12 },
+    topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '600' },
+    topItemQty: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
+
     paymentOption: {
-        flex: 1,
-        alignItems: 'center',
-        padding: 10,
-        backgroundColor: '#f1f5f9',
-        borderRadius: 10,
-        borderWidth: 1,
-        borderColor: '#e2e8f0',
+        flex: 1, alignItems: 'center', padding: 12,
+        backgroundColor: '#f8faff', borderRadius: 14,
+        borderWidth: 1, borderColor: '#e0e9ff',
     },
-    paymentOptionText: {
-        marginTop: 5,
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#1e40af',
-    },
+    paymentOptionText: { marginTop: 6, fontSize: 12, fontWeight: '700', color: '#2563eb' },
+
     actionRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderTopWidth: 1,
-        borderTopColor: '#f1f5f9',
+        flexDirection: 'row', alignItems: 'center',
+        paddingVertical: 12, borderTopWidth: 1, borderTopColor: '#f1f5f9',
     },
     iconBox: {
-        padding: 10,
-        borderRadius: 12,
-        marginRight: 12,
-        width: 40,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
+        padding: 8, borderRadius: 12, marginRight: 12,
+        width: 38, height: 38, justifyContent: 'center', alignItems: 'center',
     },
-    actionTitle: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
+    actionTitle: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
     actionSub: { fontSize: 12, color: '#64748b' },
+
     compactActionBtn: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#f8fafc',
-        paddingVertical: 12,
-        borderRadius: 12,
-        marginHorizontal: 4,
-        borderWidth: 1,
-        borderColor: '#f1f5f9',
+        flex: 1, flexDirection: 'row', alignItems: 'center',
+        justifyContent: 'center', backgroundColor: '#f0f4ff',
+        paddingVertical: 12, borderRadius: 14, marginHorizontal: 4,
+        borderWidth: 1, borderColor: '#e0e9ff',
     },
-    compactActionText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#334155',
-        marginLeft: 8,
-    },
+    compactActionText: { fontSize: 12, fontWeight: '700', color: '#334155', marginLeft: 8 },
+
+    shopIcon: { marginRight: 14 },
+    shopItemContent: { flexDirection: 'row', alignItems: 'center' },
+    viewReportButton: {},
+    viewReportText: {},
+    quickActionsRow: {},
+    quickActionCard: {},
+    actionIconCircle: {},
+    quickActionText: {},
+    headerIcons2: {},
 });
 
 export default ManagerIndex;

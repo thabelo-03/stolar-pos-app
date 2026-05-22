@@ -1,6 +1,7 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Print from 'expo-print';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import * as Sharing from 'expo-sharing';
@@ -467,22 +468,26 @@ export default function ManagerInventoryScreen() {
 
   return (
     <ThemedView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Header with LinearGradient */}
+      <LinearGradient
+        colors={['#0f172a', '#1e3a8a', '#2563eb']}
+        style={styles.header}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+      >
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Manager Inventory</Text>
           
           <View style={{ flexDirection: 'row' }}>
-            <TouchableOpacity style={[styles.addButton, { marginRight: 10 }]} onPress={handleExportPDF}>
-              <Ionicons name="share-outline" size={24} color="#1e40af" />
+            <TouchableOpacity style={[styles.headerIconBtn, { marginRight: 10 }]} onPress={handleExportPDF}>
+              <Ionicons name="share-outline" size={20} color="white" />
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.addButton, { marginRight: 10 }]} 
+              style={[styles.headerIconBtn, { marginRight: 10 }]} 
               onPress={() => {
-                // Ensure shopId is a safe string and navigate
                 if (shopId && typeof shopId === 'string') {
                   router.push({ pathname: '/stock-take', params: { shopId } });
                 } else {
@@ -490,10 +495,10 @@ export default function ManagerInventoryScreen() {
                 }
               }}
             >
-              <Ionicons name="clipboard-outline" size={24} color="#1e40af" />
+              <Ionicons name="clipboard-outline" size={20} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity style={styles.addButton} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
-              <Ionicons name="add" size={24} color="#1e40af" />
+            <TouchableOpacity style={styles.headerIconBtn} onPress={() => router.push({ pathname: '/(manager)/add-stock', params: { shopId } })}>
+              <Ionicons name="add" size={22} color="white" />
             </TouchableOpacity>
           </View>
         </View>
@@ -534,13 +539,13 @@ export default function ManagerInventoryScreen() {
               setIsScanning(true);
             }
           }}>
-            <MaterialCommunityIcons name="barcode-scan" size={24} color="#64748b" />
+            <MaterialCommunityIcons name="barcode-scan" size={22} color="#64748b" />
           </TouchableOpacity>
         </View>
-      </View>
+      </LinearGradient>
 
       {/* Category Filter */}
-      <View style={{ marginTop: 15, height: 40 }}>
+      <View style={{ marginTop: 15, height: 42 }}>
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}>
           {categories.map(cat => (
             <TouchableOpacity 
@@ -561,7 +566,7 @@ export default function ManagerInventoryScreen() {
             style={styles.filterChip} 
             onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
           >
-            <Text style={[styles.filterText, { color: '#1e40af' }]}>{currency}</Text>
+            <Text style={[styles.filterText, { color: '#2563eb' }]}>{currency}</Text>
           </TouchableOpacity>
 
           <View style={styles.verticalDivider} />
@@ -583,6 +588,15 @@ export default function ManagerInventoryScreen() {
             onPress={() => setFilter('out')}
           >
             <Text style={[styles.filterText, filter === 'out' && styles.activeFilterText]}>Out</Text>
+          </TouchableOpacity>
+
+          <View style={styles.verticalDivider} />
+
+          <TouchableOpacity 
+            style={[styles.filterChip, { borderColor: '#10b981' }]} 
+            onPress={() => setBulkModalVisible(true)}
+          >
+            <Text style={[styles.filterText, { color: '#10b981' }]}>Bulk Cost Update</Text>
           </TouchableOpacity>
 
           <View style={styles.verticalDivider} />
@@ -640,12 +654,12 @@ export default function ManagerInventoryScreen() {
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name="cube-outline" size={24} color="#1e40af" />
+                    <MaterialCommunityIcons name="cube-outline" size={22} color="#2563eb" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{displayName}</Text>
                     {!hasWeight && (
-                      <Text style={{ fontSize: 10, color: '#f59e0b', marginBottom: 2 }}>⚠️ Missing Weight/Volume (e.g. 1kg, 1L)</Text>
+                      <Text style={{ fontSize: 10, color: '#f59e0b', fontWeight: '600', marginBottom: 2 }}>⚠️ Missing Weight/Volume (e.g. 1kg, 1L)</Text>
                     )}
                     <Text style={styles.itemBarcode}>{item.barcode || 'No Barcode'}</Text>
                   </View>
@@ -668,7 +682,7 @@ export default function ManagerInventoryScreen() {
                   <View>
                     <Text style={styles.priceLabel}>Profit</Text>
                     <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
-                      {symbol}{profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: 'normal'}}>({margin.toFixed(0)}%)</Text>
+                      {symbol}{profit.toFixed(2)} <Text style={{fontSize: 11, fontWeight: '500'}}>({margin.toFixed(0)}%)</Text>
                     </Text>
                   </View>
                   
@@ -717,6 +731,7 @@ export default function ManagerInventoryScreen() {
             <TextInput
               style={styles.modalInput}
               placeholder={bulkMode === 'percent' ? "e.g. 70 (for 70% of price)" : "e.g. 50.00"}
+              placeholderTextColor="#94a3b8"
               keyboardType="numeric"
               value={bulkValue}
               onChangeText={setBulkValue}
@@ -726,8 +741,16 @@ export default function ManagerInventoryScreen() {
               <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setBulkModalVisible(false)}>
                 <Text style={styles.btnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={handleBulkUpdate}>
-                <Text style={[styles.btnText, {color: 'white'}]}>Update All</Text>
+              
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }} onPress={handleBulkUpdate}>
+                <LinearGradient
+                  colors={['#2563eb', '#1d4ed8']}
+                  style={{ padding: 14, alignItems: 'center', justifyContent: 'center' }}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={{ fontWeight: '800', color: 'white' }}>Update All</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -744,15 +767,15 @@ export default function ManagerInventoryScreen() {
           <View style={styles.modalContainer} onStartShouldSetResponder={() => true}>
             <View style={styles.modalHeader}>
               <Text style={[styles.modalTitle, { marginBottom: 0, textAlign: 'left' }]}>Manage Item</Text>
-              <TouchableOpacity onPress={() => setManageModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#64748b" />
+              <TouchableOpacity onPress={() => setManageModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
             
             {selectedItem && (
               <View style={{marginBottom: 20, alignItems: 'center'}}>
-                <Text style={{fontSize: 18, fontWeight: 'bold', color: '#1e293b'}}>{selectedItem.name}</Text>
-                <Text style={{fontSize: 14, color: '#64748b'}}>{selectedItem.barcode || 'No Barcode'}</Text>
+                <Text style={{fontSize: 18, fontWeight: '800', color: '#0f172a'}}>{selectedItem.name}</Text>
+                <Text style={{fontSize: 14, color: '#64748b', fontWeight: '500', marginTop: 4}}>{selectedItem.barcode || 'No Barcode'}</Text>
               </View>
             )}
 
@@ -771,13 +794,13 @@ export default function ManagerInventoryScreen() {
                 }}
               >
                 <View style={[styles.actionIcon, {backgroundColor: '#e0f2fe'}]}>
-                  <MaterialCommunityIcons name="truck-delivery-outline" size={24} color="#0284c7" />
+                  <MaterialCommunityIcons name="truck-delivery-outline" size={22} color="#0284c7" />
                 </View>
                 <View style={{flex: 1}}>
                   <Text style={styles.actionTitle}>Transfer Stock</Text>
                   <Text style={styles.actionSub}>Move items to another shop</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
+                <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -788,13 +811,13 @@ export default function ManagerInventoryScreen() {
                 }}
               >
                 <View style={[styles.actionIcon, {backgroundColor: '#f0fdf4'}]}>
-                  <MaterialCommunityIcons name="pencil-outline" size={24} color="#16a34a" />
+                  <MaterialCommunityIcons name="pencil-outline" size={22} color="#16a34a" />
                 </View>
                 <View style={{flex: 1}}>
                   <Text style={styles.actionTitle}>Edit Details</Text>
                   <Text style={styles.actionSub}>Update price, cost, or name</Text>
                 </View>
-                <Ionicons name="chevron-forward" size={20} color="#cbd5e1" />
+                <Ionicons name="chevron-forward" size={18} color="#cbd5e1" />
               </TouchableOpacity>
 
               <TouchableOpacity 
@@ -805,7 +828,7 @@ export default function ManagerInventoryScreen() {
                 }}
               >
                 <View style={[styles.actionIcon, {backgroundColor: '#fef2f2'}]}>
-                  <MaterialCommunityIcons name="trash-can-outline" size={24} color="#dc2626" />
+                  <MaterialCommunityIcons name="trash-can-outline" size={22} color="#dc2626" />
                 </View>
                 <View style={{flex: 1}}>
                   <Text style={[styles.actionTitle, {color: '#dc2626'}]}>Delete Item</Text>
@@ -820,17 +843,18 @@ export default function ManagerInventoryScreen() {
       {/* History Modal */}
       <Modal visible={historyModalVisible} transparent animationType="fade" onRequestClose={() => setHistoryModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalContainer, { maxHeight: '80%' }]}>
-            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15}}>
-              <Text style={styles.modalTitle}>History: {selectedHistoryItemName}</Text>
-              <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
-                <Ionicons name="close" size={24} color="#64748b" />
+          <View style={[styles.modalContainer, { maxHeight: '80%', maxWidth: 360, width: '90%' }]}>
+            <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16}}>
+              <Text style={[styles.modalTitle, { textAlign: 'left', flex: 1, marginRight: 10 }]} numberOfLines={1}>History: {selectedHistoryItemName}</Text>
+              <TouchableOpacity onPress={() => setHistoryModalVisible(false)} style={styles.modalCloseBtn}>
+                <Ionicons name="close" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
             
             <FlatList
               data={productHistory}
               keyExtractor={(item) => item._id}
+              showsVerticalScrollIndicator={false}
               ListEmptyComponent={<Text style={styles.emptyText}>No history found.</Text>}
               renderItem={({ item }) => (
                 <View style={styles.historyItem}>
@@ -838,7 +862,7 @@ export default function ManagerInventoryScreen() {
                     <Text style={styles.historyUser}>{item.userName || 'Unknown User'}</Text>
                     <Text style={styles.historyDate}>{new Date(item.timestamp).toLocaleDateString()} {new Date(item.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</Text>
                   </View>
-                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'}}>
+                  <View style={{flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 4}}>
                     <Text style={styles.historyAction}>{item.action}</Text>
                     {item.previousState && (
                       <TouchableOpacity onPress={() => handleRestore(item)} style={styles.restoreBtn}>
@@ -865,13 +889,14 @@ export default function ManagerInventoryScreen() {
             <TextInput
               style={styles.modalInput}
               placeholder="Enter Qty"
+              placeholderTextColor="#94a3b8"
               keyboardType="numeric"
               value={transferQty}
               onChangeText={setTransferQty}
             />
 
             <Text style={styles.label}>Destination Shop</Text>
-            <ScrollView style={{ maxHeight: 150, marginBottom: 20 }}>
+            <ScrollView style={{ maxHeight: 150, marginBottom: 20 }} showsVerticalScrollIndicator={false}>
                 {availableShops.length === 0 ? (
                     <Text style={{ textAlign: 'center', color: '#94a3b8', padding: 10 }}>No other shops available.</Text>
                 ) : (
@@ -881,9 +906,9 @@ export default function ManagerInventoryScreen() {
                             style={[styles.shopOption, targetShopId === shop._id && styles.shopOptionActive]}
                             onPress={() => setTargetShopId(shop._id)}
                         >
-                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#1e40af' : '#64748b'} />
+                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#2563eb' : '#64748b'} />
                             <Text style={[styles.shopOptionText, targetShopId === shop._id && styles.shopOptionTextActive]}>{shop.name}</Text>
-                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#1e40af" style={{marginLeft: 'auto'}} />}
+                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#2563eb" style={{marginLeft: 'auto'}} />}
                         </TouchableOpacity>
                     ))
                 )}
@@ -893,8 +918,16 @@ export default function ManagerInventoryScreen() {
               <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setTransferModalVisible(false)}>
                 <Text style={styles.btnText}>Cancel</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={submitTransfer}>
-                <Text style={[styles.btnText, {color: 'white'}]}>Transfer</Text>
+              
+              <TouchableOpacity style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }} onPress={submitTransfer}>
+                <LinearGradient
+                  colors={['#2563eb', '#1d4ed8']}
+                  style={{ padding: 14, alignItems: 'center', justifyContent: 'center' }}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                >
+                  <Text style={{ fontWeight: '800', color: 'white' }}>Transfer</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </View>
           </View>
@@ -905,91 +938,138 @@ export default function ManagerInventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: '#f0f4ff' },
   header: {
-    backgroundColor: '#1e3a8a',
-    paddingTop: 50,
-    paddingBottom: 20,
+    paddingTop: 60,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
-  addButton: { padding: 8, backgroundColor: 'white', borderRadius: 12 },
+  backButton: { 
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '800', color: 'white' },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
 
-  statsRow: { flexDirection: 'row', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 16, padding: 15, marginBottom: 20 },
+  statsRow: { 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    backgroundColor: 'rgba(255,255,255,0.12)', 
+    borderRadius: 18, 
+    padding: 16, 
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
   statItem: { alignItems: 'center', flex: 1 },
-  statValue: { color: 'white', fontSize: 18, fontWeight: 'bold' },
-  statLabel: { color: '#bfdbfe', fontSize: 12, marginTop: 2 },
+  statValue: { color: 'white', fontSize: 18, fontWeight: '800' },
+  statLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, marginTop: 4, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.5 },
   statDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.2)' },
 
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'white',
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    height: 50,
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    height: 52,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.08,
     shadowRadius: 12,
-    elevation: 5,
+    elevation: 4,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
   },
   searchIcon: { marginRight: 10 },
-  searchInput: { flex: 1, fontSize: 16, color: '#1e293b', height: '100%' },
+  searchInput: { flex: 1, fontSize: 16, color: '#0f172a', height: '100%', fontWeight: '600' },
 
   filterContainer: { flexDirection: 'row', paddingHorizontal: 20, marginTop: 15, gap: 10 },
-  filterChip: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, backgroundColor: 'white', borderWidth: 1, borderColor: '#e2e8f0' },
-  activeFilterChip: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
-  filterText: { color: '#64748b', fontWeight: '600', fontSize: 13 },
+  filterChip: { 
+    paddingVertical: 10, 
+    paddingHorizontal: 18, 
+    borderRadius: 22, 
+    backgroundColor: 'white', 
+    borderWidth: 1, 
+    borderColor: '#cbd5e1',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 4,
+    elevation: 1,
+  },
+  activeFilterChip: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  filterText: { color: '#64748b', fontWeight: '700', fontSize: 13 },
   activeFilterText: { color: 'white' },
   verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
 
   listContent: { padding: 20, gap: 15, paddingBottom: 40 },
-  card: { backgroundColor: 'white', borderRadius: 16, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2 },
+  card: { 
+    backgroundColor: 'white', 
+    borderRadius: 20, 
+    padding: 16, 
+    shadowColor: '#000', 
+    shadowOffset: { width: 0, height: 4 }, 
+    shadowOpacity: 0.05, 
+    shadowRadius: 10, 
+    elevation: 3,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
-  itemName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  itemBarcode: { fontSize: 12, color: '#94a3b8' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6 },
-  statusText: { fontSize: 10, fontWeight: 'bold' },
+  itemName: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  itemBarcode: { fontSize: 12, color: '#94a3b8', fontWeight: '600', marginTop: 2 },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10 },
+  statusText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
   
-  cardDivider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
+  cardDivider: { height: 1, backgroundColor: '#cbd5e1', marginVertical: 12 },
   
   cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  priceLabel: { fontSize: 11, color: '#94a3b8', marginBottom: 2 },
-  priceValue: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
-  costText: { fontSize: 12, color: '#94a3b8', fontWeight: 'normal' },
+  priceLabel: { fontSize: 11, color: '#94a3b8', fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 },
+  priceValue: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
+  costText: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
   
   actions: { flexDirection: 'row', gap: 10 },
-  actionBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
+  actionBtn: { width: 38, height: 38, borderRadius: 12, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center' },
   
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8' },
+  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8', fontWeight: '600' },
   camera: { flex: 1 },
   cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
   scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
   scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { backgroundColor: 'white', borderRadius: 16, padding: 20, width: '100%', maxWidth: 350 },
-  modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', marginBottom: 5, textAlign: 'center' },
-  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20, textAlign: 'center' },
-  label: { fontSize: 14, fontWeight: '600', color: '#334155', marginBottom: 8 },
-  tabRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 4, marginBottom: 20 },
-  tabBtn: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
-  activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
-  tabText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  activeTabText: { color: '#1e40af' },
-  modalInput: { borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center' },
-  modalActions: { flexDirection: 'row', gap: 10 },
-  modalBtn: { flex: 1, padding: 12, borderRadius: 8, alignItems: 'center' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.65)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContainer: { backgroundColor: 'white', borderRadius: 24, padding: 24, width: '100%', maxWidth: 360, shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
+  modalTitle: { fontSize: 18, fontWeight: '800', color: '#0f172a', marginBottom: 6, textAlign: 'center' },
+  modalSubtitle: { fontSize: 13, color: '#64748b', marginBottom: 20, textAlign: 'center', fontWeight: '500' },
+  label: { fontSize: 12, color: '#475569', marginBottom: 8, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  tabRow: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 12, padding: 4, marginBottom: 20 },
+  tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
+  activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, elevation: 1 },
+  tabText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
+  activeTabText: { color: '#2563eb' },
+  modalInput: { borderWidth: 1.5, borderColor: '#cbd5e1', borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 20, textAlign: 'center', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: '700' },
+  modalActions: { flexDirection: 'row', gap: 12 },
+  modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
-  confirmBtn: { backgroundColor: '#1e40af' },
-  btnText: { fontWeight: 'bold' },
+  confirmBtn: { backgroundColor: '#2563eb' },
+  btnText: { fontWeight: '800', color: '#475569', fontSize: 15 },
 
   modalHeader: {
     flexDirection: 'row',
@@ -998,14 +1078,22 @@ const styles = StyleSheet.create({
     marginBottom: 15,
     width: '100%',
   },
+  modalCloseBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   actionOption: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 15,
+    padding: 16,
     backgroundColor: '#f8fafc',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#cbd5e1',
   },
   actionIcon: {
     width: 40,
@@ -1017,24 +1105,26 @@ const styles = StyleSheet.create({
   },
   actionTitle: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b',
+    fontWeight: '800',
+    color: '#0f172a',
   },
   actionSub: {
     fontSize: 12,
     color: '#64748b',
+    fontWeight: '500',
+    marginTop: 2,
   },
 
-  historyItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  historyItem: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
-  historyUser: { fontWeight: 'bold', color: '#1e293b', fontSize: 14 },
-  historyDate: { color: '#94a3b8', fontSize: 12 },
-  historyAction: { fontSize: 12, color: '#1e40af', fontWeight: '600', marginBottom: 2 },
-  historyDetails: { fontSize: 13, color: '#475569' },
-  restoreBtn: { backgroundColor: '#f0f9ff', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1, borderColor: '#bae6fd' },
-  restoreText: { fontSize: 10, color: '#0284c7', fontWeight: 'bold' },
-  shopOption: { flexDirection: 'row', alignItems: 'center', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#e2e8f0', marginBottom: 8, backgroundColor: '#f8fafc' },
-  shopOptionActive: { borderColor: '#1e40af', backgroundColor: '#eff6ff' },
-  shopOptionText: { marginLeft: 10, fontSize: 14, color: '#64748b', fontWeight: '500' },
-  shopOptionTextActive: { color: '#1e40af', fontWeight: 'bold' },
+  historyUser: { fontWeight: '800', color: '#0f172a', fontSize: 14 },
+  historyDate: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
+  historyAction: { fontSize: 12, color: '#2563eb', fontWeight: '800', marginBottom: 2 },
+  historyDetails: { fontSize: 13, color: '#475569', fontWeight: '500' },
+  restoreBtn: { backgroundColor: '#eff6ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#bfdbfe' },
+  restoreText: { fontSize: 11, color: '#2563eb', fontWeight: '800' },
+  shopOption: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', marginBottom: 8, backgroundColor: '#f8fafc' },
+  shopOptionActive: { borderColor: '#2563eb', backgroundColor: '#eff6ff' },
+  shopOptionText: { marginLeft: 10, fontSize: 14, color: '#64748b', fontWeight: '600' },
+  shopOptionTextActive: { color: '#2563eb', fontWeight: '800' },
 });

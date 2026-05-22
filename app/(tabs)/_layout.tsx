@@ -79,33 +79,35 @@ export default function TabLayout() {
     <>
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#1e40af',
-        tabBarInactiveTintColor: '#94a3b8',
+        tabBarActiveTintColor: '#06b6d4',
+        tabBarInactiveTintColor: 'rgba(255,255,255,0.35)',
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarShowLabel: true,
         tabBarHideOnKeyboard: true,
         tabBarStyle: {
           position: 'absolute',
-          bottom: 25,
-          left: 20,
-          right: 20,
-          borderRadius: 24,
-          height: 70,
+          bottom: 20,
+          left: 16,
+          right: 16,
+          borderRadius: 26,
+          height: 72,
           paddingBottom: 10,
           paddingTop: 10,
-          backgroundColor: '#ffffff',
-          borderTopWidth: 0,
-          elevation: 8,
+          backgroundColor: 'rgba(10, 15, 30, 0.94)',
+          borderTopWidth: 1,
+          borderTopColor: 'rgba(255,255,255,0.08)',
+          elevation: 20,
           shadowColor: '#000',
-          shadowOffset: { width: 0, height: 4 },
-          shadowOpacity: 0.15,
-          shadowRadius: 12,
+          shadowOffset: { width: 0, height: 8 },
+          shadowOpacity: 0.4,
+          shadowRadius: 20,
         },
         tabBarLabelStyle: {
           fontSize: 10,
-          fontWeight: '600',
-          marginBottom: 0,
+          fontWeight: '700',
+          marginBottom: 2,
+          letterSpacing: 0.3,
         },
       }}>
       <Tabs.Screen
@@ -222,10 +224,10 @@ export default function TabLayout() {
 }
 
 const styles = StyleSheet.create({
-  lockoutContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'white', padding: 30 },
-  lockoutTitle: { fontSize: 28, fontWeight: 'bold', color: '#ef4444', marginTop: 20, marginBottom: 10 },
-  lockoutText: { fontSize: 16, color: '#1e293b', textAlign: 'center', marginBottom: 10 },
+  lockoutContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#0a0f1e', padding: 30 },
+  lockoutTitle: { fontSize: 28, fontWeight: '800', color: '#f43f5e', marginTop: 20, marginBottom: 10 },
+  lockoutText: { fontSize: 16, color: '#e2e8f0', textAlign: 'center', marginBottom: 10 },
   lockoutSubText: { fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 40 },
-  logoutBtn: { backgroundColor: '#ef4444', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30 },
-  logoutText: { color: 'white', fontWeight: 'bold', fontSize: 16 }
+  logoutBtn: { backgroundColor: '#f43f5e', paddingHorizontal: 40, paddingVertical: 15, borderRadius: 30, shadowColor: '#f43f5e', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.4, shadowRadius: 12, elevation: 8 },
+  logoutText: { color: 'white', fontWeight: '800', fontSize: 16 }
 });
