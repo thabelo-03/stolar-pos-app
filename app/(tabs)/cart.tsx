@@ -41,6 +41,7 @@ export default function CartScreen() {
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
   const [permission, requestPermission] = useCameraPermissions();
   const [activeScanField, setActiveScanField] = useState<'search-barcode' | 'search-ocr' | null>(null);
+  const [modalScanned, setModalScanned] = useState(false);
   const cameraRef = useRef<CameraView>(null);
   const processedBarcodeRef = useRef<string | null>(null);
   const [parkedSales, setParkedSales] = useState<any[]>([]);
@@ -99,6 +100,7 @@ export default function CartScreen() {
   };
 
   const startScan = async (mode: 'search-barcode' | 'search-ocr') => {
+    setModalScanned(false);
     if (!permission?.granted) {
       const { granted } = await requestPermission();
       if (granted) setActiveScanField(mode);
@@ -108,7 +110,9 @@ export default function CartScreen() {
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (modalScanned) return;
     if (activeScanField === 'search-barcode') {
+      setModalScanned(true);
       handleSearch(data);
       setActiveScanField(null);
     }

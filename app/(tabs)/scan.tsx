@@ -2,17 +2,27 @@ import { Ionicons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { Stack, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useIsFocused } from '@react-navigation/native';
 import { useActiveShop } from '@/hooks/use-active-shop';
 import { Colors } from '../../constants/theme';
 
 export default function ScanScreen() {
   const router = useRouter();
+  const isFocused = useIsFocused();
   const [permission, requestPermission] = useCameraPermissions();
   const [manualEntry, setManualEntry] = useState(false);
   const [manualCode, setManualCode] = useState('');
+  const [scanned, setScanned] = useState(false);
   const { shopId, loading: shopLoading } = useActiveShop();
+
+  // Reset scanned state when the screen is focused
+  useEffect(() => {
+    if (isFocused) {
+      setScanned(false);
+    }
+  }, [isFocused]);
 
   if (shopLoading || !permission) {
     return (
@@ -42,6 +52,8 @@ export default function ScanScreen() {
   }
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
+    if (scanned || !isFocused) return;
+    setScanned(true);
     router.push({
       pathname: '/(tabs)/cart',
       params: { barcode: data, shopId: shopId || '' },
