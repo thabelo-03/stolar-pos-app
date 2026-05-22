@@ -21,6 +21,8 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
       ]
     },
@@ -60,6 +62,12 @@
       "eas": {
         "projectId": "39b54565-9cda-4ee8-8b6d-767b529c9974"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/39b54565-9cda-4ee8-8b6d-767b529c9974"
     }
   }
 }

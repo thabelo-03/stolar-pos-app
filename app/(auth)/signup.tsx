@@ -129,12 +129,14 @@ export default function Signup() {
           style={styles.input} 
           keyboardType="email-address" 
           autoCapitalize="none" 
+          placeholderTextColor="#94a3b8"
           value={email}
           onChangeText={setEmail}
         />
         <TextInput 
           placeholder="Password" 
           style={styles.input} 
+          placeholderTextColor="#94a3b8"
           secureTextEntry 
           value={password}
           onChangeText={setPassword}
@@ -142,7 +144,7 @@ export default function Signup() {
 
         <Text style={styles.roleLabel}>Select Staff Role:</Text>
         <View style={styles.roleContainer}>
-          {['admin', 'manager', 'cashier'].map((r) => (
+          {['manager', 'cashier'].map((r) => (
             <TouchableOpacity 
               key={r} 
               onPress={() => setRole(r)}

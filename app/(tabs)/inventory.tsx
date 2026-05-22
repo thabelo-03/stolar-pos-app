@@ -2,7 +2,9 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as Print from 'expo-print';
 import { useFocusEffect, useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -10,9 +12,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedView } from '@/components/themed-view';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
-import { useActiveShop } from '@/hooks/use-active-shop';
-import { useProducts } from '@/hooks/use-products';
-import { useRates } from '@/hooks/use-rates';
+import { useActiveShop } from '../../hooks/use-active-shop';
+import { useProducts } from '../../hooks/use-products';
+import { useRates } from '../../hooks/use-rates';
 
 
 interface InventoryItem {
@@ -326,6 +328,54 @@ export default function CashierInventoryScreen() {
     });
   };
 
+  const handleExportPDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
+            h1 { text-align: center; color: #1e3a8a; margin-bottom: 10px; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 20px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f1f5f9; color: #1e3a8a; font-weight: bold; }
+            tr:nth-child(even) { background-color: #f9fafb; }
+            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; }
+            .total-row { font-weight: bold; background-color: #e2e8f0; }
+          </style>
+        </head>
+        <body>
+          <h1>Inventory Report</h1>
+          <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
+          
+          <table>
+            <thead>
+              <tr>
+                <th>Item Name</th>
+                <th>Barcode</th>
+                <th style="text-align: right;">Stock</th>
+                <th style="text-align: right;">Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredInventory.map(item => {
+                const qty = Number(item.quantity) || 0;
+                const price = convert(Number(item.price || 0));
+                return `<tr><td>${item.name}</td><td>${item.barcode || '-'}</td><td style="text-align: right;">${qty}</td><td style="text-align: right;">${symbol}${price.toFixed(2)}</td></tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+          <div class="footer">Stolar POS System</div>
+        </body>
+      </html>
+    `;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) { Alert.alert('Error', 'Failed to generate PDF'); }
+  };
+
   const renderInventoryItem = useCallback(({ item }: { item: InventoryItem }) => {
     const qty = Number(item.quantity) || 0;
     const status = getStockStatus(qty);
@@ -395,6 +445,12 @@ export default function CashierInventoryScreen() {
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
           <Text style={[styles.headerTitle, { marginBottom: 0 }]}>Inventory</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={handleExportPDF} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
+              <Ionicons name="share-outline" size={24} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => router.push('/(tabs)/profit-report')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
+              <Ionicons name="trending-up" size={24} color="white" />
+            </TouchableOpacity>
             <TouchableOpacity onPress={() => router.push('/stock-take')} style={{ backgroundColor: 'rgba(255,255,255,0.2)', padding: 8, borderRadius: 8 }}>
               <Ionicons name="clipboard-outline" size={24} color="white" />
             </TouchableOpacity>

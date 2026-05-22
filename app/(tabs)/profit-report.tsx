@@ -1,14 +1,17 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
+import { useRates } from '../../hooks/use-rates';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
@@ -31,6 +34,17 @@ export default function ProfitReportScreen() {
     labels: ["W1", "W2", "W3", "W4"],
     datasets: [{ data: [0, 0, 0, 0] }]
   });
+  
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
+  const { rates } = useRates();
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   useEffect(() => {
     fetchData();
@@ -43,7 +57,7 @@ export default function ProfitReportScreen() {
       setSalesList([]);
       setReportData({ revenue: 0, cost: 0, profit: 0, margin: 0, salesCount: 0 });
     }
-  }, [allSales, date, viewMode]);
+  }, [allSales, date, viewMode, currency, rates]);
 
   const filterDataByDate = () => {
     let filtered: any[] = [];
@@ -61,7 +75,7 @@ export default function ProfitReportScreen() {
         hourlyProfit[hour] += sale.profit;
       });
       chartLabels = ["8am", "12pm", "4pm", "8pm"];
-      chartDataPoints = [8, 12, 16, 20].map(h => hourlyProfit[h]);
+      chartDataPoints = [8, 12, 16, 20].map(h => convert(hourlyProfit[h]));
 
     } else if (viewMode === 'weekly') {
       const endDate = new Date(date);
@@ -90,7 +104,7 @@ export default function ProfitReportScreen() {
             return sd >= dayStart && sd <= dayEnd;
           })
           .reduce((acc: number, curr: any) => acc + curr.profit, 0);
-        chartDataPoints.push(dayProfit);
+        chartDataPoints.push(convert(dayProfit));
       }
     } else {
       // Monthly
@@ -111,7 +125,7 @@ export default function ProfitReportScreen() {
         else if (d <= 21) weeklyProfits[2] += s.profit;
         else weeklyProfits[3] += s.profit;
       });
-      chartDataPoints = weeklyProfits;
+      chartDataPoints = weeklyProfits.map(p => convert(p));
     }
 
     let totalRevenue = 0;
@@ -124,9 +138,9 @@ export default function ProfitReportScreen() {
 
     setSalesList(filtered);
     setReportData({
-      revenue: totalRevenue,
-      cost: totalCost,
-      profit: totalRevenue - totalCost,
+      revenue: convert(totalRevenue),
+      cost: convert(totalCost),
+      profit: convert(totalRevenue - totalCost),
       margin: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0,
       salesCount: filtered.length
     });
@@ -187,6 +201,9 @@ export default function ProfitReportScreen() {
       if (userRole === 'cashier') {
         params.push(`cashierId=${userId}`);
       }
+      if (userRole === 'manager') {
+        params.push(`managerId=${userId}`);
+      }
       if (params.length > 0) salesUrl += `?${params.join('&')}`;
 
       const salesResponse = await fetch(salesUrl);
@@ -229,6 +246,60 @@ export default function ProfitReportScreen() {
     }
   };
 
+  const handleExportPDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <style>
+            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
+            h1 { text-align: center; color: #1e3a8a; margin-bottom: 10px; }
+            .subtitle { text-align: center; color: #666; margin-bottom: 20px; }
+            .card { background-color: #f8fafc; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #e2e8f0; }
+            .row { display: flex; justify-content: space-between; margin-bottom: 10px; }
+            .label { font-weight: bold; color: #475569; }
+            .value { font-weight: bold; color: #1e293b; }
+            .profit { color: #16a34a; font-size: 18px; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
+            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+            th { background-color: #f1f5f9; color: #1e3a8a; font-weight: bold; }
+            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; }
+          </style>
+        </head>
+        <body>
+          <h1>Profit Report</h1>
+          <div class="subtitle">${viewMode.toUpperCase()} Report • ${date.toLocaleDateString()}</div>
+          
+          <div class="card">
+            <div class="row"><span class="label">Total Revenue</span><span class="value">${symbol} ${reportData.revenue.toFixed(2)}</span></div>
+            <div class="row"><span class="label">Cost of Goods</span><span class="value">${symbol} ${reportData.cost.toFixed(2)}</span></div>
+            <div style="border-top: 1px solid #cbd5e1; margin: 10px 0;"></div>
+            <div class="row"><span class="label">Net Profit</span><span class="value profit">${symbol} ${reportData.profit.toFixed(2)}</span></div>
+            <div class="row"><span class="label">Margin</span><span class="value">${reportData.margin.toFixed(1)}%</span></div>
+          </div>
+
+          <table>
+            <thead><tr><th>Time</th><th>Sales</th><th>Profit</th></tr></thead>
+            <tbody>
+              ${salesList.map(item => `
+                <tr>
+                  <td>${new Date(item.date).toLocaleTimeString()}</td>
+                  <td>${symbol} ${convert(item.total || 0).toFixed(2)}</td>
+                  <td>${symbol} ${convert(item.profit).toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          <div class="footer">Stolar POS System</div>
+        </body>
+      </html>
+    `;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) { Alert.alert('Error', 'Failed to generate PDF'); }
+  };
+
   const renderHeader = () => (
     <View>
       {/* Header */}
@@ -238,10 +309,19 @@ export default function ProfitReportScreen() {
             <Ionicons name="arrow-back" size={24} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profit Report</Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity onPress={handleExportPDF} style={styles.backButton}>
+            <Ionicons name="share-outline" size={24} color="white" />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.controlsRow}>
+          <TouchableOpacity 
+            style={styles.currencySelector} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={styles.dateText}>{currency}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
             <Ionicons name="calendar" size={20} color="#1e40af" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
@@ -270,15 +350,15 @@ export default function ProfitReportScreen() {
       <View style={styles.statsGrid}>
         <View style={[styles.card, { backgroundColor: '#e0f2fe' }]}>
           <Text style={styles.cardLabel}>Revenue</Text>
-          <Text style={[styles.cardValue, { color: '#0284c7' }]}>${reportData.revenue.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#0284c7' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: '#fee2e2' }]}>
           <Text style={styles.cardLabel}>COGS</Text>
-          <Text style={[styles.cardValue, { color: '#dc2626' }]}>${reportData.cost.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#dc2626' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
         </View>
         <View style={[styles.card, { backgroundColor: '#dcfce7', width: '100%' }]}>
           <Text style={styles.cardLabel}>Net Profit</Text>
-          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>${reportData.profit.toFixed(2)}</Text>
+          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
           <Text style={{ color: '#16a34a', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
         </View>
       </View>
@@ -290,7 +370,7 @@ export default function ProfitReportScreen() {
           data={chartData}
           width={Dimensions.get("window").width - 60}
           height={180}
-          yAxisLabel="$"
+          yAxisLabel={symbol === '$' ? '$' : ''}
           yAxisSuffix=""
           chartConfig={{
             backgroundColor: "#ffffff",
@@ -326,9 +406,9 @@ export default function ProfitReportScreen() {
                 <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#16a34a" : "#dc2626"} />
               </View>
               <View>
-                <Text style={styles.transAmount}>${(item.total || 0).toFixed(2)}</Text>
+                <Text style={styles.transAmount}>{symbol} {convert(item.total || 0).toFixed(2)}</Text>
                 <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#16a34a' : '#dc2626' }]}>
-                  Profit: ${item.profit.toFixed(2)}
+                  Profit: {symbol} {convert(item.profit).toFixed(2)}
                 </Text>
               </View>
             </View>
@@ -359,6 +439,7 @@ const styles = StyleSheet.create({
   
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5 },
   dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
+  currencySelector: { backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
   dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 13 },
 
   viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },

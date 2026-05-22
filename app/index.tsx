@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Modal,
   Platform,
+  ScrollView,
   StatusBar,
   StyleSheet,
   Text,
@@ -126,6 +127,7 @@ export default function LoginScreen() {
       style={styles.container}
     >
       <StatusBar barStyle="light-content" />
+      <ScrollView contentContainerStyle={{ flexGrow: 1 }} bounces={false} keyboardShouldPersistTaps="handled">
       
       <View style={styles.logoContainer}>
         <View style={styles.iconCircle}>
@@ -181,6 +183,7 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
       </View>
+      </ScrollView>
 
       {/* Shop Selection Modal for Managers */}
       <Modal

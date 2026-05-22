@@ -29,6 +29,7 @@ export default function ProfitLoss() {
     datasets: [{ data: [0, 0, 0, 0, 0, 0, 0] }]
   });
   const [chartView, setChartView] = useState<'profit' | 'revenue'>('profit');
+  const [managerId, setManagerId] = useState<string | null>(null);
 
   const onChange = (event: any, selectedDate?: Date) => {
     setShow(Platform.OS === 'ios');
@@ -52,6 +53,7 @@ export default function ProfitLoss() {
     const loadShops = async () => {
       const userId = await AsyncStorage.getItem('userId');
       if (userId) {
+        setManagerId(userId);
         const res = await fetch(`${API_BASE_URL}/shops?managerId=${userId}`);
         const data = await res.json();
         if (Array.isArray(data)) {
@@ -86,9 +88,11 @@ export default function ProfitLoss() {
 
   useEffect(() => {
     fetchProfitData();
-  }, [startDate, endDate, selectedShop, shops]); // Re-fetch when date, shop selection, or shop list changes
+  }, [startDate, endDate, selectedShop, shops, managerId]); // Re-fetch when date, shop selection, or shop list changes
 
   const fetchProfitData = async () => {
+    if (selectedShop === 'all' && !managerId) return;
+
     setLoading(true);
     try {
       const end = new Date(endDate);
@@ -100,6 +104,9 @@ export default function ProfitLoss() {
       
       if (selectedShop !== 'all') {
         url += `&shopId=${selectedShop}`;
+      } else if (managerId) {
+        // If viewing all shops, filter by managerId to avoid fetching global data
+        url += `&managerId=${managerId}`;
       }
 
       console.log(`[DEBUG] Fetching profit data: ${url}`);
@@ -109,9 +116,17 @@ export default function ProfitLoss() {
         let sales = await response.json();
         console.log(`[DEBUG] Received ${sales.length} sales records`);
         // If 'all' is selected, filter sales to ensure they belong to this manager's shops
-        if (selectedShop === 'all' && shops.length > 0) {
-          const shopIds = new Set(shops.map(s => s._id.toString()));
-          sales = sales.filter((s: any) => s.shopId && shopIds.has(s.shopId.toString()));
+        if (selectedShop === 'all') {
+          if (shops.length > 0) {
+            const shopIds = new Set(shops.map(s => s._id.toString()));
+            sales = sales.filter((s: any) => {
+              const sId = s.shopId && (typeof s.shopId === 'object' ? s.shopId._id : s.shopId);
+              return sId && shopIds.has(sId.toString());
+            });
+          } else {
+            // If manager has no shops, force empty sales to prevent data leak
+            sales = [];
+          }
         }
 
         setRawSales(sales);
@@ -124,7 +139,7 @@ export default function ProfitLoss() {
   };
 
   useEffect(() => {
-    if (rawSales.length >= 0) {
+    if (rawSales.length >= 0 && !loading) {
       const end = new Date(endDate);
       end.setHours(23, 59, 59, 999);
       const start = new Date(startDate);
@@ -138,7 +153,7 @@ export default function ProfitLoss() {
       calculateMetrics(rangeSales);
       prepareChartData(rawSales, start, end);
     }
-  }, [rawSales, currency, rates, startDate, endDate, chartView]);
+  }, [rawSales, currency, rates, startDate, endDate, chartView, loading]);
 
   const calculateMetrics = (sales: any[]) => {
     let totalRevenue = 0;
