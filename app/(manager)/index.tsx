@@ -170,7 +170,7 @@ const ManagerIndex = () => {
           })
           .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
           
-        dataPoints.push(dailyTotal);
+        dataPoints.push(Math.round(dailyTotal));
       }
     } else {
       let currentStart = new Date(startDate);
@@ -191,7 +191,7 @@ const ManagerIndex = () => {
           })
           .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
         
-        dataPoints.push(chunkTotal);
+        dataPoints.push(Math.round(chunkTotal));
         currentStart.setDate(currentStart.getDate() + 7);
       }
     }
@@ -552,9 +552,12 @@ const ManagerIndex = () => {
           </View>
         </View>
         <BarChart
-          data={chartData}
-          width={Dimensions.get("window").width - 40}
-          height={220}
+          data={{
+            labels: chartData.labels,
+            datasets: [{ data: chartData.datasets[0].data.map((v: number) => Math.round(v)) }],
+          }}
+          width={Dimensions.get("window").width - 72}
+          height={200}
           yAxisLabel="$"
           yAxisSuffix=""
           chartConfig={{
@@ -564,12 +567,18 @@ const ManagerIndex = () => {
             decimalPlaces: 0,
             color: (opacity = 1) => `rgba(124, 58, 237, ${opacity})`,
             labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
-            style: { borderRadius: 16 },
-            barPercentage: 0.55,
+            style: { borderRadius: 12 },
+            barPercentage: 0.6,
+            propsForBackgroundLines: {
+              strokeDasharray: '',
+              stroke: '#f1f5f9',
+              strokeWidth: 1,
+            },
           }}
-          style={{ marginVertical: 8, borderRadius: 16 }}
+          style={{ marginVertical: 4, borderRadius: 12, alignSelf: 'center' }}
           showValuesOnTopOfBars
           fromZero
+          withInnerLines={true}
         />
         
         <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 10 }}>
@@ -723,25 +732,42 @@ const ManagerIndex = () => {
         onRequestClose={() => setShopSelectionVisible(false)}
       >
         <View style={styles.centeredModalOverlay}>
-            <View style={styles.editModalContent}>
-                <Text style={styles.modalTitle}>Select Shop for POS</Text>
-                <Text style={{textAlign: 'center', color: '#64748b', marginBottom: 20}}>Choose which shop you want to manage as a cashier.</Text>
-                
+            <View style={[styles.editModalContent, { backgroundColor: '#ffffff' }]}>
+                {/* Header */}
+                <View style={{ alignItems: 'center', marginBottom: 16 }}>
+                    <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: '#f5f3ff', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="storefront" size={28} color="#7c3aed" />
+                    </View>
+                    <Text style={styles.modalTitle}>Select Shop for POS</Text>
+                    <Text style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginTop: 2 }}>Choose which shop to manage as a cashier.</Text>
+                </View>
+
                 <FlatList
                     data={shops}
                     keyExtractor={(item) => item._id}
                     renderItem={({ item }) => (
-                        <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShopForPOS(item)}>
-                            <Ionicons name="storefront" size={20} color="#7c3aed" style={{marginRight: 10}} />
-                            <Text style={styles.shopSelectionText}>{item.name}</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#cbd5e1" style={{marginLeft: 'auto'}} />
+                        <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShopForPOS(item)} activeOpacity={0.75}>
+                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#7c3aed', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                                <Ionicons name="storefront" size={18} color="white" />
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.shopSelectionText}>{item.name}</Text>
+                                {item.location ? <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 1 }}>{item.location}</Text> : null}
+                            </View>
+                            <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#ede9fe', justifyContent: 'center', alignItems: 'center' }}>
+                                <Ionicons name="chevron-forward" size={16} color="#7c3aed" />
+                            </View>
                         </TouchableOpacity>
                     )}
-                    style={{maxHeight: 300, width: '100%'}}
+                    style={{ maxHeight: 300, width: '100%' }}
+                    scrollEnabled
                 />
 
-                <TouchableOpacity style={[styles.modalButton, styles.cancelButton, {marginTop: 15, width: '100%'}]} onPress={() => setShopSelectionVisible(false)}>
-                    <Text style={styles.buttonText}>Cancel</Text>
+                <TouchableOpacity
+                    style={{ marginTop: 16, width: '100%', paddingVertical: 14, borderRadius: 14, backgroundColor: '#f5f3ff', borderWidth: 1.5, borderColor: '#ede9fe', alignItems: 'center' }}
+                    onPress={() => setShopSelectionVisible(false)}
+                >
+                    <Text style={{ fontWeight: '700', color: '#7c3aed', fontSize: 15 }}>Cancel</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -1092,11 +1118,12 @@ const styles = StyleSheet.create({
 
     shopSelectionItem: {
         flexDirection: 'row', alignItems: 'center',
-        padding: 15, backgroundColor: 'rgba(255,255,255,0.07)',
+        padding: 14,
+        backgroundColor: '#faf5ff',
         borderRadius: 14, marginBottom: 10,
-        borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)',
+        borderWidth: 1.5, borderColor: '#ede9fe',
     },
-    shopSelectionText: { fontSize: 16, fontWeight: '600', color: '#f1f5f9' },
+    shopSelectionText: { fontSize: 15, fontWeight: '700', color: '#1e1b4b', flex: 1 },
 
     centeredModalOverlay: {
         flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
