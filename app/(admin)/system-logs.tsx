@@ -1,6 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -128,6 +130,185 @@ export default function SystemLogs() {
     Alert.alert("Logs Copied", "System logs console history successfully formatted and copied to clipboard.");
   };
 
+  const handleExportPDF = async () => {
+    const activeLogs = getFilteredLogs();
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+          <style>
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .meta-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 12px;
+              background-color: #f8fafc;
+              text-align: center;
+            }
+            .meta-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .meta-value {
+              font-size: 14px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 11px;
+              margin-top: 20px;
+            }
+            th { 
+              background-color: #f8fafc; 
+              color: #475569; 
+              font-weight: 700; 
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-size: 10px;
+              border-bottom: 2px solid #cbd5e1;
+              padding: 10px 8px;
+              text-align: left;
+            }
+            td { 
+              border-bottom: 1px solid #f1f5f9; 
+              padding: 10px 8px; 
+              color: #334155;
+              font-family: monospace;
+            }
+            tr:nth-child(even) td { 
+              background-color: #fafbfb; 
+            }
+            
+            .badge {
+              display: inline-block;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-weight: 700;
+              font-size: 9px;
+              text-transform: uppercase;
+            }
+            .badge-info {
+              background-color: #ecfdf5;
+              color: #10b981;
+            }
+            .badge-warning {
+              background-color: #fffbeb;
+              color: #f59e0b;
+            }
+            .badge-error {
+              background-color: #fef2f2;
+              color: #ef4444;
+            }
+            
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-banner">
+            <h1 class="header-title">System Audit Log Report</h1>
+            <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
+          </div>
+          
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="meta-label">Active Filter</div>
+              <div class="meta-value" style="text-transform: uppercase;">${activeTab}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Query Search</div>
+              <div class="meta-value">${searchTerm.trim() || 'None'}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Total Events</div>
+              <div class="meta-value">${activeLogs.length}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th style="width: 80px;">Timestamp</th>
+                <th style="width: 80px;">Severity</th>
+                <th>Event Message</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${activeLogs.map(item => `
+                <tr>
+                  <td style="color: #64748b;">${item.timestamp}</td>
+                  <td>
+                    <span class="badge badge-${item.level}">${item.level}</span>
+                  </td>
+                  <td style="color: #0f172a;">${item.message}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Stolar POS System • Automated System Diagnostics & Auditing
+          </div>
+        </body>
+      </html>
+    `;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) { 
+      Alert.alert('Error', 'Failed to generate PDF'); 
+    }
+  };
+
   const getFilteredLogs = () => {
     let result = logs;
     
@@ -206,6 +387,9 @@ export default function SystemLogs() {
               onPress={() => setIsLive(!isLive)}
             >
               <Ionicons name={isLive ? "pause" : "play"} size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity style={styles.actionButton} onPress={handleExportPDF}>
+              <Ionicons name="document-text-outline" size={20} color="white" />
             </TouchableOpacity>
             <TouchableOpacity style={styles.actionButton} onPress={handleClearLogs}>
               <Ionicons name="trash-outline" size={20} color="white" />

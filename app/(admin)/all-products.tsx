@@ -1,9 +1,12 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   FlatList,
   RefreshControl,
   StatusBar,
@@ -74,6 +77,169 @@ export default function AllProducts() {
     fetchProducts();
   }, []);
 
+  const handleExportPDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+          <style>
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+              box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            .meta-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .meta-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 12px;
+              background-color: #f8fafc;
+              text-align: center;
+            }
+            .meta-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .meta-value {
+              font-size: 14px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 11px;
+              margin-top: 20px;
+            }
+            th { 
+              background-color: #f8fafc; 
+              color: #475569; 
+              font-weight: 700; 
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-size: 10px;
+              border-bottom: 2px solid #cbd5e1;
+              padding: 10px 8px;
+              text-align: left;
+            }
+            td { 
+              border-bottom: 1px solid #f1f5f9; 
+              padding: 10px 8px; 
+              color: #334155;
+            }
+            tr:nth-child(even) td { 
+              background-color: #fafbfb; 
+            }
+            .price-text {
+              font-weight: 600;
+              color: #0f172a;
+            }
+            .low-stock {
+              color: #ef4444;
+              font-weight: 700;
+            }
+            
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-banner">
+            <h1 class="header-title">System Inventory Report</h1>
+            <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
+          </div>
+          
+          <div class="meta-grid">
+            <div class="meta-card">
+              <div class="meta-label">Search Query</div>
+              <div class="meta-value">${searchTerm.trim() || 'None'}</div>
+            </div>
+            <div class="meta-card">
+              <div class="meta-label">Total Items Listed</div>
+              <div class="meta-value">${filteredProducts.length}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Product Name</th>
+                <th>Category</th>
+                <th>Stock level</th>
+                <th style="text-align: right;">Unit Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredProducts.map(item => `
+                <tr>
+                  <td style="font-weight: 600; color: #0f172a;">${item.name}</td>
+                  <td style="color: #64748b;">${item.category || 'General'}</td>
+                  <td class="${item.stockQuantity < 10 ? 'low-stock' : ''}">
+                    ${item.stockQuantity === 0 ? "OUT OF STOCK" : `${item.stockQuantity} units`}
+                  </td>
+                  <td style="text-align: right;" class="price-text">R ${item.price.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Stolar POS System • Master Inventory Audit
+          </div>
+        </body>
+      </html>
+    `;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) { 
+      Alert.alert('Error', 'Failed to generate PDF'); 
+    }
+  };
+
   const renderProductItem = ({ item }: { item: Product }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
@@ -84,7 +250,7 @@ export default function AllProducts() {
           <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
           <Text style={styles.categoryText}>{item.category || 'General'}</Text>
         </View>
-        <Text style={styles.price}>${item.price.toFixed(2)}</Text>
+        <Text style={styles.price}>R{item.price.toFixed(2)}</Text>
       </View>
       
       <View style={styles.divider} />
@@ -124,6 +290,9 @@ export default function AllProducts() {
             <Text style={styles.title}>System Inventory</Text>
             <Text style={styles.subtitle}>{filteredProducts.length} items registered</Text>
           </View>
+          <TouchableOpacity onPress={handleExportPDF} style={styles.backButton}>
+            <Ionicons name="document-text-outline" size={24} color="white" />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.searchBar}>

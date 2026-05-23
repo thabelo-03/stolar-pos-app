@@ -2,9 +2,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   RefreshControl,
@@ -107,6 +110,165 @@ export default function SalesReports() {
     router.replace('/(auth)/login');
   };
 
+  const handleExportPDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+          <style>
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+              box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 16px;
+              background-color: #f8fafc;
+              text-align: center;
+            }
+            .kpi-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 6px;
+            }
+            .kpi-value {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 12px;
+              margin-top: 20px;
+            }
+            th { 
+              background-color: #f8fafc; 
+              color: #475569; 
+              font-weight: 700; 
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-size: 11px;
+              border-bottom: 2px solid #cbd5e1;
+              padding: 12px 10px;
+              text-align: left;
+            }
+            td { 
+              border-bottom: 1px solid #f1f5f9; 
+              padding: 12px 10px; 
+              color: #334155;
+            }
+            tr:nth-child(even) td { 
+              background-color: #fafbfb; 
+            }
+            .amount-text {
+              font-weight: 600;
+              color: #0f172a;
+            }
+            
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-banner">
+            <h1 class="header-title">Executive Sales Report</h1>
+            <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
+          </div>
+          
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Total Revenue</div>
+              <div class="kpi-value">R ${stats.totalRevenue.toFixed(2)}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Total Transactions</div>
+              <div class="kpi-value">${stats.totalCount}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Date & Time</th>
+                <th>Transaction ID</th>
+                <th>Items Sold</th>
+                <th style="text-align: right;">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sales.map(item => `
+                <tr>
+                  <td style="color: #64748b; font-weight: 500;">
+                    ${new Date(item.date).toLocaleDateString()} ${new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                  </td>
+                  <td style="font-family: monospace;">${item._id}</td>
+                  <td>${item.items.length} ${item.items.length === 1 ? 'item' : 'items'}</td>
+                  <td style="text-align: right;" class="amount-text">R ${item.total.toFixed(2)}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Stolar POS System • Executive Business Intelligence
+          </div>
+        </body>
+      </html>
+    `;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) { 
+      Alert.alert('Error', 'Failed to generate PDF'); 
+    }
+  };
+
   const renderHeader = () => (
     <View>
       {/* 1. Summary Cards */}
@@ -122,7 +284,7 @@ export default function SalesReports() {
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.summaryLabel}>Total Revenue</Text>
-            <Text style={styles.summaryValue}>${stats.totalRevenue.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>R{stats.totalRevenue.toFixed(2)}</Text>
           </View>
         </LinearGradient>
 
@@ -185,9 +347,14 @@ export default function SalesReports() {
             <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
           <Text style={styles.headerCenterTitle}>Executive Hub</Text>
-          <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
-            <Ionicons name="log-out-outline" size={20} color="white" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', gap: 10 }}>
+            <TouchableOpacity onPress={handleExportPDF} style={styles.iconButton}>
+              <Ionicons name="document-text-outline" size={20} color="white" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleLogout} style={styles.iconButton}>
+              <Ionicons name="log-out-outline" size={20} color="white" />
+            </TouchableOpacity>
+          </View>
         </View>
 
         <Text style={styles.title}>Sales Reports</Text>
@@ -218,7 +385,7 @@ export default function SalesReports() {
                 <Ionicons name="receipt-outline" size={20} color="#0ea5e9" />
               </View>
               <View style={styles.saleInfo}>
-                <Text style={styles.saleTotal}>${item.total.toFixed(2)}</Text>
+                <Text style={styles.saleTotal}>R{item.total.toFixed(2)}</Text>
                 <Text style={styles.saleItems}>{item.items.length} {item.items.length === 1 ? 'item' : 'items'} sold</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
