@@ -348,10 +348,7 @@ export default function ProfitLoss() {
               </ScrollView>
             </View>
 
-            <LinearGradient
-              colors={['#0f172a', '#1e293b']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+            <View
               style={styles.unifiedCard}
             >
               {/* Performance Indicator Header */}
@@ -419,7 +416,7 @@ export default function ProfitLoss() {
                     </View>
                     <Text style={styles.colLabel}>TOTAL COGS</Text>
                   </View>
-                  <Text style={[styles.colValue, { color: '#e2e8f0' }]}>
+                  <Text style={[styles.colValue, { color: '#334155' }]}>
                     {symbol} {stats.cogs.toFixed(2)}
                   </Text>
                 </View>
@@ -438,7 +435,7 @@ export default function ProfitLoss() {
                     : "Expenses exceed revenue. Review stock cost prices."}
                 </Text>
               </View>
-            </LinearGradient>
+            </View>
           </View>
         )}
       </ScrollView>
@@ -472,13 +469,16 @@ const styles = StyleSheet.create({
   activeShopChipText: { color: 'white' },
   reportContainer: { padding: 20, gap: 15 },
   unifiedCard: {
+    backgroundColor: 'white',
     padding: 20,
     borderRadius: 24,
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15,
-    shadowRadius: 16,
-    elevation: 6,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+    shadowColor: '#0284c7',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 12,
+    elevation: 2,
     marginBottom: 5,
   },
   cardHeader: {
@@ -521,13 +521,13 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   progressValueText: {
-    color: '#f8fafc',
+    color: '#334155',
     fontSize: 11,
     fontWeight: '700',
   },
   progressBarTrack: {
     height: 5,
-    backgroundColor: '#334155',
+    backgroundColor: '#e2e8f0',
     borderRadius: 2.5,
     overflow: 'hidden',
   },
@@ -537,9 +537,9 @@ const styles = StyleSheet.create({
   },
   cardDivider: {
     height: 1,
-    backgroundColor: '#334155',
+    backgroundColor: '#e2e8f0',
     marginVertical: 4,
-    opacity: 0.4,
+    opacity: 1,
   },
   gridRow: {
     flexDirection: 'row',
@@ -577,12 +577,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginTop: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    backgroundColor: 'rgba(14, 165, 233, 0.05)',
     padding: 8,
     borderRadius: 10,
   },
   footerText: {
-    color: '#cbd5e1',
+    color: '#475569',
     fontSize: 10,
     fontWeight: '500',
     flex: 1,
