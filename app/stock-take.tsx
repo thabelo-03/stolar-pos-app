@@ -277,6 +277,26 @@ export default function StockTakeScreen() {
           </div>
 
           <div class="summary-box">
+            <h3>Business Intelligence</h3>
+            <div class="row">
+               <span class="label">Gross Profit on Sales</span>
+               <span class="value" style="color: #16a34a; font-weight: bold;">${s}${convert(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}</span>
+            </div>
+            <div class="row">
+               <span class="label">Gross Profit Margin</span>
+               <span class="value" style="font-weight: bold;">${(metrics.totalSalesCash > 0 ? ((metrics.totalSalesCash - metrics.soldCost) / metrics.totalSalesCash) * 100 : 0).toFixed(1)}%</span>
+            </div>
+            <div class="row">
+               <span class="label">Unrealized Future Profit</span>
+               <span class="value" style="color: #2563eb; font-weight: bold;">${s}${convert(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}</span>
+            </div>
+            <div class="row">
+               <span class="label">Inventory Sell-Through Rate</span>
+               <span class="value" style="font-weight: bold;">${((metrics.soldCost + metrics.inventoryCost) > 0 ? (metrics.soldCost / (metrics.soldCost + metrics.inventoryCost)) * 100 : 0).toFixed(1)}%</span>
+            </div>
+          </div>
+
+          <div class="summary-box">
             <div class="row total-row">
                <span class="label">Total Stock Managed (Retail)</span>
                <span class="value">${s}${convert(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}</span>
@@ -467,6 +487,56 @@ export default function StockTakeScreen() {
 
             <View style={[styles.divider, { backgroundColor: colors.divider }]} />
 
+            {/* 2.5. Business Intelligence & Profitability */}
+            <View style={styles.section}>
+              <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>Business Intelligence</Text>
+              
+              <View style={styles.row}>
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.textMain }]}>Gross Profit on Sales</Text>
+                  <Text style={[styles.rowSub, { color: colors.textMuted }]}>
+                    Margin: {(metrics.totalSalesCash > 0 ? ((metrics.totalSalesCash - metrics.soldCost) / metrics.totalSalesCash) * 100 : 0).toFixed(1)}%
+                  </Text>
+                </View>
+                <Text style={[styles.rowValue, { color: '#10b981' }]}>
+                  {symbol}{convert(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}
+                </Text>
+              </View>
+
+              <View style={[styles.row, { marginTop: 15 }]}>
+                <View>
+                  <Text style={[styles.rowLabel, { color: colors.textMain }]}>Unrealized Future Profit</Text>
+                  <Text style={[styles.rowSub, { color: colors.textMuted }]}>
+                    Potential Markup: {(metrics.inventoryCost > 0 ? ((metrics.inventoryValue - metrics.inventoryCost) / metrics.inventoryCost) * 100 : 0).toFixed(1)}%
+                  </Text>
+                </View>
+                <Text style={[styles.rowValue, { color: colors.primary }]}>
+                  {symbol}{convert(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}
+                </Text>
+              </View>
+
+              {/* Visual Sell-Through Rate Progress Bar */}
+              <View style={[styles.marginMeterContainer, { marginTop: 15, backgroundColor: colors.inputBg, borderColor: colors.primaryBorder, borderWidth: 1 }]}>
+                <View style={styles.marginMeterLabelRow}>
+                  <Text style={styles.marginMeterLabel}>Inventory Sell-Through Rate</Text>
+                  <Text style={[styles.marginMeterValue, { color: colors.primary }]}>
+                    {((metrics.soldCost + metrics.inventoryCost) > 0 ? (metrics.soldCost / (metrics.soldCost + metrics.inventoryCost)) * 100 : 0).toFixed(1)}%
+                  </Text>
+                </View>
+                <View style={[styles.marginMeterTrack, { backgroundColor: isDark ? 'rgba(255,255,255,0.08)' : '#e2e8f0' }]}>
+                  <View style={[styles.marginMeterBar, { 
+                    width: `${Math.min(Math.max(((metrics.soldCost + metrics.inventoryCost) > 0 ? (metrics.soldCost / (metrics.soldCost + metrics.inventoryCost)) * 100 : 0), 0), 100)}%`, 
+                    backgroundColor: colors.primary 
+                  }]} />
+                </View>
+                <Text style={{ fontSize: 10, color: colors.textMuted, marginTop: 5, fontWeight: '500', lineHeight: 14 }}>
+                  Measures the speed at which your capital investment converts into revenue.
+                </Text>
+              </View>
+            </View>
+
+            <View style={[styles.divider, { backgroundColor: colors.divider }]} />
+
             {/* 3. Total Stock */}
             <View style={styles.totalSection}>
               <Text style={[styles.totalLabel, { color: colors.textMuted }]}>Total Stock Managed (Retail)</Text>
@@ -542,4 +612,36 @@ const styles = StyleSheet.create({
   totalLabel: { fontSize: 13, textTransform: 'uppercase', fontWeight: 'bold' },
   totalValue: { fontSize: 32, fontWeight: 'bold', marginVertical: 5 },
   totalSub: { fontSize: 12 },
+
+  marginMeterContainer: {
+    marginTop: 12,
+    borderRadius: 12,
+    padding: 12,
+  },
+  marginMeterLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  marginMeterLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  marginMeterValue: {
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  marginMeterTrack: {
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden'
+  },
+  marginMeterBar: {
+    height: '100%',
+    borderRadius: 3
+  },
 });
