@@ -50,7 +50,7 @@ export default function StockTakeScreen() {
     if (shops.length > 0 || userRole === 'cashier') {
         calculateStockTake();
     }
-  }, [startDate, endDate, selectedShop, shops]);
+  }, [startDate, endDate, selectedShop, shops, currency, rates]);
 
   useEffect(() => {
     if (selectedShop !== 'all') {
@@ -155,13 +155,25 @@ export default function StockTakeScreen() {
         });
       }
 
+      // Helper to get conversion rate for a shop
+      const getRateForShop = (sId: string) => {
+        if (currency === 'USD') return 1;
+        const shopObj = shops.find(s => s._id === sId);
+        return shopObj?.rates?.ZAR || rates.ZAR || 19.2;
+      };
+
       // A. Sales Metrics
       let totalSalesCash = 0;
       let soldCost = 0;
       let itemsSold = 0;
 
       sales.forEach((sale: any) => {
-        totalSalesCash += (sale.totalUSD || sale.total || 0);
+        const sId = sale.shopId && (typeof sale.shopId === 'object' ? sale.shopId._id : sale.shopId);
+        const rate = getRateForShop(sId);
+        
+        const saleTotalUSD = sale.totalUSD || sale.total || 0;
+        totalSalesCash += saleTotalUSD * rate;
+
         if (sale.items) {
           sale.items.forEach((item: any) => {
             itemsSold += (Number(item.quantity) || 0);
@@ -171,7 +183,7 @@ export default function StockTakeScreen() {
             if (unitCost === 0 && item.barcode) {
               unitCost = costMap.get(item.barcode) || 0;
             }
-            soldCost += (unitCost * Number(item.quantity || 0));
+            soldCost += (unitCost * Number(item.quantity || 0)) * rate;
           });
         }
       });
@@ -182,13 +194,16 @@ export default function StockTakeScreen() {
       let itemsInStock = 0;
 
       products.forEach((p: any) => {
+        const pId = p.shopId && (typeof p.shopId === 'object' ? p.shopId._id : p.shopId);
+        const rate = getRateForShop(pId);
+
         const qty = p.stockQuantity !== undefined ? Number(p.stockQuantity) : (Number(p.quantity) || 0);
         const price = Number(p.price) || 0;
         const cost = Number(p.costPrice) || 0;
 
         itemsInStock += qty;
-        inventoryValue += (price * qty);
-        inventoryCost += (cost * qty);
+        inventoryValue += (price * qty) * rate;
+        inventoryCost += (cost * qty) * rate;
       });
 
       setMetrics({
@@ -256,7 +271,7 @@ export default function StockTakeScreen() {
             <h3>Cash Flow</h3>
             <div class="row">
               <span class="label">Total Cash Sales (Retail)</span>
-              <span class="value">${s}${convert(metrics.totalSalesCash).toFixed(2)}</span>
+              <span class="value">${s}${metrics.totalSalesCash.toFixed(2)}</span>
             </div>
             
             <div class="divider"></div>
@@ -264,15 +279,15 @@ export default function StockTakeScreen() {
             <h3>Stock Inventory</h3>
             <div class="row">
                <span class="label">Items Sold (${metrics.itemsSold} units)</span>
-               <span class="value">${s}${convert(metrics.soldCost).toFixed(2)} (Cost)</span>
+               <span class="value">${s}${metrics.soldCost.toFixed(2)} (Cost)</span>
             </div>
             <div class="row">
                <span class="label">Available Stock (${metrics.itemsInStock} units)</span>
-               <span class="value">${s}${convert(metrics.inventoryValue).toFixed(2)} (Retail)</span>
+               <span class="value">${s}${metrics.inventoryValue.toFixed(2)} (Retail)</span>
             </div>
             <div class="row">
                <span class="label">Available Stock Cost</span>
-               <span class="value">${s}${convert(metrics.inventoryCost).toFixed(2)} (Cost)</span>
+               <span class="value">${s}${metrics.inventoryCost.toFixed(2)} (Cost)</span>
             </div>
           </div>
 
@@ -280,7 +295,7 @@ export default function StockTakeScreen() {
             <h3>Business Intelligence</h3>
             <div class="row">
                <span class="label">Gross Profit on Sales</span>
-               <span class="value" style="color: #16a34a; font-weight: bold;">${s}${convert(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}</span>
+               <span class="value" style="color: #16a34a; font-weight: bold;">${s}${(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}</span>
             </div>
             <div class="row">
                <span class="label">Gross Profit Margin</span>
@@ -288,7 +303,7 @@ export default function StockTakeScreen() {
             </div>
             <div class="row">
                <span class="label">Unrealized Future Profit</span>
-               <span class="value" style="color: #2563eb; font-weight: bold;">${s}${convert(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}</span>
+               <span class="value" style="color: #2563eb; font-weight: bold;">${s}${(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}</span>
             </div>
             <div class="row">
                <span class="label">Inventory Sell-Through Rate</span>
@@ -299,7 +314,7 @@ export default function StockTakeScreen() {
           <div class="summary-box">
             <div class="row total-row">
                <span class="label">Total Stock Managed (Retail)</span>
-               <span class="value">${s}${convert(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}</span>
+               <span class="value">${s}${(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}</span>
             </div>
             <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 3px;">(Sales Retail + Available Retail)</div>
             
@@ -307,7 +322,7 @@ export default function StockTakeScreen() {
             
             <div class="row total-row" style="font-size: 16px; color: #475569;">
                <span class="label">Total Stock Investment (Cost)</span>
-               <span class="value">${s}${convert(metrics.soldCost + metrics.inventoryCost).toFixed(2)}</span>
+               <span class="value">${s}${(metrics.soldCost + metrics.inventoryCost).toFixed(2)}</span>
             </div>
             <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 3px;">(Sold Cost + Available Cost)</div>
           </div>
@@ -454,7 +469,7 @@ export default function StockTakeScreen() {
               <Text style={[styles.sectionHeader, { color: colors.textMuted }]}>Cash Flow</Text>
               <View style={styles.row}>
                 <Text style={[styles.rowLabel, { color: colors.textMain }]}>Total Cash Sales</Text>
-                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{convert(metrics.totalSalesCash).toFixed(2)}</Text>
+                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{metrics.totalSalesCash.toFixed(2)}</Text>
               </View>
             </View>
 
@@ -469,7 +484,7 @@ export default function StockTakeScreen() {
                   <Text style={[styles.rowLabel, { color: colors.textMain }]}>Items Sold</Text>
                   <Text style={[styles.rowSub, { color: colors.textMuted }]}>{metrics.itemsSold} units</Text>
                 </View>
-                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{convert(metrics.soldCost).toFixed(2)}</Text>
+                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{metrics.soldCost.toFixed(2)}</Text>
               </View>
 
               <View style={[styles.row, { marginTop: 15 }]}>
@@ -477,11 +492,11 @@ export default function StockTakeScreen() {
                   <Text style={[styles.rowLabel, { color: colors.textMain }]}>Available Stock (Retail)</Text>
                   <Text style={[styles.rowSub, { color: colors.textMuted }]}>{metrics.itemsInStock} units</Text>
                 </View>
-                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{convert(metrics.inventoryValue).toFixed(2)}</Text>
+                <Text style={[styles.rowValue, { color: colors.textMain }]}>{symbol}{metrics.inventoryValue.toFixed(2)}</Text>
               </View>
               <View style={[styles.row, { marginTop: 8 }]}>
                 <Text style={[styles.rowLabel, { fontSize: 13, color: colors.textMuted }]}>Cost Value</Text>
-                <Text style={[styles.rowValue, { fontSize: 15, color: colors.textMuted }]}>{symbol}{convert(metrics.inventoryCost).toFixed(2)}</Text>
+                <Text style={[styles.rowValue, { fontSize: 15, color: colors.textMuted }]}>{symbol}{metrics.inventoryCost.toFixed(2)}</Text>
               </View>
             </View>
 
@@ -499,7 +514,7 @@ export default function StockTakeScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.rowValue, { color: '#10b981' }]}>
-                  {symbol}{convert(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}
+                  {symbol}{(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}
                 </Text>
               </View>
 
@@ -511,7 +526,7 @@ export default function StockTakeScreen() {
                   </Text>
                 </View>
                 <Text style={[styles.rowValue, { color: colors.primary }]}>
-                  {symbol}{convert(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}
+                  {symbol}{(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}
                 </Text>
               </View>
 
@@ -541,20 +556,20 @@ export default function StockTakeScreen() {
             <View style={styles.totalSection}>
               <Text style={[styles.totalLabel, { color: colors.textMuted }]}>Total Stock Managed (Retail)</Text>
               <Text style={[styles.totalValue, { color: colors.primary, fontSize: 28 }]}>
-                {symbol}{convert(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}
+                {symbol}{(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}
               </Text>
               <Text style={[styles.totalSub, { color: colors.textMuted, marginTop: 4 }]}>
-                (Sales: {symbol}{convert(metrics.totalSalesCash).toFixed(0)} + Available: {symbol}{convert(metrics.inventoryValue).toFixed(0)})
+                (Sales: {symbol}{metrics.totalSalesCash.toFixed(0)} + Available: {symbol}{metrics.inventoryValue.toFixed(0)})
               </Text>
 
               <View style={[styles.divider, { backgroundColor: colors.divider, marginVertical: 12, height: 1, width: '80%', alignSelf: 'center' }]} />
 
               <Text style={[styles.totalLabel, { color: colors.textMuted, fontSize: 11 }]}>Total Stock Investment (Cost)</Text>
               <Text style={[styles.totalValue, { color: colors.textMain, fontSize: 22, marginTop: 2 }]}>
-                {symbol}{convert(metrics.soldCost + metrics.inventoryCost).toFixed(2)}
+                {symbol}{(metrics.soldCost + metrics.inventoryCost).toFixed(2)}
               </Text>
               <Text style={[styles.totalSub, { color: colors.textMuted }]}>
-                (Sold Cost: {symbol}{convert(metrics.soldCost).toFixed(0)} + Available Cost: {symbol}{convert(metrics.inventoryCost).toFixed(0)})
+                (Sold Cost: {symbol}{metrics.soldCost.toFixed(0)} + Available Cost: {symbol}{metrics.inventoryCost.toFixed(0)})
               </Text>
             </View>
           </View>
