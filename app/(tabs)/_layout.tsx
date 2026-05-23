@@ -23,7 +23,10 @@ export default function TabLayout() {
       const data = await response.json();
       if (response.ok && Array.isArray(data)) {
         // Count items with quantity less than 5
-        const count = data.filter((item: any) => Number(item.quantity) < 5).length;
+        const count = data.filter((item: any) => {
+          const qty = item.stockQuantity !== undefined ? Number(item.stockQuantity) : (Number(item.quantity) || 0);
+          return qty < 5;
+        }).length;
         setLowStockCount(count > 0 ? count : undefined);
       }
     } catch (error) {

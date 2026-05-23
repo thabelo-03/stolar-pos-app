@@ -10,6 +10,7 @@ import { ActivityIndicator, Alert, Dimensions, FlatList, Linking, Modal, Platfor
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
+import { useRates } from '../../hooks/use-rates';
 
 interface Shop {
   _id: string;
@@ -55,6 +56,7 @@ const ManagerIndex = () => {
   const [allSales, setAllSales] = useState<any[]>([]);
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { rates } = useRates();
 
   useFocusEffect(
     React.useCallback(() => {
@@ -126,7 +128,12 @@ const ManagerIndex = () => {
           if (Array.isArray(productsData)) {
             // Filter products to only those belonging to the manager's shops
             const myProducts = productsData.filter((p: any) => myShopIds.has(p.shopId));
-            const low = myProducts.filter((p: any) => Number(p.quantity) < 5);
+            const low = myProducts
+              .map((p: any) => ({
+                ...p,
+                quantity: p.stockQuantity !== undefined ? Number(p.stockQuantity) : (Number(p.quantity) || 0)
+              }))
+              .filter((p: any) => p.quantity < 5);
             setLowStockItems(low.slice(0, 5));
           }
         }
@@ -202,7 +209,9 @@ const ManagerIndex = () => {
         const step = Math.ceil(labels.length / 6);
         finalLabels = labels.map((l, i) => (i % step === 0) ? l : '');
       }
-      setChartData({ labels: finalLabels, datasets: [{ data: dataPoints }] });
+      // Convert chart data to ZAR too (use default 19.2 since rates may not be loaded in useEffect)
+      const zarRate = rates?.ZAR || 19.2;
+      setChartData({ labels: finalLabels, datasets: [{ data: dataPoints.map(v => Math.round(v * zarRate)) }] });
     }
 
     // Filter for Pie Chart (use selected range)
@@ -389,14 +398,33 @@ const ManagerIndex = () => {
     );
   }
 
-  const totalRevenue = allSales
-    .filter((s: any) => {
-      const d = new Date(s.date);
-      const start = new Date(startDate); start.setHours(0,0,0,0);
-      const end = new Date(endDate); end.setHours(23,59,59,999);
-      return d >= start && d <= end;
-    })
-    .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0);
+  // Convert from base (USD) to ZAR
+  const convertToZAR = (amount: number) => amount * (rates?.ZAR || 19.2);
+
+  // Today's revenue for KPI card
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const todayEnd = new Date(); todayEnd.setHours(23, 59, 59, 999);
+
+  const totalRevenue = convertToZAR(
+    allSales
+      .filter((s: any) => {
+        const d = new Date(s.date);
+        return d >= todayStart && d <= todayEnd;
+      })
+      .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0)
+  );
+
+  // Range revenue (used by AI insights)
+  const rangeRevenue = convertToZAR(
+    allSales
+      .filter((s: any) => {
+        const d = new Date(s.date);
+        const start = new Date(startDate); start.setHours(0,0,0,0);
+        const end = new Date(endDate); end.setHours(23,59,59,999);
+        return d >= start && d <= end;
+      })
+      .reduce((acc: number, curr: any) => acc + (curr.totalUSD || curr.total || curr.amount || 0), 0)
+  );
 
   const ordersToday = allSales.filter((s: any) => {
     const d = new Date(s.date);
@@ -411,15 +439,15 @@ const ManagerIndex = () => {
     const insights: { icon: string; color: string; title: string; message: string }[] = [];
 
     // Revenue growth hint
-    if (totalRevenue > 0) {
-      const avgPerShop = shops.length > 0 ? totalRevenue / shops.length : totalRevenue;
+    if (rangeRevenue > 0) {
+      const avgPerShop = shops.length > 0 ? rangeRevenue / shops.length : rangeRevenue;
       insights.push({
         icon: 'trending-up',
         color: '#7c3aed',
         title: 'Revenue Insight',
         message: shops.length > 1
-          ? `Avg R${avgPerShop.toFixed(0)}/shop this period. Focus on under-performing locations to lift overall revenue.`
-          : `You generated R${totalRevenue.toFixed(0)} this period. Great progress — consider promoting top-sellers.`,
+          ? `Avg R${(rangeRevenue / shops.length).toFixed(0)}/shop this period. Focus on under-performing locations to lift overall revenue.`
+          : `You generated R${rangeRevenue.toFixed(0)} this period. Great progress — consider promoting top-sellers.`,
       });
     } else {
       insights.push({
@@ -495,7 +523,7 @@ const ManagerIndex = () => {
       <View style={styles.kpiContainer}>
         <View style={[styles.kpiCard, styles.kpiCardIndigo]}>
           <Ionicons name="cash-outline" size={18} color="#7c3aed" style={styles.kpiIcon} />
-          <Text style={styles.kpiLabel}>Revenue</Text>
+          <Text style={styles.kpiLabel}>Today</Text>
           <Text style={styles.kpiValue}>R{totalRevenue.toFixed(0)}</Text>
         </View>
 
@@ -556,7 +584,7 @@ const ManagerIndex = () => {
             labels: chartData.labels,
             datasets: [{ data: chartData.datasets[0].data.map((v: number) => Math.round(v)) }],
           }}
-          width={Dimensions.get("window").width - 72}
+          width={Dimensions.get("window").width - 88}
           height={200}
           yAxisLabel="R"
           yAxisSuffix=""
@@ -568,7 +596,7 @@ const ManagerIndex = () => {
             color: (opacity = 1) => `rgba(124, 58, 237, ${opacity})`,
             labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
             style: { borderRadius: 12 },
-            barPercentage: 0.6,
+            barPercentage: 0.5,
             propsForBackgroundLines: {
               strokeDasharray: '',
               stroke: '#f1f5f9',
