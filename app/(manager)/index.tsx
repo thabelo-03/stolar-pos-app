@@ -584,7 +584,7 @@ const ManagerIndex = () => {
             labels: chartData.labels,
             datasets: [{ data: chartData.datasets[0].data.map((v: number) => Math.round(v)) }],
           }}
-          width={Dimensions.get("window").width - 88}
+          width={Dimensions.get("window").width - 100}
           height={200}
           yAxisLabel="R"
           yAxisSuffix=""
@@ -597,6 +597,10 @@ const ManagerIndex = () => {
             labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
             style: { borderRadius: 12 },
             barPercentage: 0.5,
+            propsForLabels: {
+              fontSize: 10,
+              fontWeight: '600',
+            },
             propsForBackgroundLines: {
               strokeDasharray: '',
               stroke: '#f1f5f9',
