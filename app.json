@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "Stolar",
-    "slug": "stolar",
+    "slug": "atolar-app",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/stolar-logo.jpeg",
@@ -9,7 +9,8 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.stolar.pos"
     },
     "android": {
       "package": "com.stolar.pos",
@@ -50,6 +51,14 @@
         {
           "cameraPermission": "Allow Stolar POS to access your camera to scan barcodes.",
           "microphonePermission": "Allow Stolar POS to access your microphone."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "deploymentTarget": "16.0"
+          }
         }
       ]
     ],
