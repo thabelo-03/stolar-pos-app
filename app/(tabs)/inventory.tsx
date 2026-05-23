@@ -376,8 +376,11 @@ export default function CashierInventoryScreen() {
     const qty = Number(item.quantity) || 0;
     const status = getStockStatus(qty);
     const price = convert(Number(item.price) || 0);
-    const cost = Number(item.costPrice) || 0;
+    const rawCost = Number(item.costPrice) || 0;
+    const cost = convert(rawCost);
     const margin = price > 0 ? ((price - cost) / price) * 100 : 0;
+    const profit = price - cost;
+    
     const hasWeight = /[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(item.name.trim());
     const displayName = item.name.replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
       return `${num}${unit.toUpperCase()}`;
@@ -400,23 +403,38 @@ export default function CashierInventoryScreen() {
             <Text style={[styles.statusText, { color: status.color }]}>{status.label}</Text>
           </View>
         </View>
-        
+
+        {/* Business Intelligence Visual Margin Meter */}
+        <View style={styles.marginMeterContainer}>
+          <View style={styles.marginMeterLabelRow}>
+            <Text style={styles.marginMeterLabel}>Profit Margin</Text>
+            <Text style={[styles.marginMeterValue, { color: margin > 30 ? '#10b981' : margin >= 15 ? '#f59e0b' : '#ef4444' }]}>
+              {margin.toFixed(0)}%
+            </Text>
+          </View>
+          <View style={styles.marginMeterTrack}>
+            <View style={[styles.marginMeterBar, { 
+              width: `${Math.min(Math.max(margin, 0), 100)}%`, 
+              backgroundColor: margin > 30 ? '#10b981' : margin >= 15 ? '#f59e0b' : '#ef4444' 
+            }]} />
+          </View>
+        </View>
 
         <View style={styles.cardDivider} />
 
         <View style={styles.cardFooter}>
           <View>
-            <Text style={styles.priceLabel}>Price</Text>
-            <Text style={styles.priceValue}>{symbol} {price.toFixed(2)}</Text>
+            <Text style={styles.priceLabel}>Price / Cost</Text>
+            <Text style={styles.priceValue}>{symbol}{price.toFixed(2)} <Text style={styles.costText}>({symbol}{cost.toFixed(2)})</Text></Text>
           </View>
           <View>
             <Text style={styles.priceLabel}>Stock</Text>
             <Text style={[styles.priceValue, { color: status.color }]}>{qty}</Text>
           </View>
           <View>
-            <Text style={styles.priceLabel}>Margin</Text>
-            <Text style={[styles.priceValue, { color: '#10b981' }]}>
-              {margin.toFixed(0)}%
+            <Text style={styles.priceLabel}>Profit</Text>
+            <Text style={[styles.priceValue, { color: profit >= 0 ? '#10b981' : '#ef4444' }]}>
+              {symbol}{profit.toFixed(2)}
             </Text>
           </View>
           
@@ -745,6 +763,47 @@ const styles = StyleSheet.create({
   itemBarcode: { fontSize: 12, color: '#94a3b8', fontWeight: '500', marginTop: 2 },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 10, borderWidth: 1 },
   statusText: { fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: 0.5 },
+  
+  marginMeterContainer: {
+    marginTop: 12,
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 12,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.05)'
+  },
+  marginMeterLabelRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  marginMeterLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#64748b',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
+  },
+  marginMeterValue: {
+    fontSize: 13,
+    fontWeight: '800'
+  },
+  marginMeterTrack: {
+    height: 6,
+    backgroundColor: 'rgba(255,255,255,0.08)',
+    borderRadius: 3,
+    overflow: 'hidden'
+  },
+  marginMeterBar: {
+    height: '100%',
+    borderRadius: 3
+  },
+  costText: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500'
+  },
   
   cardDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginVertical: 14 },
   
