@@ -41,30 +41,56 @@ export default function ManagerAddStockScreen() {
   const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('ZAR');
   const placeholderColor = '#94a3b8';
 
+  const lastLoadedId = useRef<string | null>(null);
+
   useEffect(() => {
     const loadUser = async () => {
       const id = await AsyncStorage.getItem('userId');
       if (id) setCurrentUserId(id);
     };
     loadUser();
+  }, []);
 
-    if (isEditMode) {
+  useEffect(() => {
+    if (isEditMode && rates) {
+      if (lastLoadedId.current === params.id) return;
+
+      const zarRate = rates.ZAR || 19.2;
+      const zigRate = rates.ZiG || 26.5;
+
       setItemName(params.name as string || '');
       setQuantity(params.quantity ? String(params.quantity) : '');
       setBarcode(params.barcode ? String(params.barcode) : '');
-      setPrice(params.price ? Number(params.price).toFixed(2) : '');
-      setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
       if (params.category) setCategory(params.category as string);
-    } else {
+
+      let initialPrice = Number(params.price) || 0;
+      let initialCost = Number(params.costPrice) || 0;
+
+      if (currency === 'ZAR') {
+        initialPrice *= zarRate;
+        initialCost *= zarRate;
+      } else if (currency === 'ZiG') {
+        initialPrice *= zigRate;
+        initialCost *= zigRate;
+      }
+
+      setPrice(params.price ? initialPrice.toFixed(2) : '');
+      setCostPrice(params.costPrice ? initialCost.toFixed(2) : '');
+      
+      lastLoadedId.current = params.id as string;
+      setHasUnsavedChanges(false);
+    } else if (!isEditMode) {
+      if (lastLoadedId.current === 'new') return;
       setItemName('');
       setBarcode('');
       setQuantity('');
       setPrice('');
       setCostPrice('');
       setCategory('General');
+      lastLoadedId.current = 'new';
+      setHasUnsavedChanges(false);
     }
-    setHasUnsavedChanges(false);
-  }, [params.mode, params.id, params.name, params.quantity, params.barcode, params.price, params.costPrice, params.category]);
+  }, [isEditMode, params.id, params.name, params.quantity, params.barcode, params.price, params.costPrice, params.category, rates, currency]);
 
   useEffect(() => {
     if (shopId) {
