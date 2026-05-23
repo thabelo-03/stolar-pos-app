@@ -13,7 +13,9 @@ import {
   Alert,
   TextInput
 } from 'react-native';
-import { API_BASE_URL } from '../config';
+import { API_BASE_URL } from '../app/config';
+import SubscriptionModal from './SubscriptionModal';
+
 
 interface Shop {
   _id: string;
@@ -38,6 +40,8 @@ export default function MyShopScreen() {
   const [processing, setProcessing] = useState(false);
   const [branchCode, setBranchCode] = useState('');
   const router = useRouter();
+  const [subscriptionExpired, setSubscriptionExpired] = useState(false);
+  const [currentUser, setCurrentUser] = useState<{id: string, name: string, email: string} | null>(null);
 
   useEffect(() => {
     fetchShopDetails();
@@ -50,24 +54,37 @@ export default function MyShopScreen() {
 
       // 1. Get User to find their shopId
       const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-      const user = await userRes.json();
+      if (userRes.ok) {
+        const user = await userRes.json();
+        setCurrentUser({ ...user, id: user._id });
 
-      if (user.shopId) {
-        // 2. Get Shop details
-        const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
-        if (shopRes.ok) {
-          const shopData = await shopRes.json();
-          setShop(shopData);
-          setPendingRequest(null);
+        // Check Subscription Status
+        if (user.subscriptionExpiry) {
+          const expiryDate = new Date(user.subscriptionExpiry);
+          const now = new Date();
+          if (expiryDate < now) {
+            console.log("Subscription expired:", expiryDate);
+            setSubscriptionExpired(true);
+          }
         }
-      } else {
-        setShop(null);
-        // 3. Check if they have a pending request
-        const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
-        if (reqRes.ok) {
-          const reqData = await reqRes.json();
-          // reqData will be null if no request exists
-          setPendingRequest(reqData);
+
+        if (user.shopId) {
+          // 2. Get Shop details
+          const shopRes = await fetch(`${API_BASE_URL}/shops/${user.shopId}`);
+          if (shopRes.ok) {
+            const shopData = await shopRes.json();
+            setShop(shopData);
+            setPendingRequest(null);
+          }
+        } else {
+          setShop(null);
+          // 3. Check if they have a pending request
+          const reqRes = await fetch(`${API_BASE_URL}/shops/cashier-request/${userId}`);
+          if (reqRes.ok) {
+            const reqData = await reqRes.json();
+            // reqData will be null if no request exists
+            setPendingRequest(reqData);
+          }
         }
       }
     } catch (error) {
@@ -93,7 +110,7 @@ export default function MyShopScreen() {
         setModalVisible(false);
         setShop(null);
         Alert.alert("Success", "You have left the shop.");
-        router.replace('/(cashier)'); // Redirect to home or request screen
+        router.replace('/(cashier)/my-shop'); // Redirect to home or request screen
       } else {
         Alert.alert("Error", data.message || "Failed to leave shop");
       }
@@ -156,6 +173,17 @@ export default function MyShopScreen() {
     }
   };
 
+  const handleSubscriptionSuccess = () => {
+    setSubscriptionExpired(false);
+    Alert.alert("Success", "Subscription extended!");
+    fetchShopDetails();
+  };
+
+  const handleLogout = async () => {
+    await AsyncStorage.clear();
+    router.replace('/'); 
+  };
+
   if (loading) {
     return (
       <View style={styles.center}>
@@ -166,6 +194,13 @@ export default function MyShopScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
+      <SubscriptionModal 
+        visible={subscriptionExpired}
+        user={currentUser}
+        onSuccess={handleSubscriptionSuccess}
+        onLogout={handleLogout}
+      />
+
       <View style={styles.header}>
         <Text style={styles.title}>My Shop</Text>
       </View>
@@ -181,6 +216,17 @@ export default function MyShopScreen() {
               {shop.manager && (
                 <Text style={styles.managerText}>Manager: {shop.manager.name}</Text>
               )}
+            </View>
+
+            <Text style={styles.sectionTitle}>Quick Actions</Text>
+            <View style={styles.quickActionsRow}>
+                <TouchableOpacity 
+                    style={styles.quickActionCard} 
+                    onPress={() => router.push('/stock-take')}
+                >
+                    <View style={styles.actionIconCircle}><Ionicons name="clipboard" size={28} color="#1e40af" /></View>
+                    <Text style={styles.quickActionText}>Stock Take</Text>
+                </TouchableOpacity>
             </View>
 
             <TouchableOpacity 
@@ -302,6 +348,28 @@ const styles = StyleSheet.create({
   managerText: { fontSize: 14, color: '#94a3b8', marginTop: 12 },
   leaveButton: { backgroundColor: '#fee2e2', padding: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#fecaca' },
   leaveButtonText: { color: '#ef4444', fontWeight: 'bold', fontSize: 16 },
+  sectionContainer: { width: '100%', marginBottom: 15 },
+  sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#64748b', marginBottom: 10, textTransform: 'uppercase', letterSpacing: 1 },
+  quickActionsRow: {
+    flexDirection: 'row',
+    marginBottom: 20,
+    gap: 15,
+  },
+  quickActionCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  actionIconCircle: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  quickActionText: { fontSize: 14, fontWeight: 'bold', color: '#1e293b' },
   emptyState: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   emptyText: { fontSize: 16, color: '#64748b', marginTop: 16, marginBottom: 24 },
   linkButton: { backgroundColor: '#1e40af', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 8 },

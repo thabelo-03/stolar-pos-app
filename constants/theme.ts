@@ -1,53 +1,135 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Stolar POS — Premium Design System
+ * Global theme constants used across all screens
  */
 
-import { Platform } from 'react-native';
-
-const tintColorLight = '#0a7ea4';
-const tintColorDark = '#fff';
-
 export const Colors = {
-  light: {
-    text: '#11181C',
-    background: '#fff',
-    tint: tintColorLight,
-    icon: '#687076',
-    tabIconDefault: '#687076',
-    tabIconSelected: tintColorLight,
-  },
+  // --- Dark (Cashier POS) Palette ---
   dark: {
-    text: '#ECEDEE',
-    background: '#151718',
-    tint: tintColorDark,
-    icon: '#9BA1A6',
-    tabIconDefault: '#9BA1A6',
-    tabIconSelected: tintColorDark,
+    bg: '#0a0f1e',
+    bgSecondary: '#111827',
+    surface: 'rgba(255,255,255,0.06)',
+    surfaceElevated: 'rgba(255,255,255,0.10)',
+    border: 'rgba(255,255,255,0.10)',
+    text: '#f1f5f9',
+    textSecondary: '#94a3b8',
+    textMuted: '#64748b',
+    // Compatibility aliases for standard templates
+    background: '#0a0f1e',
+    icon: '#94a3b8',
+  },
+
+  // --- Light (Manager) Palette ---
+  light: {
+    bg: '#f0f4ff',
+    bgSecondary: '#e8edff',
+    surface: '#ffffff',
+    surfaceElevated: '#f8faff',
+    border: '#e2e8f0',
+    text: '#0f172a',
+    textSecondary: '#475569',
+    textMuted: '#94a3b8',
+    // Compatibility aliases for standard templates
+    background: '#f0f4ff',
+    icon: '#475569',
+  },
+
+  // --- Brand / Accent ---
+  brand: {
+    blue: '#2563eb',
+    blueDeep: '#1e3a8a',
+    blueSoft: '#1d4ed8',
+    cyan: '#06b6d4',
+    cyanSoft: '#0891b2',
+    emerald: '#10b981',
+    emeraldSoft: '#059669',
+    amber: '#f59e0b',
+    rose: '#f43f5e',
+    roseDeep: '#e11d48',
+    purple: '#8b5cf6',
+  },
+
+  // --- Gradients (as arrays for use with linear-gradient) ---
+  gradients: {
+    darkHeader: ['#0a0f1e', '#162444'],
+    blueHeader: ['#1e3a8a', '#2563eb'],
+    blueDeep: ['#0f172a', '#1e3a8a'],
+    emerald: ['#064e3b', '#059669'],
+    cyan: ['#0891b2', '#06b6d4'],
+    amber: ['#92400e', '#f59e0b'],
+    rose: ['#9f1239', '#f43f5e'],
+    card: ['rgba(255,255,255,0.08)', 'rgba(255,255,255,0.03)'],
   },
 };
 
-export const Fonts = Platform.select({
-  ios: {
-    /** iOS `UIFontDescriptorSystemDesignDefault` */
-    sans: 'system-ui',
-    /** iOS `UIFontDescriptorSystemDesignSerif` */
-    serif: 'ui-serif',
-    /** iOS `UIFontDescriptorSystemDesignRounded` */
-    rounded: 'ui-rounded',
-    /** iOS `UIFontDescriptorSystemDesignMonospaced` */
-    mono: 'ui-monospace',
+export const Spacing = {
+  xs: 4,
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  xxxl: 32,
+};
+
+export const Radii = {
+  sm: 8,
+  md: 12,
+  lg: 16,
+  xl: 20,
+  xxl: 24,
+  full: 9999,
+};
+
+export const Shadows = {
+  // For light backgrounds
+  card: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
-  default: {
-    sans: 'normal',
-    serif: 'serif',
-    rounded: 'normal',
-    mono: 'monospace',
+  cardDeep: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 8,
   },
-  web: {
-    sans: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif",
-    serif: "Georgia, 'Times New Roman', serif",
-    rounded: "'SF Pro Rounded', 'Hiragino Maru Gothic ProN', Meiryo, 'MS PGothic', sans-serif",
-    mono: "SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
+  // For dark backgrounds
+  glow: (color: string) => ({
+    shadowColor: color,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.5,
+    shadowRadius: 12,
+    elevation: 8,
+  }),
+  blueGlow: {
+    shadowColor: '#2563eb',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
   },
-});
+  emeraldGlow: {
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+};
+
+export const Typography = {
+  hero: { fontSize: 36, fontWeight: '800' as const, letterSpacing: -1 },
+  h1: { fontSize: 28, fontWeight: '800' as const, letterSpacing: -0.5 },
+  h2: { fontSize: 22, fontWeight: '700' as const },
+  h3: { fontSize: 18, fontWeight: '700' as const },
+  h4: { fontSize: 16, fontWeight: '600' as const },
+  body: { fontSize: 14, fontWeight: '400' as const },
+  bodyBold: { fontSize: 14, fontWeight: '600' as const },
+  caption: { fontSize: 12, fontWeight: '400' as const },
+  captionBold: { fontSize: 12, fontWeight: '600' as const },
+  micro: { fontSize: 10, fontWeight: '600' as const, letterSpacing: 0.5 },
+};

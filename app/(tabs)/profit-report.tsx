@@ -1,17 +1,23 @@
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { LinearGradient } from 'expo-linear-gradient';
+import * as Print from 'expo-print';
 import { useRouter } from 'expo-router';
+import * as Sharing from 'expo-sharing';
 import React, { useEffect, useState } from 'react';
-import { Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, FlatList, Platform, RefreshControl, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 
 import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
+import { useRates } from '../../hooks/use-rates';
+import { Colors } from '../../constants/theme';
 
 export default function ProfitReportScreen() {
   const router = useRouter();
-  const textColor = useThemeColor({}, 'text');
+  const textColor = Colors.dark.text;
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState({
     revenue: 0,
@@ -30,6 +36,17 @@ export default function ProfitReportScreen() {
     labels: ["W1", "W2", "W3", "W4"],
     datasets: [{ data: [0, 0, 0, 0] }]
   });
+  
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
+  const { rates } = useRates();
+
+  const convert = (amount: number) => {
+    if (currency === 'ZAR') return amount * rates.ZAR;
+    if (currency === 'ZiG') return amount * rates.ZiG;
+    return amount;
+  };
+
+  const symbol = currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'ZiG';
 
   useEffect(() => {
     fetchData();
@@ -42,7 +59,7 @@ export default function ProfitReportScreen() {
       setSalesList([]);
       setReportData({ revenue: 0, cost: 0, profit: 0, margin: 0, salesCount: 0 });
     }
-  }, [allSales, date, viewMode]);
+  }, [allSales, date, viewMode, currency, rates]);
 
   const filterDataByDate = () => {
     let filtered: any[] = [];
@@ -60,7 +77,7 @@ export default function ProfitReportScreen() {
         hourlyProfit[hour] += sale.profit;
       });
       chartLabels = ["8am", "12pm", "4pm", "8pm"];
-      chartDataPoints = [8, 12, 16, 20].map(h => hourlyProfit[h]);
+      chartDataPoints = [8, 12, 16, 20].map(h => convert(hourlyProfit[h]));
 
     } else if (viewMode === 'weekly') {
       const endDate = new Date(date);
@@ -89,7 +106,7 @@ export default function ProfitReportScreen() {
             return sd >= dayStart && sd <= dayEnd;
           })
           .reduce((acc: number, curr: any) => acc + curr.profit, 0);
-        chartDataPoints.push(dayProfit);
+        chartDataPoints.push(convert(dayProfit));
       }
     } else {
       // Monthly
@@ -110,7 +127,7 @@ export default function ProfitReportScreen() {
         else if (d <= 21) weeklyProfits[2] += s.profit;
         else weeklyProfits[3] += s.profit;
       });
-      chartDataPoints = weeklyProfits;
+      chartDataPoints = weeklyProfits.map(p => convert(p));
     }
 
     let totalRevenue = 0;
@@ -123,9 +140,9 @@ export default function ProfitReportScreen() {
 
     setSalesList(filtered);
     setReportData({
-      revenue: totalRevenue,
-      cost: totalCost,
-      profit: totalRevenue - totalCost,
+      revenue: convert(totalRevenue),
+      cost: convert(totalCost),
+      profit: convert(totalRevenue - totalCost),
       margin: totalRevenue > 0 ? ((totalRevenue - totalCost) / totalRevenue) * 100 : 0,
       salesCount: filtered.length
     });
@@ -150,8 +167,21 @@ export default function ProfitReportScreen() {
 
   const fetchData = async () => {
     try {
+      const userId = await AsyncStorage.getItem('userId');
+      let shopId = null;
+      let userRole = null;
+
+      if (userId) {
+        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
+        const user = await userRes.json();
+        shopId = user.shopId;
+        userRole = user.role;
+      }
+
       // 1. Fetch Inventory to get Cost Prices
-      const invResponse = await fetch(`${API_BASE_URL}/products`);
+      let productsUrl = `${API_BASE_URL}/products`;
+      if (shopId) productsUrl += `?shopId=${shopId}`;
+      const invResponse = await fetch(productsUrl);
       const inventoryData = await invResponse.json();
       
       // Create a map for quick lookup: barcode -> costPrice
@@ -165,7 +195,20 @@ export default function ProfitReportScreen() {
       }
 
       // 2. Fetch Sales History
-      const salesResponse = await fetch(`${API_BASE_URL}/sales`);
+      let salesUrl = `${API_BASE_URL}/sales`;
+      const params = [];
+      if (shopId && userRole !== 'admin') {
+        params.push(`shopId=${shopId}`);
+      }
+      if (userRole === 'cashier') {
+        params.push(`cashierId=${userId}`);
+      }
+      if (userRole === 'manager') {
+        params.push(`managerId=${userId}`);
+      }
+      if (params.length > 0) salesUrl += `?${params.join('&')}`;
+
+      const salesResponse = await fetch(salesUrl);
       const salesData = await salesResponse.json();
 
       if (Array.isArray(salesData)) {
@@ -177,8 +220,10 @@ export default function ProfitReportScreen() {
           if (Array.isArray(sale.items)) {
             sale.items.forEach((item: any) => {
               const qty = Number(item.quantity || 1);
-              // Try to find cost by barcode, default to 0 if not found
-              const unitCost = costMap.get(item.barcode) || 0;
+              // Use saved cost price if available AND > 0, otherwise lookup current inventory cost
+              let unitCost = Number(item.costPrice || 0);
+              if (unitCost === 0) unitCost = costMap.get(item.barcode) || 0;
+              
               saleCost += unitCost * qty;
             });
           }
@@ -203,23 +248,210 @@ export default function ProfitReportScreen() {
     }
   };
 
+  const handleExportPDF = async () => {
+    const html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+          <style>
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+              box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #38bdf8;
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            /* KPI Grid */
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 16px;
+              background-color: #f8fafc;
+              text-align: center;
+            }
+            .kpi-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 6px;
+            }
+            .kpi-value {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .kpi-highlight {
+              background-color: #f0fdf4;
+              border-color: #bbf7d0;
+            }
+            .kpi-highlight .kpi-label {
+              color: #16a34a;
+            }
+            .kpi-highlight .kpi-value {
+              color: #14532d;
+            }
+
+            /* Table Styling */
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 12px;
+              margin-top: 20px;
+            }
+            th { 
+              background-color: #f8fafc; 
+              color: #475569; 
+              font-weight: 700; 
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-size: 11px;
+              border-bottom: 2px solid #cbd5e1;
+              padding: 12px 10px;
+              text-align: left;
+            }
+            td { 
+              border-bottom: 1px solid #f1f5f9; 
+              padding: 12px 10px; 
+              color: #334155;
+            }
+            tr:nth-child(even) td { 
+              background-color: #fafbfb; 
+            }
+            .profit-positive {
+              color: #16a34a;
+              font-weight: 600;
+            }
+            .profit-negative {
+              color: #ef4444;
+              font-weight: 600;
+            }
+            
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="header-banner">
+            <h1 class="header-title">Profit Report</h1>
+            <div class="header-subtitle">${viewMode.toUpperCase()} Summary • Generated on ${new Date().toLocaleString()} for ${date.toLocaleDateString()}</div>
+          </div>
+          
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Total Revenue</div>
+              <div class="kpi-value">${symbol} ${reportData.revenue.toFixed(2)}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Cost of Goods</div>
+              <div class="kpi-value">${symbol} ${reportData.cost.toFixed(2)}</div>
+            </div>
+            <div class="kpi-card kpi-highlight">
+              <div class="kpi-label">Net Profit (${reportData.margin.toFixed(1)}%)</div>
+              <div class="kpi-value">${symbol} ${reportData.profit.toFixed(2)}</div>
+            </div>
+          </div>
+
+          <table>
+            <thead>
+              <tr>
+                <th>Time</th>
+                <th style="text-align: right;">Sales</th>
+                <th style="text-align: right;">Profit</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${salesList.map(item => {
+                const itemTotal = convert(item.total || 0);
+                const itemProfit = convert(item.profit);
+                return `
+                  <tr>
+                    <td style="color: #64748b; font-weight: 500;">${new Date(item.date).toLocaleTimeString()}</td>
+                    <td style="text-align: right; font-weight: 600; color: #0f172a;">${symbol} ${itemTotal.toFixed(2)}</td>
+                    <td style="text-align: right;" class="${itemProfit >= 0 ? 'profit-positive' : 'profit-negative'}">${symbol} ${itemProfit.toFixed(2)}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+          
+          <div class="footer">
+            Stolar POS System • Daily Profitability Summary Report
+          </div>
+        </body>
+      </html>
+    `;
+    try {
+      const { uri } = await Print.printToFileAsync({ html });
+      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+    } catch (error) { Alert.alert('Error', 'Failed to generate PDF'); }
+  };
+
   const renderHeader = () => (
     <View>
       {/* Header */}
-      <View style={styles.header}>
+      <LinearGradient colors={['#0a0f1e', '#162444']} style={styles.header}>
         <View style={styles.topRow}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+            <Ionicons name="arrow-back" size={24} color="#f1f5f9" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Profit Report</Text>
-          <View style={{ width: 40 }} />
+          <TouchableOpacity onPress={handleExportPDF} style={styles.backButton}>
+            <Ionicons name="share-outline" size={24} color="#f1f5f9" />
+          </TouchableOpacity>
         </View>
         
         <View style={styles.controlsRow}>
+          <TouchableOpacity 
+            style={styles.currencySelector} 
+            onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : prev === 'ZAR' ? 'ZiG' : 'USD')}
+          >
+            <Text style={styles.dateText}>{currency}</Text>
+          </TouchableOpacity>
+
           <TouchableOpacity style={styles.dateSelector} onPress={() => setShowPicker(true)}>
-            <Ionicons name="calendar" size={20} color="#1e40af" />
+            <Ionicons name="calendar" size={18} color="#06b6d4" />
             <Text style={styles.dateText}>{date.toLocaleDateString()}</Text>
-            <Ionicons name="chevron-down" size={16} color="#1e40af" />
+            <Ionicons name="chevron-down" size={14} color="#06b6d4" />
           </TouchableOpacity>
 
           <View style={styles.viewToggle}>
@@ -234,7 +466,7 @@ export default function ProfitReportScreen() {
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </LinearGradient>
 
       {showPicker && (
         <DateTimePicker value={date} mode="date" display="default" onChange={onChange} />
@@ -242,18 +474,18 @@ export default function ProfitReportScreen() {
 
       {/* Stats Grid */}
       <View style={styles.statsGrid}>
-        <View style={[styles.card, { backgroundColor: '#e0f2fe' }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(56, 189, 248, 0.08)', borderColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1 }]}>
           <Text style={styles.cardLabel}>Revenue</Text>
-          <Text style={[styles.cardValue, { color: '#0284c7' }]}>${reportData.revenue.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#38bdf8' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
         </View>
-        <View style={[styles.card, { backgroundColor: '#fee2e2' }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(244, 63, 94, 0.08)', borderColor: 'rgba(244, 63, 94, 0.15)', borderWidth: 1 }]}>
           <Text style={styles.cardLabel}>COGS</Text>
-          <Text style={[styles.cardValue, { color: '#dc2626' }]}>${reportData.cost.toFixed(0)}</Text>
+          <Text style={[styles.cardValue, { color: '#f43f5e' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
         </View>
-        <View style={[styles.card, { backgroundColor: '#dcfce7', width: '100%' }]}>
+        <View style={[styles.card, { backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.18)', borderWidth: 1, width: '100%' }]}>
           <Text style={styles.cardLabel}>Net Profit</Text>
-          <Text style={[styles.cardValue, { color: '#16a34a', fontSize: 28 }]}>${reportData.profit.toFixed(2)}</Text>
-          <Text style={{ color: '#16a34a', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
+          <Text style={[styles.cardValue, { color: '#10b981', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
+          <Text style={{ color: '#34d399', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
         </View>
       </View>
 
@@ -262,19 +494,19 @@ export default function ProfitReportScreen() {
         <Text style={styles.sectionTitle}>Profit Trend</Text>
         <LineChart
           data={chartData}
-          width={Dimensions.get("window").width - 60}
+          width={Dimensions.get("window").width - 40}
           height={180}
-          yAxisLabel="$"
+          yAxisLabel={symbol === '$' ? '$' : ''}
           yAxisSuffix=""
           chartConfig={{
-            backgroundColor: "#ffffff",
-            backgroundGradientFrom: "#ffffff",
-            backgroundGradientTo: "#ffffff",
+            backgroundColor: "#111827",
+            backgroundGradientFrom: "#111827",
+            backgroundGradientTo: "#111827",
             decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(22, 163, 74, ${opacity})`, // Green for profit
-            labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
+            color: (opacity = 1) => `rgba(16, 185, 129, ${opacity})`, // Green for profit
+            labelColor: (opacity = 1) => `rgba(148, 163, 184, ${opacity})`,
             style: { borderRadius: 16 },
-            propsForDots: { r: "4", strokeWidth: "2", stroke: "#16a34a" }
+            propsForDots: { r: "4", strokeWidth: "2", stroke: "#10b981" }
           }}
           bezier
           style={{ marginVertical: 8, borderRadius: 16 }}
@@ -291,23 +523,23 @@ export default function ProfitReportScreen() {
         data={salesList}
         keyExtractor={(item) => item.id || item._id || Math.random().toString()}
         ListHeaderComponent={renderHeader}
-        contentContainerStyle={{ paddingBottom: 40 }}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        contentContainerStyle={{ paddingBottom: 120 }}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#06b6d4" colors={["#06b6d4"]} />}
         renderItem={({ item }) => (
           <View style={styles.transactionCard}>
             <View style={styles.transLeft}>
-              <View style={[styles.iconBox, { backgroundColor: item.profit >= 0 ? '#dcfce7' : '#fee2e2' }]}>
-                <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#16a34a" : "#dc2626"} />
+              <View style={[styles.iconBox, { backgroundColor: item.profit >= 0 ? 'rgba(16, 185, 129, 0.1)' : 'rgba(244, 63, 94, 0.1)' }]}>
+                <MaterialCommunityIcons name={item.profit >= 0 ? "trending-up" : "trending-down"} size={20} color={item.profit >= 0 ? "#10b981" : "#f43f5e"} />
               </View>
               <View>
-                <Text style={styles.transAmount}>${(item.total || 0).toFixed(2)}</Text>
-                <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#16a34a' : '#dc2626' }]}>
-                  Profit: ${item.profit.toFixed(2)}
+                <Text style={styles.transAmount}>{symbol} {convert(item.total || 0).toFixed(2)}</Text>
+                <Text style={[styles.transProfit, { color: item.profit >= 0 ? '#34d399' : '#f43f5e' }]}>
+                  Profit: {symbol} {convert(item.profit).toFixed(2)}
                 </Text>
               </View>
             </View>
             <Text style={styles.transTime}>
-              {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              {new Date(item.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
             </Text>
           </View>
         )}
@@ -317,9 +549,8 @@ export default function ProfitReportScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
   header: {
-    backgroundColor: '#1e40af',
     paddingTop: 50,
     paddingBottom: 60,
     paddingHorizontal: 20,
@@ -328,31 +559,32 @@ const styles = StyleSheet.create({
     marginBottom: -40,
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 12 },
-  headerTitle: { fontSize: 20, fontWeight: 'bold', color: 'white' },
+  backButton: { padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
   
   controlsRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 5 },
-  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
-  dateText: { color: '#1e40af', fontWeight: 'bold', fontSize: 13 },
+  dateSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, gap: 8 },
+  currencySelector: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 20, marginRight: 8 },
+  dateText: { color: Colors.dark.text, fontWeight: 'bold', fontSize: 13 },
 
-  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20, padding: 4 },
+  viewToggle: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
   toggleBtn: { paddingVertical: 6, paddingHorizontal: 10, borderRadius: 16 },
-  toggleBtnActive: { backgroundColor: 'white' },
-  toggleText: { color: '#bfdbfe', fontWeight: '600', fontSize: 11 },
-  toggleTextActive: { color: '#1e40af', fontWeight: 'bold' },
+  toggleBtnActive: { backgroundColor: '#06b6d4' },
+  toggleText: { color: Colors.dark.textSecondary, fontWeight: '600', fontSize: 11 },
+  toggleTextActive: { color: '#0a0f1e', fontWeight: 'bold' },
 
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 20, marginBottom: 20 },
-  card: { width: '48%', padding: 15, borderRadius: 16, alignItems: 'center', justifyContent: 'center', shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 3 },
-  cardLabel: { fontSize: 12, fontWeight: '600', opacity: 0.7, marginBottom: 5 },
+  card: { width: '48%', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, padding: 15, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  cardLabel: { fontSize: 12, fontWeight: '600', color: Colors.dark.textSecondary, marginBottom: 5 },
   cardValue: { fontSize: 20, fontWeight: 'bold' },
   
-  chartCard: { backgroundColor: 'white', marginHorizontal: 20, borderRadius: 16, padding: 15, marginBottom: 10, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5, elevation: 2 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1e293b', marginBottom: 10 },
+  chartCard: { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, marginHorizontal: 20, borderRadius: 16, padding: 10, marginBottom: 10 },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 10 },
 
-  transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: 'white', marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 12, shadowColor: '#000', shadowOpacity: 0.03, shadowRadius: 3, elevation: 1 },
+  transactionCard: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, marginHorizontal: 20, marginBottom: 10, padding: 15, borderRadius: 12 },
   transLeft: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   iconBox: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center' },
-  transAmount: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  transAmount: { fontSize: 16, fontWeight: 'bold', color: Colors.dark.text },
   transProfit: { fontSize: 12, fontWeight: '600' },
-  transTime: { fontSize: 12, color: '#94a3b8', fontWeight: '500' },
+  transTime: { fontSize: 12, color: Colors.dark.textMuted, fontWeight: '500' },
 });

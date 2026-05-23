@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
@@ -13,15 +14,18 @@ import {
   TouchableOpacity,
   View
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
 export default function RegisterShop() {
   const router = useRouter();
   const params = useLocalSearchParams(); 
+  const insets = useSafeAreaInsets();
   
   const [name, setName] = useState('');
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
+  const [premiumModalVisible, setPremiumModalVisible] = useState(false);
   
   // Modal for a polished success experience
   const [showSuccess, setShowSuccess] = useState(false);
@@ -32,7 +36,7 @@ export default function RegisterShop() {
     AsyncStorage.getItem('userId').then(setManagerId);
   }, []);
 
-  const handleRegisterShop = async () => {
+  const handleRegisterShop = async (confirmPremium = false) => {
     if (!managerId) {
       Alert.alert("Error", "User session not found. Please login again.");
       return;
@@ -52,11 +56,18 @@ export default function RegisterShop() {
         body: JSON.stringify({ 
             name: name.trim(), 
             location: location.trim(), 
-            managerId: managerId 
+            managerId: managerId,
+            confirmPremium
         }), 
       });
 
       const data = await response.json();
+
+      if (response.status === 409 && data.requiresConfirmation) {
+        setLoading(false);
+        setPremiumModalVisible(true);
+        return;
+      }
 
       if (response.ok || data.success) {
         setNewBranchCode(data.branchCode);
@@ -66,6 +77,7 @@ export default function RegisterShop() {
         // Clear inputs for next time
         setName('');
         setLocation('');
+        setPremiumModalVisible(false);
       } else {
         setLoading(false);
         Alert.alert("Error", data.message || "Could not register shop.");
@@ -83,50 +95,122 @@ export default function RegisterShop() {
   };
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.iconCircle}>
-            <Ionicons name="business" size={50} color="#1e40af" />
-        </View>
-        <Text style={styles.title}>Branch Establishment</Text>
-        <Text style={styles.subtitle}>Adding a new branch for Danger Dumani</Text>
-      </View>
-
-      <View style={styles.form}>
-        <Text style={styles.label}>Shop Name</Text>
-        <View style={styles.inputContainer}>
-            <Ionicons name="storefront" size={20} color="#64748b" style={styles.icon} />
-            <TextInput 
-              placeholder="e.g. Zondo General Dealer" 
-              style={styles.input} 
-              value={name} 
-              onChangeText={setName} 
-            />
-        </View>
-
-        <Text style={styles.label}>Shop Location</Text>
-        <View style={styles.inputContainer}>
-            <Ionicons name="location" size={20} color="#64748b" style={styles.icon} />
-            <TextInput 
-              placeholder="e.g. Khalanyoni" 
-              style={styles.input} 
-              value={location} 
-              onChangeText={setLocation} 
-            />
-        </View>
-
-        <TouchableOpacity 
-          style={[styles.btn, loading && { backgroundColor: '#94a3b8' }]} 
-          onPress={handleRegisterShop}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="white" />
-          ) : (
-            <Text style={styles.btnText}>Launch Shop Branch</Text>
-          )}
+    <View style={styles.container}>
+      <LinearGradient 
+        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        start={{ x: 0, y: 0 }} 
+        end={{ x: 1, y: 1 }} 
+        style={[styles.header, { paddingTop: insets.top + 15 }]}
+      >
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-      </View>
+        <Text style={styles.title}>Branch Establishment</Text>
+      </LinearGradient>
+      
+      <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+        <View style={styles.form}>
+          <Text style={styles.label}>Shop Name</Text>
+          <View style={styles.inputContainer}>
+              <Ionicons name="storefront" size={20} color="#7c3aed" style={styles.icon} />
+              <TextInput 
+                placeholder="e.g. Zondo General Dealer" 
+                placeholderTextColor="#94a3b8"
+                style={styles.input} 
+                value={name} 
+                onChangeText={setName} 
+              />
+          </View>
+
+          <Text style={styles.label}>Shop Location</Text>
+          <View style={styles.inputContainer}>
+              <Ionicons name="location" size={20} color="#7c3aed" style={styles.icon} />
+              <TextInput 
+                placeholder="e.g. Khalanyoni" 
+                placeholderTextColor="#94a3b8"
+                style={styles.input} 
+                value={location} 
+                onChangeText={setLocation} 
+              />
+          </View>
+
+          <TouchableOpacity 
+            style={[styles.btn, loading && { backgroundColor: '#a78bfa' }]} 
+            onPress={() => handleRegisterShop(false)}
+            disabled={loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="white" />
+            ) : (
+              <Text style={styles.btnText}>Launch Shop Branch</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+
+      {/* --- PREMIUM UPGRADE MODAL --- */}
+      <Modal visible={premiumModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.premiumHeader}>
+              <Ionicons name="diamond" size={40} color="#f59e0b" style={{ marginBottom: 10 }} />
+              <Text style={styles.modalTitle}>Upgrade to Premium</Text>
+            </View>
+            
+            <Text style={styles.premiumDesc}>
+              You are adding multiple shops. This requires the <Text style={{fontWeight: 'bold', color: '#7c3aed'}}>Premium Plan</Text>.
+            </Text>
+
+            <View style={styles.planDetails}>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>Unlimited Shops</Text>
+              </View>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>Advanced Reporting</Text>
+              </View>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>Priority Support</Text>
+              </View>
+              <View style={styles.priceTag}>
+                <Text style={styles.priceText}>R400.00 / month</Text>
+              </View>
+            </View>
+
+            <View style={styles.paymentInfoBox}>
+              <Text style={styles.paymentTitle}>Payment Options</Text>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>EcoCash:</Text>
+                <Text style={styles.paymentValue}>+263 777 926 123</Text>
+              </View>
+              <View style={styles.paymentRow}>
+                <Text style={styles.paymentLabel}>Name:</Text>
+                <Text style={styles.paymentValue}>Thabelo Dumani</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity 
+              style={[styles.modalBtn, { backgroundColor: '#7c3aed' }]} 
+              onPress={() => handleRegisterShop(true)}
+            >
+              <Text style={styles.modalBtnText}>Accept & Create Shop</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={[styles.modalBtn, { backgroundColor: '#f1f5f9', marginTop: 12 }]} 
+              onPress={() => setPremiumModalVisible(false)}
+            >
+              <Text style={[styles.modalBtnText, { color: '#64748b' }]}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <Text style={styles.noteText}>
+              * You can pay via Paynow or Cash (Contact Admin) after creation.
+            </Text>
+          </View>
+        </View>
+      </Modal>
 
       {/* --- SUCCESS MODAL --- */}
       <Modal visible={showSuccess} transparent animationType="slide">
@@ -146,31 +230,83 @@ export default function RegisterShop() {
           </View>
         </View>
       </Modal>
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flexGrow: 1, backgroundColor: '#f8fafc', padding: 25 },
-  header: { alignItems: 'center', marginTop: 40, marginBottom: 30 },
-  iconCircle: { width: 90, height: 90, borderRadius: 45, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center' },
-  title: { fontSize: 24, fontWeight: 'bold', color: '#1e3a8a', marginTop: 15 },
-  subtitle: { color: '#64748b', fontSize: 14 },
-  form: { width: '100%' },
-  label: { fontSize: 14, fontWeight: '600', color: '#1e293b', marginBottom: 8 },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'white', borderRadius: 12, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  header: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, marginRight: 15 },
+  title: {
+    color: 'white',
+    fontSize: 20,
+    fontWeight: 'bold',
+    letterSpacing: 0.5
+  },
+  formContainer: {
+    flexGrow: 1,
+    justifyContent: 'center',
+  },
+  form: { 
+    padding: 24,
+    backgroundColor: 'white',
+    borderRadius: 20,
+    margin: 20,
+    shadowColor: '#4f46e5',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 16,
+    elevation: 4,
+  },
+  label: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 8 },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, paddingHorizontal: 15, marginBottom: 20, borderWidth: 1, borderColor: '#e2e8f0', height: 50 },
   icon: { marginRight: 10 },
-  input: { flex: 1, paddingVertical: 15, fontSize: 16 },
-  btn: { backgroundColor: '#1e40af', paddingVertical: 18, borderRadius: 15, alignItems: 'center', marginTop: 10 },
-  btnText: { color: 'white', fontWeight: 'bold', fontSize: 18 },
+  input: { flex: 1, fontSize: 16, color: '#0f172a', height: '100%' },
+  btn: { 
+    backgroundColor: '#7c3aed', 
+    paddingVertical: 16, 
+    borderRadius: 16, 
+    alignItems: 'center', 
+    marginTop: 10,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  btnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   
   // Modal Styles
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: 'white', width: '85%', borderRadius: 20, padding: 30, alignItems: 'center' },
-  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e293b', marginTop: 15 },
-  modalSub: { color: '#64748b', fontSize: 16, marginTop: 10 },
-  codeBox: { backgroundColor: '#f1f5f9', padding: 15, borderRadius: 10, width: '100%', alignItems: 'center', marginVertical: 20 },
-  codeText: { fontSize: 32, fontWeight: 'bold', color: '#1e40af', letterSpacing: 2 },
-  modalBtn: { backgroundColor: '#1e40af', width: '100%', paddingVertical: 15, borderRadius: 12, alignItems: 'center' },
-  modalBtnText: { color: 'white', fontWeight: 'bold' }
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: 'white', width: '85%', borderRadius: 24, padding: 30, alignItems: 'center', shadowColor: '#4f46e5', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#0f172a', marginTop: 10, textAlign: 'center' },
+  modalSub: { color: '#475569', fontSize: 15, marginTop: 10 },
+  codeBox: { backgroundColor: '#f5f3ff', padding: 15, borderRadius: 16, width: '100%', alignItems: 'center', marginVertical: 20, borderWidth: 1, borderColor: '#ddd6fe' },
+  codeText: { fontSize: 32, fontWeight: 'bold', color: '#7c3aed', letterSpacing: 2 },
+  modalBtn: { backgroundColor: '#7c3aed', width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  modalBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  
+  // Premium Modal Specifics
+  premiumHeader: { alignItems: 'center', marginBottom: 10 },
+  premiumDesc: { textAlign: 'center', color: '#475569', marginBottom: 20, fontSize: 15, lineHeight: 22 },
+  planDetails: { width: '100%', backgroundColor: '#f5f3ff', padding: 15, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#ddd6fe' },
+  planRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  planText: { marginLeft: 10, color: '#475569', fontSize: 14, fontWeight: '500' },
+  priceTag: { marginTop: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 10 },
+  priceText: { fontSize: 18, fontWeight: 'bold', color: '#7c3aed' },
+  noteText: { fontSize: 11, color: '#94a3b8', marginTop: 15, textAlign: 'center', fontStyle: 'italic' },
+  
+  paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 12, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },
+  paymentTitle: { fontWeight: 'bold', color: '#166534', marginBottom: 8, fontSize: 14, textAlign: 'center' },
+  paymentRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
+  paymentLabel: { color: '#15803d', fontWeight: '600', fontSize: 13 },
+  paymentValue: { color: '#14532d', fontWeight: 'bold', fontSize: 13 }
 });

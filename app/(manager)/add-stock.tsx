@@ -1,19 +1,25 @@
 import { Ionicons } from '@expo/vector-icons';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
 import { CameraView, useCameraPermissions } from 'expo-camera';
-import { useLocalSearchParams, useRouter } from 'expo-router';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
+import { useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Platform, ScrollView, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { ThemedText } from '../../components/themed-text';
-import { ThemedView } from '../../components/themed-view';
 import { useThemeColor } from '../../hooks/use-theme-color';
 import { API_BASE_URL } from '../config';
 
 export default function ManagerAddStockScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
   const params = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const isEditMode = params.mode === 'edit';
-  const shopId = params.shopId;
+  const rawShopId = params.shopId;
+  const shopId = Array.isArray(rawShopId) ? rawShopId[0] : rawShopId;
 
   const [itemName, setItemName] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -22,24 +28,149 @@ export default function ManagerAddStockScreen() {
   const [costPrice, setCostPrice] = useState('');
   const [loading, setLoading] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
-  const [isScanning, setIsScanning] = useState(false);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  const [activeScanField, setActiveScanField] = useState<'name' | 'barcode' | null>(null);
   const [category, setCategory] = useState('General');
+  const [existingCategories, setExistingCategories] = useState<string[]>(['Groceries', 'Beverages', 'Snacks', 'Household', 'Personal Care']);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const itemNameInputRef = useRef<TextInput>(null);
+  const cameraRef = useRef<CameraView>(null);
   
-  const textColor = useThemeColor({}, 'text');
-  const placeholderColor = '#888';
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
+  const [rates, setRates] = useState({ ZAR: 19.2, ZiG: 26.5 });
+  const prevCurrency = useRef<'USD' | 'ZAR' | 'ZiG'>('ZAR');
+  const placeholderColor = '#94a3b8';
+
+  const lastLoadedId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isEditMode) {
-      setItemName(params.name as string);
+    const loadUser = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      if (id) setCurrentUserId(id);
+    };
+    loadUser();
+  }, []);
+
+  useEffect(() => {
+    if (isEditMode && rates) {
+      if (lastLoadedId.current === params.id) return;
+
+      const zarRate = rates.ZAR || 19.2;
+      const zigRate = rates.ZiG || 26.5;
+
+      setItemName(params.name as string || '');
       setQuantity(params.quantity ? String(params.quantity) : '');
       setBarcode(params.barcode ? String(params.barcode) : '');
-      setPrice(params.price ? Number(params.price).toFixed(2) : '');
-      setCostPrice(params.costPrice ? Number(params.costPrice).toFixed(2) : '');
+      if (params.category) setCategory(params.category as string);
+
+      let initialPrice = Number(params.price) || 0;
+      let initialCost = Number(params.costPrice) || 0;
+
+      if (currency === 'ZAR') {
+        initialPrice *= zarRate;
+        initialCost *= zarRate;
+      } else if (currency === 'ZiG') {
+        initialPrice *= zigRate;
+        initialCost *= zigRate;
+      }
+
+      setPrice(params.price ? initialPrice.toFixed(2) : '');
+      setCostPrice(params.costPrice ? initialCost.toFixed(2) : '');
+      
+      lastLoadedId.current = params.id as string;
+      setHasUnsavedChanges(false);
+    } else if (!isEditMode) {
+      if (lastLoadedId.current === 'new') return;
+      setItemName('');
+      setBarcode('');
+      setQuantity('');
+      setPrice('');
+      setCostPrice('');
+      setCategory('General');
+      lastLoadedId.current = 'new';
+      setHasUnsavedChanges(false);
     }
-  }, [params]);
+  }, [isEditMode, params.id, params.name, params.quantity, params.barcode, params.price, params.costPrice, params.category, rates, currency]);
+
+  useEffect(() => {
+    if (shopId) {
+      fetch(`${API_BASE_URL}/shops/rates/${shopId}`)
+        .then(res => res.json())
+        .then(data => {
+          if (data.rates) setRates(data.rates);
+        })
+        .catch(e => console.log("Rates fetch error", e));
+    }
+  }, [shopId]);
+
+  useEffect(() => {
+    if (currency !== prevCurrency.current) {
+      const convertVal = (valStr: string) => {
+        const val = parseFloat(valStr);
+        if (isNaN(val)) return '';
+        
+        const zarRate = rates?.ZAR || 1;
+        const zigRate = rates?.ZiG || 1;
+
+        let usdVal = val;
+        if (prevCurrency.current === 'ZAR') usdVal = val / zarRate;
+        else if (prevCurrency.current === 'ZiG') usdVal = val / zigRate;
+        
+        let newVal = usdVal;
+        if (currency === 'ZAR') newVal = usdVal * zarRate;
+        else if (currency === 'ZiG') newVal = usdVal * zigRate;
+        
+        return newVal.toFixed(2);
+      };
+      setPrice(p => convertVal(p));
+      setCostPrice(c => convertVal(c));
+      prevCurrency.current = currency;
+    }
+  }, [currency, rates]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (e) => {
+      if (!hasUnsavedChanges) {
+        return;
+      }
+
+      e.preventDefault();
+
+      Alert.alert(
+        'Discard changes?',
+        'You have unsaved changes. Are you sure you want to discard them?',
+        [
+          { text: "Stay", style: 'cancel', onPress: () => {} },
+          {
+            text: 'Discard',
+            style: 'destructive',
+            onPress: () => navigation.dispatch(e.data.action),
+          },
+        ]
+      );
+    });
+
+    return unsubscribe;
+  }, [navigation, hasUnsavedChanges]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/products`);
+        if (response.ok) {
+          const data = await response.json();
+          if (Array.isArray(data)) {
+            const cats = Array.from(new Set(data.map((p: any) => p.category).filter((c: any) => c && c !== 'General')));
+            setExistingCategories(prev => Array.from(new Set([...prev, ...cats])));
+          }
+        }
+      } catch (e) {}
+    };
+    fetchCategories();
+  }, []);
 
   const handleCurrencyChange = (text: string, setFunction: (value: string) => void) => {
+    setHasUnsavedChanges(true);
     const cleanText = text.replace(/[^0-9]/g, '');
     if (cleanText === '') {
       setFunction('');
@@ -49,14 +180,44 @@ export default function ManagerAddStockScreen() {
     setFunction(numberValue.toFixed(2));
   };
 
-  const handleSave = async () => {
+  const calculateMargin = () => {
+    const p = parseFloat(price) || 0;
+    const c = parseFloat(costPrice) || 0;
+    if (p === 0) return 0;
+    return ((p - c) / p) * 100;
+  };
+
+  const handleLogout = async () => {
+    setHasUnsavedChanges(false);
+    await AsyncStorage.clear();
+    router.replace('/(auth)/login');
+  };
+
+  const handleSave = async (clearAndStay = false) => {
     if (!itemName || !quantity || !price || !costPrice) {
       Alert.alert('Error', 'Please fill in all fields');
       return;
     }
 
-    const numPrice = Number(price);
-    const numCost = Number(costPrice);
+    if (!/[0-9]+(\.[0-9]+)?\s*(kg|g|l|ml)$/i.test(itemName.trim())) {
+      Alert.alert('Invalid Name', 'Item name must include weight/volume at the end (e.g. "Rice 2kg", "Milk 1L")');
+      return;
+    }
+
+    const finalName = itemName.trim().replace(/([0-9]+(\.[0-9]+)?)\s*(kg|g|l|ml)$/i, (match, num, decimal, unit) => {
+      return `${num}${unit.toUpperCase()}`;
+    });
+
+    let numPrice = Number(price);
+    let numCost = Number(costPrice);
+
+    if (currency === 'ZAR') {
+      numPrice /= (rates.ZAR || 1);
+      numCost /= (rates.ZAR || 1);
+    } else if (currency === 'ZiG') {
+      numPrice /= (rates.ZiG || 1);
+      numCost /= (rates.ZiG || 1);
+    }
 
     if (numPrice <= numCost) {
       Alert.alert('Invalid Price', 'Selling price must be greater than cost price.');
@@ -74,16 +235,28 @@ export default function ManagerAddStockScreen() {
           : `${API_BASE_URL}/products/add`;
         
         const method = isEditMode ? 'PUT' : 'POST';
+        
+        const payload = {
+          name: finalName,
+          quantity: Number(quantity) || 0,
+          barcode,
+          price: numPrice || 0,
+          costPrice: numCost || 0,
+          category: category,
+          shopId,
+          userId: currentUserId
+        };
 
         const response = await fetch(url, {
           method,
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: itemName, quantity: Number(quantity), barcode, price: Number(price), costPrice: Number(costPrice), category: category, shopId }),
+          body: JSON.stringify(payload),
         });
 
         const data = await response.json();
 
         if (response.ok) {
+          setHasUnsavedChanges(false);
           if (isEditMode) {
             Alert.alert(
               'Success',
@@ -91,15 +264,19 @@ export default function ManagerAddStockScreen() {
               [{ text: 'OK', onPress: () => router.back() }]
             );
           } else {
-            Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => {
-              setItemName('');
-              setBarcode('');
-              setQuantity('');
-              setPrice('');
-              setCostPrice('');
-              setCategory('General');
-              itemNameInputRef.current?.focus();
-            }}]);
+            if (clearAndStay) {
+              Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => {
+                setItemName('');
+                setBarcode('');
+                setQuantity('');
+                setPrice('');
+                setCostPrice('');
+                setCategory('General');
+                itemNameInputRef.current?.focus();
+              }}]);
+            } else {
+              Alert.alert('Success', 'Stock added successfully', [{ text: 'OK', onPress: () => router.back() }]);
+            }
           }
         } else if (response.status === 409) {
           Alert.alert('Duplicate Item', 'An item with this name already exists.');
@@ -128,135 +305,360 @@ export default function ManagerAddStockScreen() {
   };
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
-    setBarcode(data);
-    setIsScanning(false);
+    if (activeScanField === 'barcode') {
+      setBarcode(data);
+      setHasUnsavedChanges(true);
+      setActiveScanField(null);
+    }
+  };
+
+  const handleTakePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo?.uri) {
+          let uriToRecognize = photo.uri;
+
+          if (photo.width && photo.height) {
+            const cropWidth = photo.width * 0.8;
+            const cropHeight = photo.height * 0.20;
+            const originX = (photo.width - cropWidth) / 2;
+            const originY = (photo.height - cropHeight) / 2;
+
+            const manipResult = await manipulateAsync(photo.uri, [{ crop: { originX, originY, width: cropWidth, height: cropHeight } }], { compress: 1, format: SaveFormat.JPEG });
+            uriToRecognize = manipResult.uri;
+          }
+
+          const result = await TextRecognition.recognize(uriToRecognize);
+          if (result.text) {
+            setItemName(result.text.trim());
+            setHasUnsavedChanges(true);
+          } else {
+            Alert.alert("No Text", "Could not detect text in the image.");
+          }
+          setActiveScanField(null);
+        }
+      } catch (e) { console.log(e); }
+    }
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-        <Ionicons name="arrow-back" size={24} color={textColor} />
-      </TouchableOpacity>
-      <ThemedText type="title">{isEditMode ? 'Edit Stock' : 'Add Stock'}</ThemedText>
+    <View style={styles.container}>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        style={{ flex: 1 }}
+      >
+      <LinearGradient colors={['#4f46e5', '#7c3aed', '#9333ea']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color="#ffffff" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{isEditMode ? 'Edit Stock' : 'Add New Stock'}</Text>
+        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+          <Ionicons name="log-out-outline" size={24} color="#ffffff" />
+        </TouchableOpacity>
+      </LinearGradient>
       
       <ScrollView contentContainerStyle={styles.form} showsVerticalScrollIndicator={false}>
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Item Name</ThemedText>
-          <TextInput 
-            ref={itemNameInputRef}
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
-            value={itemName}
-            onChangeText={setItemName}
-            placeholder="e.g. Apple"
-            placeholderTextColor={placeholderColor}
-          />
-        </ThemedView>
-
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Barcode</ThemedText>
-          <View style={styles.barcodeRow}>
-            <TextInput 
-              style={[styles.input, { color: textColor, borderColor: textColor, flex: 1 }]}
-              value={barcode}
-              onChangeText={setBarcode}
-              placeholder="Scan or enter barcode"
-              placeholderTextColor={placeholderColor}
-              keyboardType="numeric"
-            />
-            <TouchableOpacity onPress={async () => {
-              if (!permission?.granted) {
-                const { granted } = await requestPermission();
-                if (granted) setIsScanning(true);
-              } else {
-                setIsScanning(true);
-              }
-            }} style={[styles.input, { borderColor: textColor, justifyContent: 'center', alignItems: 'center', width: 50 }]}>
-              <Ionicons name="barcode-outline" size={24} color={textColor} />
-            </TouchableOpacity>
-          </View>
-        </ThemedView>
-
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Category</ThemedText>
-          <TextInput 
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
-            value={category}
-            onChangeText={setCategory}
-            placeholder="e.g. Groceries"
-            placeholderTextColor={placeholderColor}
-          />
-        </ThemedView>
-
-        <View style={styles.row}>
-            <View style={styles.halfInput}>
-                <ThemedText type="defaultSemiBold">Price</ThemedText>
-                <TextInput 
-                    style={[styles.input, { color: textColor, borderColor: textColor }]}
-                    value={price}
-                    onChangeText={(text) => handleCurrencyChange(text, setPrice)}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                    placeholderTextColor={placeholderColor}
-                />
+        
+        {/* Card 1: Basic Info */}
+        <View style={styles.card}>
+            <Text style={styles.cardTitle}>Product Details</Text>
+            
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Item Name</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="cube-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        ref={itemNameInputRef}
+                        style={styles.input}
+                        value={itemName}
+                        onChangeText={(text) => { setItemName(text); setHasUnsavedChanges(true); }}
+                        placeholder="e.g. Apple 1kg"
+                        placeholderTextColor={placeholderColor}
+                    />
+                    <TouchableOpacity onPress={async () => {
+                        if (!permission?.granted) {
+                            const { granted } = await requestPermission();
+                            if (granted) setActiveScanField('name');
+                        } else {
+                            setActiveScanField('name');
+                        }
+                    }} style={styles.scanIconBtn}>
+                        <Ionicons name="scan-outline" size={20} color="#7c3aed" />
+                    </TouchableOpacity>
+                </View>
+                <Text style={styles.helperText}>Must include weight/volume (e.g. 1kg, 1L)</Text>
             </View>
-            <View style={styles.halfInput}>
-                <ThemedText type="defaultSemiBold">Cost Price</ThemedText>
-                <TextInput 
-                    style={[styles.input, { color: textColor, borderColor: textColor }]}
-                    value={costPrice}
-                    onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
-                    keyboardType="numeric"
-                    placeholder="0.00"
-                    placeholderTextColor={placeholderColor}
-                />
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Category</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="grid-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={category}
+                        onChangeText={(text) => { setCategory(text); setHasUnsavedChanges(true); }}
+                        placeholder="e.g. Groceries"
+                        placeholderTextColor={placeholderColor}
+                    />
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.chipScroll}>
+                    {existingCategories.map((cat, index) => (
+                        <TouchableOpacity 
+                            key={index} 
+                            style={[styles.chip, category === cat && styles.activeChip]} 
+                            onPress={() => { setCategory(cat); setHasUnsavedChanges(true); }}
+                        >
+                            <Text style={[styles.chipText, category === cat && styles.activeChipText]}>{cat}</Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Barcode</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="barcode-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={barcode}
+                        onChangeText={(text) => { setBarcode(text); setHasUnsavedChanges(true); }}
+                        placeholder="Scan or enter barcode"
+                        placeholderTextColor={placeholderColor}
+                        keyboardType="numeric"
+                    />
+                    <TouchableOpacity onPress={async () => {
+                        if (!permission?.granted) {
+                            const { granted } = await requestPermission();
+                            if (granted) setActiveScanField('barcode');
+                        } else {
+                            setActiveScanField('barcode');
+                        }
+                    }} style={styles.scanIconBtn}>
+                        <Ionicons name="camera-outline" size={20} color="#7c3aed" />
+                    </TouchableOpacity>
+                </View>
             </View>
         </View>
 
-        <ThemedView>
-          <ThemedText type="defaultSemiBold">Quantity</ThemedText>
-          <TextInput 
-            style={[styles.input, { color: textColor, borderColor: textColor }]}
-            value={quantity}
-            onChangeText={setQuantity}
-            keyboardType="numeric"
-            placeholder="0"
-            placeholderTextColor={placeholderColor}
-          />
-        </ThemedView>
+        {/* Card 2: Pricing & Stock */}
+        <View style={styles.card}>
+            <View style={styles.cardHeaderRow}>
+                <Text style={styles.cardTitle}>Pricing & Stock</Text>
+                <View style={styles.currencyToggle}>
+                    {(['USD', 'ZAR', 'ZiG'] as const).map((curr) => (
+                    <TouchableOpacity key={curr} style={[styles.currBtn, currency === curr && styles.currBtnActive]} onPress={() => setCurrency(curr)}>
+                        <Text style={[styles.currText, currency === curr && styles.currTextActive]}>{curr}</Text>
+                    </TouchableOpacity>
+                    ))}
+                </View>
+            </View>
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={loading}>
-            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.saveButtonText}>{isEditMode ? "Update Stock" : "Save Stock"}</Text>}
-        </TouchableOpacity>
+            <View style={styles.row}>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Selling Price</Text>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'Z'}</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={price}
+                            onChangeText={(text) => handleCurrencyChange(text, setPrice)}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={placeholderColor}
+                        />
+                    </View>
+                </View>
+                <View style={[styles.inputGroup, { flex: 1 }]}>
+                    <Text style={styles.label}>Cost Price</Text>
+                    <View style={styles.inputWrapper}>
+                        <Text style={styles.currencySymbol}>{currency === 'USD' ? '$' : currency === 'ZAR' ? 'R' : 'Z'}</Text>
+                        <TextInput 
+                            style={styles.input}
+                            value={costPrice}
+                            onChangeText={(text) => handleCurrencyChange(text, setCostPrice)}
+                            keyboardType="numeric"
+                            placeholder="0.00"
+                            placeholderTextColor={placeholderColor}
+                        />
+                    </View>
+                </View>
+            </View>
+
+            <View style={styles.marginContainer}>
+                <Text style={styles.marginLabel}>Profit Margin</Text>
+                <View style={[styles.marginBadge, { backgroundColor: calculateMargin() >= 20 ? 'rgba(16, 185, 129, 0.15)' : calculateMargin() > 0 ? 'rgba(245, 158, 11, 0.15)' : 'rgba(244, 63, 94, 0.15)' }]}>
+                    <Text style={[styles.marginValue, { color: calculateMargin() >= 20 ? '#10b981' : calculateMargin() > 0 ? '#f59e0b' : '#f43f5e' }]}>
+                        {calculateMargin().toFixed(1)}%
+                    </Text>
+                </View>
+            </View>
+
+            <View style={styles.inputGroup}>
+                <Text style={styles.label}>Quantity</Text>
+                <View style={styles.inputWrapper}>
+                    <Ionicons name="layers-outline" size={20} color="#64748b" style={styles.inputIcon} />
+                    <TextInput 
+                        style={styles.input}
+                        value={quantity}
+                        onChangeText={(text) => { setQuantity(text); setHasUnsavedChanges(true); }}
+                        keyboardType="numeric"
+                        placeholder="0"
+                        placeholderTextColor={placeholderColor}
+                    />
+                </View>
+            </View>
+        </View>
+
+        {loading ? (
+          <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 20 }} />
+        ) : (
+          <View style={styles.actionContainer}>
+            {!isEditMode && (
+              <TouchableOpacity style={styles.secondaryButton} onPress={() => handleSave(true)} disabled={loading}>
+                <Ionicons name="duplicate-outline" size={20} color="#7c3aed" style={{ marginRight: 8 }} />
+                <Text style={styles.secondaryButtonText}>Save & Add Another</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity style={styles.primaryButton} onPress={() => handleSave(false)} disabled={loading}>
+              <Ionicons name="checkmark-circle-outline" size={20} color="white" style={{ marginRight: 8 }} />
+              <Text style={styles.primaryButtonText}>{isEditMode ? "Update Item" : "Save Item"}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
       </ScrollView>
+      </KeyboardAvoidingView>
 
-      <Modal visible={isScanning} animationType="slide" onRequestClose={() => setIsScanning(false)}>
-        <CameraView style={styles.camera} facing="back" onBarcodeScanned={handleBarcodeScanned}>
+      <Modal visible={!!activeScanField} animationType="slide" onRequestClose={() => setActiveScanField(null)}>
+        <CameraView 
+          ref={cameraRef}
+          style={styles.camera} 
+          facing="back" 
+          onBarcodeScanned={activeScanField === 'barcode' ? handleBarcodeScanned : undefined}
+        >
           <View style={styles.cameraOverlay}>
-            <TouchableOpacity style={styles.closeButton} onPress={() => setIsScanning(false)}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setActiveScanField(null)}>
               <Ionicons name="close" size={30} color="white" />
             </TouchableOpacity>
-            <View style={styles.scanFrame} />
-            <Text style={styles.scanText}>Scanning...</Text>
+            
+            <View style={[styles.scanFrame, activeScanField === 'name' && styles.textScanFrame]} />
+            <Text style={styles.scanText}>{activeScanField === 'name' ? 'Align text & take photo' : 'Scanning Barcode...'}</Text>
+            
+            {activeScanField === 'name' && (
+              <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+                <View style={styles.shutterInner} />
+              </TouchableOpacity>
+            )}
           </View>
         </CameraView>
       </Modal>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
-  backButton: { marginBottom: 16 },
-  form: { marginTop: 10, gap: 20, paddingBottom: 40 },
-  input: { borderWidth: 1, padding: 12, borderRadius: 8, marginTop: 8, opacity: 0.8 },
-  barcodeRow: { flexDirection: 'row', gap: 10 },
-  camera: { flex: 1 },
-  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
-  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent' },
-  scanText: { color: 'white', marginTop: 20, fontSize: 18, fontWeight: 'bold' },
+  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+  },
+  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#ffffff', letterSpacing: 0.5 },
+  logoutButton: { padding: 8, backgroundColor: 'rgba(244, 63, 94, 0.2)', borderRadius: 12 },
+  
+  form: { padding: 20, gap: 20, paddingBottom: 120 },
+  
+  card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
+  cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+
+  inputGroup: { marginBottom: 15 },
+  label: { fontSize: 14, fontWeight: '600', color: '#475569', marginBottom: 8 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', height: 50 },
+  inputIcon: { marginLeft: 15, marginRight: 10 },
+  input: { flex: 1, fontSize: 16, color: '#0f172a', height: '100%' },
+  helperText: { fontSize: 12, color: '#94a3b8', marginTop: 5, marginLeft: 5 },
+  scanIconBtn: { padding: 10, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' },
+  
+  chipScroll: { marginTop: 10, flexDirection: 'row' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f5f3ff', marginRight: 8, borderWidth: 1, borderColor: '#ddd6fe' },
+  activeChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  chipText: { color: '#7c3aed', fontSize: 13, fontWeight: '600' },
+  activeChipText: { color: '#ffffff' },
+
+  currencyToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 10, padding: 3 },
+  currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currText: { fontSize: 12, fontWeight: '600', color: '#475569' },
+  currTextActive: { color: '#7c3aed' },
+  currencySymbol: { fontSize: 18, fontWeight: 'bold', color: '#475569', marginLeft: 15, marginRight: 5 },
+
   row: { flexDirection: 'row', gap: 15 },
-  halfInput: { flex: 1 },
-  saveButton: { backgroundColor: '#1e40af', padding: 16, borderRadius: 12, alignItems: 'center', marginTop: 20, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 5, elevation: 3 },
-  saveButtonText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
+  
+  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f5f3ff', padding: 12, borderRadius: 12 },
+  marginLabel: { fontSize: 14, fontWeight: '600', color: '#475569' },
+  marginBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
+  marginValue: { fontSize: 14, fontWeight: 'bold' },
+
+  actionContainer: { gap: 12, marginTop: 10 },
+  primaryButton: {
+    backgroundColor: '#7c3aed',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  primaryButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  secondaryButton: {
+    backgroundColor: '#f5f3ff',
+    paddingVertical: 16,
+    borderRadius: 16,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#ddd6fe',
+  },
+  secondaryButtonText: {
+    color: '#7c3aed',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  
+  // Camera Modal Styles
+  camera: { flex: 1 },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.8)', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  scanFrame: { 
+    width: 280, 
+    height: 180, 
+    borderWidth: 2, 
+    borderColor: '#7c3aed', 
+    backgroundColor: 'transparent', 
+    borderRadius: 15, 
+    marginBottom: 20,
+    shadowColor: '#7c3aed',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.8,
+    shadowRadius: 10,
+  },
+  textScanFrame: { height: 100, borderStyle: 'dashed' },
+  scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
+  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#7c3aed' },
 });

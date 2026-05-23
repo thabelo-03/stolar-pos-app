@@ -1,13 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import TextRecognition from '@react-native-ml-kit/text-recognition';
+import { CameraView, useCameraPermissions } from 'expo-camera';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
   FlatList,
+  KeyboardAvoidingView,
   Modal,
+  Platform,
   SafeAreaView,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,11 +22,15 @@ import {
 } from 'react-native';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 import { ProductDetails } from '../../ProductDetails';
-import { API_BASE_URL } from './api';
+import { API_BASE_URL } from '../config';
 
 // IMPORT OFFLINE TOOLS
 import * as Network from 'expo-network';
 import { OfflineService } from '../services/offlineService';
+import { useActiveShop } from '@/hooks/use-active-shop';
+import { useProducts } from '@/hooks/use-products';
+import { useRates } from '@/hooks/use-rates';
+import { Colors } from '@/constants/theme';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -31,68 +41,37 @@ export default function CartScreen() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
-  const [allProducts, setAllProducts] = useState<any[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<any>(null);
+  const [permission, requestPermission] = useCameraPermissions();
+  const [activeScanField, setActiveScanField] = useState<'search-barcode' | 'search-ocr' | null>(null);
+  const [modalScanned, setModalScanned] = useState(false);
+  const cameraRef = useRef<CameraView>(null);
+  const processedBarcodeRef = useRef<string | null>(null);
+  const [parkedSales, setParkedSales] = useState<any[]>([]);
+  const [showParkedModal, setShowParkedModal] = useState(false);
+  const [recentSales, setRecentSales] = useState<any[]>([]);
+  const [showRecentModal, setShowRecentModal] = useState(false);
+  const [showRefundModal, setShowRefundModal] = useState(false);
+  const [refundReason, setRefundReason] = useState('');
+  const [refundTarget, setRefundTarget] = useState<{id: string, amount: number} | null>(null);
+  const [showPaymentModal, setShowPaymentModal] = useState(false);
+  const [tenderedAmount, setTenderedAmount] = useState('');
 
   // MULTI-CURRENCY STATE
-  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('USD');
-  const [rates, setRates] = useState<{ ZAR: number; ZiG: number; updatedAt?: string }>({ ZAR: 19.2, ZiG: 26.5 }); 
+  const [currency, setCurrency] = useState<'USD' | 'ZAR' | 'ZiG'>('ZAR');
 
-  // --- 1. FETCH LIVE RATES FROM DATABASE ---
-  useEffect(() => {
-    const fetchRates = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        let endpoint = `${API_BASE_URL}/shops/rates`;
-
-        if (userId) {
-          const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-          const user = await userRes.json();
-          if (user.shopId) {
-            endpoint = `${API_BASE_URL}/shops/rates/${user.shopId}`;
-          }
-        }
-
-        const response = await fetch(endpoint); 
-        if (response.ok) {
-          const data = await response.json();
-          if (data.rates) {
-            setRates(data.rates);
-          }
-        }
-      } catch (error) {
-        console.log("Using default fallback rates due to connectivity.");
-      }
-    };
-    fetchRates();
-  }, []);
+  const { shopId, shopName, userRole, userId, loading: shopLoading } = useActiveShop();
+  const { products: allProducts, fetchProducts, loading: productsLoading } = useProducts();
+  const { rates } = useRates();
 
   // --- 2. FETCH PRODUCTS ---
   useEffect(() => {
-    const fetchAllProducts = async () => {
-      try {
-        const userId = await AsyncStorage.getItem('userId');
-        if (!userId) return;
-
-        const userRes = await fetch(`${API_BASE_URL}/users/${userId}`);
-        const user = await userRes.json();
-
-        if (user.shopId) {
-          const response = await fetch(`${API_BASE_URL}/products?shopId=${user.shopId}`);
-          if (response.ok) {
-            setAllProducts(await response.json());
-          }
-        }
-      } catch (error) {
-        console.log("Working in offline product mode.");
-      }
-    };
-    fetchAllProducts();
-  }, []);
+    fetchProducts();
+  }, [fetchProducts]);
 
   // Update total whenever cart changes
   useEffect(() => {
-    const newTotal = cartItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+    const newTotal = cartItems.reduce((sum, item) => sum + ((item.price || 0) * (item.quantity || 0)), 0);
     setTotalUSD(newTotal);
   }, [cartItems]);
 
@@ -123,7 +102,64 @@ export default function CartScreen() {
     }
   };
 
+  const startScan = async (mode: 'search-barcode' | 'search-ocr') => {
+    setModalScanned(false);
+    if (!permission?.granted) {
+      const { granted } = await requestPermission();
+      if (granted) setActiveScanField(mode);
+    } else {
+      setActiveScanField(mode);
+    }
+  };
+
+  const handleBarcodeScanned = ({ data }: { data: string }) => {
+    if (modalScanned) return;
+    if (activeScanField === 'search-barcode') {
+      setModalScanned(true);
+      handleSearch(data);
+      setActiveScanField(null);
+    }
+  };
+
+  const handleTakePicture = async () => {
+    if (cameraRef.current) {
+      try {
+        const photo = await cameraRef.current.takePictureAsync();
+        if (photo?.uri) {
+          let uriToRecognize = photo.uri;
+          if (photo.width && photo.height) {
+            const cropWidth = photo.width * 0.8;
+            const cropHeight = photo.height * 0.20;
+            const originX = (photo.width - cropWidth) / 2;
+            const originY = (photo.height - cropHeight) / 2;
+            const manipResult = await manipulateAsync(photo.uri, [{ crop: { originX, originY, width: cropWidth, height: cropHeight } }], { compress: 1, format: SaveFormat.JPEG });
+            uriToRecognize = manipResult.uri;
+          }
+          const result = await TextRecognition.recognize(uriToRecognize);
+          if (result.text) {
+            handleSearch(result.text.trim());
+          } else {
+            Alert.alert("No Text", "Could not detect text.");
+          }
+          setActiveScanField(null);
+        }
+      } catch (e) { console.log(e); }
+    }
+  };
+
   const addItemToCart = (product: any) => {
+    const availableStock = product.stockQuantity !== undefined ? product.stockQuantity : (product.quantity || 0);
+
+    if (availableStock <= 0) {
+      Alert.alert("Out of Stock", "This item is currently unavailable.");
+      return;
+    }
+
+    const currentInCart = cartItems.find(item => item.barcode === product.barcode);
+    if (currentInCart && currentInCart.quantity >= availableStock) {
+      return Alert.alert("Stock Limit", `Only ${availableStock} units available.`);
+    }
+
     setCartItems(prevItems => {
       const existing = prevItems.find(item => item.barcode === product.barcode);
       if (existing) {
@@ -134,16 +170,56 @@ export default function CartScreen() {
       return [...prevItems, {
         id: product._id || Date.now().toString(),
         name: product.name,
-        price: Number(product.price),
+        price: Number(product.price) || 0,
+        costPrice: Number(product.costPrice) || 0,
         quantity: 1,
         barcode: product.barcode,
+        maxStock: availableStock
       }];
     });
     setSearchQuery('');
     setSearchResults([]);
   };
 
+  // Reactively process barcode transitioned from the Scan Screen
+  useEffect(() => {
+    if (barcode) {
+      const barcodeStr = Array.isArray(barcode) ? barcode[0] : barcode;
+      if (barcodeStr && !productsLoading) {
+        // Prevent duplicate processing on rapid asynchronous re-renders in the same transition
+        if (processedBarcodeRef.current === barcodeStr) return;
+        processedBarcodeRef.current = barcodeStr;
+
+        // 1. Populate search query input and trigger matching dropdown
+        setSearchQuery(barcodeStr);
+        handleSearch(barcodeStr);
+
+        // 2. Add matching item automatically to active cart
+        const matched = allProducts.find(p => p.barcode === barcodeStr);
+        if (matched) {
+          addItemToCart(matched);
+        } else {
+          Alert.alert("Product Not Found", `Product with barcode "${barcodeStr}" was not found in inventory.`);
+        }
+
+        // 3. Reset router param to prevent duplicate additions on tab refocus
+        router.setParams({ barcode: undefined });
+      }
+    } else {
+      // Clear the tracking ref when route parameters are cleared
+      processedBarcodeRef.current = null;
+    }
+  }, [barcode, allProducts, productsLoading]);
+
   const updateQuantity = (itemId: string, amount: number) => {
+    const item = cartItems.find(i => i.id === itemId);
+    if (!item) return;
+
+    if (amount > 0 && item.maxStock !== undefined && item.quantity + amount > item.maxStock) {
+      Alert.alert("Limit Reached", `Max stock is ${item.maxStock}`);
+      return;
+    }
+
     setCartItems(curr => curr.map(i => i.id === itemId ? { ...i, quantity: i.quantity + amount } : i).filter(i => i.quantity > 0));
   };
 
@@ -170,15 +246,128 @@ export default function CartScreen() {
     );
   };
 
+  const parkSale = async () => {
+    if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Nothing to park.');
+    
+    try {
+      const draft = {
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        items: cartItems,
+        total: totalUSD
+      };
+      
+      const existing = await AsyncStorage.getItem('parked_sales');
+      const parked = existing ? JSON.parse(existing) : [];
+      parked.push(draft);
+      
+      await AsyncStorage.setItem('parked_sales', JSON.stringify(parked));
+      setCartItems([]);
+      Alert.alert('Success', 'Sale parked successfully.');
+    } catch (e) {
+      Alert.alert('Error', 'Failed to park sale.');
+    }
+  };
+
+  const fetchParkedSales = async () => {
+    try {
+      const existing = await AsyncStorage.getItem('parked_sales');
+      if (existing) {
+        setParkedSales(JSON.parse(existing));
+      } else {
+        setParkedSales([]);
+      }
+      setShowParkedModal(true);
+    } catch (e) {
+      console.log(e);
+    }
+  };
+
+  const restoreSale = async (sale: any) => {
+    const confirmRestore = async () => {
+      setCartItems(sale.items);
+      const newParked = parkedSales.filter(s => s.id !== sale.id);
+      setParkedSales(newParked);
+      await AsyncStorage.setItem('parked_sales', JSON.stringify(newParked));
+      setShowParkedModal(false);
+    };
+
+    if (cartItems.length > 0) {
+      Alert.alert('Cart not empty', 'Restoring will overwrite current cart. Continue?', [{ text: 'Cancel', style: 'cancel' }, { text: 'Overwrite', onPress: confirmRestore }]);
+    } else {
+      confirmRestore();
+    }
+  };
+
+  const deleteParkedSale = async (id: string) => {
+    const newParked = parkedSales.filter(s => s.id !== id);
+    setParkedSales(newParked);
+    await AsyncStorage.setItem('parked_sales', JSON.stringify(newParked));
+  };
+
+  const fetchRecentSales = async () => {
+    try {
+      let url = `${API_BASE_URL}/sales/recent`;
+      
+      if (userId) {
+        if (shopId && userRole !== 'admin') {
+          url += `?shopId=${shopId}`;
+        }
+      }
+
+      const res = await fetch(url);
+      const data = await res.json();
+      setRecentSales(data);
+      setShowRecentModal(true);
+    } catch (e) {
+      Alert.alert("Error", "Could not fetch sales history");
+    }
+  };
+
+  const handleRefund = (saleId: string, amount: number) => {
+    setRefundTarget({ id: saleId, amount });
+    setRefundReason('');
+    setShowRefundModal(true);
+  };
+
+  const confirmRefund = async () => {
+    if (!refundTarget) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/sales/${refundTarget.id}/refund`, { 
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reason: refundReason })
+      });
+      const data = await res.json();
+      if (res.ok) {
+        Alert.alert("Success", "Refund processed");
+        fetchRecentSales();
+        setShowRefundModal(false);
+      } else {
+        Alert.alert("Error", data.message || "Refund failed");
+      }
+    } catch (e) { Alert.alert("Error", "Network error"); }
+  };
+
   // --- 5. CHECKOUT WITH OFFLINE + CURRENCY LOGIC ---
-  const handleCheckout = async () => {
+  const processTransaction = async () => {
     if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
 
     setLoading(true);
+
+    const tenderedVal = parseFloat(tenderedAmount || '0');
+    const totalLocal = convert(totalUSD || 0);
+    const changeVal = Math.max(0, tenderedVal - totalLocal);
+
     const saleData = {
       items: cartItems,
-      totalUSD: totalUSD,
-      totalPaidLocal: convert(totalUSD),
+      total: totalUSD || 0,
+      shopId: shopId,
+      cashierId: userId,
+      totalUSD: totalUSD || 0,
+      totalPaidLocal: totalLocal,
+      tenderedAmount: tenderedVal,
+      change: changeVal,
       currencyUsed: currency,
       rateUsed: currency === 'USD' ? 1 : (rates as any)[currency],
       date: new Date().toISOString(),
@@ -194,8 +383,9 @@ export default function CartScreen() {
             const checkRes = await fetch(`${API_BASE_URL}/products/${item.id}`);
             if (checkRes.ok) {
               const product = await checkRes.json();
-              if ((product.quantity || 0) < item.quantity) {
-                Alert.alert('Insufficient Stock', `Only ${product.quantity} units of "${item.name}" available.`);
+              const availableStock = product.stockQuantity !== undefined ? product.stockQuantity : (product.quantity || 0);
+              if (availableStock < item.quantity) {
+                Alert.alert('Insufficient Stock', `Only ${availableStock} units of "${item.name}" available.`);
                 setLoading(false);
                 return;
               }
@@ -234,7 +424,18 @@ export default function CartScreen() {
         });
         if (response.ok) {
           Alert.alert('Success', 'Transaction synced!');
-          router.replace('/(tabs)/home');
+          setCartItems([]);
+          setShowPaymentModal(false);
+          setTenderedAmount('');
+          router.replace('/(tabs)');
+          return;
+        } else {
+          let errorMessage = 'Transaction failed';
+          try {
+            const errorData = await response.json();
+            errorMessage = errorData.message || errorMessage;
+          } catch (e) {}
+          Alert.alert('Error', errorMessage);
           return;
         }
       }
@@ -243,11 +444,22 @@ export default function CartScreen() {
       const saved = await OfflineService.saveSaleLocally(saleData);
       if (saved) {
         Alert.alert('Saved Offline', 'Connection lost. Sale stored locally and will sync later.');
-        router.replace('/(tabs)/home');
+        setCartItems([]);
+        setShowPaymentModal(false);
+        setTenderedAmount('');
+        router.replace('/(tabs)');
+      } else {
+        Alert.alert('Error', 'Transaction failed and could not be saved offline.');
       }
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleCheckout = () => {
+    if (cartItems.length === 0) return Alert.alert('Empty Cart', 'Add items first.');
+    setTenderedAmount('');
+    setShowPaymentModal(true);
   };
 
   return (
@@ -255,15 +467,29 @@ export default function CartScreen() {
     <SafeAreaView style={styles.container}>
       {/* HEADER */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color="#1e293b" /></TouchableOpacity>
-        <Text style={styles.title}>Stolar Cart</Text>
-        <View style={styles.rateBadge}>
-           <Text style={styles.rateText}>Rate: {currency === 'USD' ? '1.00' : (rates as any)[currency]}</Text>
-           {rates.updatedAt && (
-             <Text style={styles.rateTimeText}>
-               Updated: {new Date(rates.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-             </Text>
-           )}
+        <TouchableOpacity onPress={() => router.back()}><Ionicons name="arrow-back" size={24} color={Colors.dark.text} /></TouchableOpacity>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={styles.title}>Stolar Cart</Text>
+          {shopName && <Text style={styles.shopSub}>{shopName}</Text>}
+        </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <TouchableOpacity onPress={fetchRecentSales} style={styles.headerIconBtn}>
+              <Ionicons name="receipt-outline" size={20} color={Colors.brand.cyan} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={fetchParkedSales} style={styles.headerIconBtn}>
+              <Ionicons name="time-outline" size={20} color={Colors.brand.cyan} />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={parkSale} style={styles.headerIconBtn}>
+              <Ionicons name="save-outline" size={20} color={Colors.brand.cyan} />
+          </TouchableOpacity>
+          <View style={styles.rateBadge}>
+            <Text style={styles.rateText}>Rate: {currency === 'USD' ? '1.00' : (rates as any)[currency]}</Text>
+            {rates.updatedAt && (
+              <Text style={styles.rateTimeText}>
+                Updated: {new Date(rates.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+            )}
+          </View>
         </View>
       </View>
 
@@ -299,18 +525,27 @@ export default function CartScreen() {
             value={searchQuery}
             onChangeText={handleSearch}
           />
+          <TouchableOpacity onPress={() => startScan('search-ocr')} style={{ marginLeft: 8 }}>
+             <Ionicons name="scan-outline" size={20} color="#64748b" />
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => startScan('search-barcode')} style={{ marginLeft: 8 }}>
+             <Ionicons name="barcode-outline" size={20} color="#64748b" />
+          </TouchableOpacity>
         </View>
         {searchResults.length > 0 && (
           <View style={styles.dropdown}>
-            {searchResults.map(p => (
-              <TouchableOpacity key={p._id} style={styles.dropItem} onPress={() => setSelectedProduct(p)}>
-                <View>
-                  <Text style={styles.dropName}>{p.name}</Text>
-                  <Text style={styles.dropSub}>{p.barcode}</Text>
-                </View>
-                <Text style={styles.dropPrice}>{symbol()} {convert(p.price).toFixed(2)}</Text>
-              </TouchableOpacity>
-            ))}
+            {searchResults.map(p => {
+              const stock = p.stockQuantity !== undefined ? p.stockQuantity : (p.quantity || 0);
+              return (
+                <TouchableOpacity key={p._id} style={styles.dropItem} onPress={() => setSelectedProduct(p)}>
+                  <View>
+                    <Text style={styles.dropName}>{p.name}</Text>
+                    <Text style={styles.dropSub}>{p.barcode} • {stock} units</Text>
+                  </View>
+                  <Text style={styles.dropPrice}>{symbol()} {convert(p.price).toFixed(2)}</Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
       </View>
@@ -324,18 +559,24 @@ export default function CartScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <TouchableOpacity style={styles.closeModalButton} onPress={() => setSelectedProduct(null)}>
-              <Ionicons name="close" size={24} color="#64748b" />
+              <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
             </TouchableOpacity>
             {selectedProduct && (
               <>
-                <ProductDetails product={{
-                  ...selectedProduct,
-                  stockQuantity: selectedProduct.quantity || 0,
-                  category: selectedProduct.category || 'General'
-                }} />
+                <ProductDetails 
+                  product={{
+                    ...selectedProduct,
+                    stockQuantity: selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : (selectedProduct.quantity || 0),
+                    category: selectedProduct.category || 'General'
+                  }} 
+                  dark 
+                />
+                <View style={{ alignItems: 'center', marginVertical: 10 }}>
+                  <Text style={{ fontSize: 16, color: Colors.dark.textSecondary }}>Stock Available: <Text style={{ fontWeight: 'bold', color: Colors.dark.text }}>{selectedProduct.stockQuantity !== undefined ? selectedProduct.stockQuantity : (selectedProduct.quantity || 0)}</Text></Text>
+                </View>
                 <View style={styles.modalActions}>
                   <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setSelectedProduct(null)}>
-                    <Text style={[styles.btnText, { color: '#64748b' }]}>Close</Text>
+                    <Text style={[styles.btnText, { color: Colors.dark.textSecondary }]}>Close</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalBtn, styles.editBtn]} onPress={() => {
                     const productToEdit = selectedProduct;
@@ -353,13 +594,15 @@ export default function CartScreen() {
                       }
                     });
                   }}>
+                    <Ionicons name="pencil" size={18} color="white" style={{ marginRight: 6 }} />
                     <Text style={[styles.btnText, { color: 'white' }]}>Edit</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.modalBtn, styles.confirmBtn]} onPress={() => {
                     addItemToCart(selectedProduct);
                     setSelectedProduct(null);
                   }}>
-                    <Text style={[styles.btnText, { color: 'white' }]}>Add to Cart</Text>
+                    <Ionicons name="cart" size={18} color="white" style={{ marginRight: 6 }} />
+                    <Text style={[styles.btnText, { color: 'white' }]}>Add</Text>
                   </TouchableOpacity>
                 </View>
               </>
@@ -380,15 +623,279 @@ export default function CartScreen() {
                 <Text style={styles.itemPrice}>{symbol()} {convert(item.price).toFixed(2)} each</Text>
               </View>
               <View style={styles.qtyBox}>
-                <TouchableOpacity onPress={() => updateQuantity(item.id, -1)}><Ionicons name="remove-circle" size={32} color="#cbd5e1" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => updateQuantity(item.id, -1)}><Ionicons name="remove-circle" size={32} color="rgba(255,255,255,0.3)" /></TouchableOpacity>
                 <Text style={styles.qtyText}>{item.quantity}</Text>
-                <TouchableOpacity onPress={() => updateQuantity(item.id, 1)}><Ionicons name="add-circle" size={32} color="#1e40af" /></TouchableOpacity>
+                <TouchableOpacity onPress={() => updateQuantity(item.id, 1)}><Ionicons name="add-circle" size={32} color={Colors.brand.cyan} /></TouchableOpacity>
               </View>
             </View>
           </Swipeable>
         )}
         ListEmptyComponent={<Text style={styles.emptyText}>Scan or search to add items.</Text>}
       />
+
+      <Modal visible={!!activeScanField} animationType="slide" onRequestClose={() => setActiveScanField(null)}>
+        <CameraView 
+          ref={cameraRef}
+          style={styles.camera} 
+          facing="back" 
+          onBarcodeScanned={activeScanField === 'search-barcode' ? handleBarcodeScanned : undefined}
+        >
+          <View style={styles.cameraOverlay}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setActiveScanField(null)}>
+              <Ionicons name="close" size={30} color="white" />
+            </TouchableOpacity>
+            <View style={[styles.scanFrame, activeScanField === 'search-ocr' && styles.textScanFrame]} />
+            <Text style={styles.scanText}>{activeScanField === 'search-ocr' ? 'Align text & take photo' : 'Scanning Barcode...'}</Text>
+            {activeScanField === 'search-ocr' && (
+              <TouchableOpacity style={styles.shutterButton} onPress={handleTakePicture}>
+                <View style={styles.shutterInner} />
+              </TouchableOpacity>
+            )}
+          </View>
+        </CameraView>
+      </Modal>
+
+      <Modal visible={showParkedModal} animationType="slide" transparent onRequestClose={() => setShowParkedModal(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Parked Sales</Text>
+                    <TouchableOpacity onPress={() => setShowParkedModal(false)}>
+                        <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    data={parkedSales}
+                    keyExtractor={item => item.id}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No parked sales.</Text>}
+                    renderItem={({ item }) => (
+                        <View style={styles.parkedItem}>
+                            <View style={{flex: 1}}>
+                                <Text style={styles.parkedDate}>{new Date(item.date).toLocaleString()}</Text>
+                                <Text style={styles.parkedDetails}>{item.items.length} items • ${item.total.toFixed(2)}</Text>
+                            </View>
+                            <View style={{flexDirection: 'row', gap: 10}}>
+                                <TouchableOpacity onPress={() => restoreSale(item)} style={styles.restoreBtn}>
+                                    <Ionicons name="refresh" size={20} color="white" />
+                                </TouchableOpacity>
+                                <TouchableOpacity onPress={() => deleteParkedSale(item.id)} style={styles.deleteBtn}>
+                                    <Ionicons name="trash" size={20} color="white" />
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    )}
+                />
+            </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showRecentModal} animationType="slide" transparent onRequestClose={() => setShowRecentModal(false)}>
+        <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+                <View style={styles.modalHeader}>
+                    <Text style={styles.modalTitle}>Recent Sales</Text>
+                    <TouchableOpacity onPress={() => setShowRecentModal(false)}>
+                        <Ionicons name="close" size={24} color={Colors.dark.textSecondary} />
+                    </TouchableOpacity>
+                </View>
+                <FlatList
+                    data={recentSales}
+                    keyExtractor={item => item._id}
+                    ListEmptyComponent={<Text style={styles.emptyText}>No recent sales found.</Text>}
+                    renderItem={({ item }) => (
+                        <View style={styles.parkedItem}>
+                            <View style={{flex: 1}}>
+                                <Text style={styles.parkedDate}>
+                                  {new Date(item.date).toLocaleString()} 
+                                  {item.refunded && <Text style={{color: '#ef4444'}}> (Refunded)</Text>}
+                                </Text>
+                                <Text style={styles.parkedDetails}>
+                                  {item.items?.length || 0} items • ${(item.totalUSD || item.total || item.amount || 0).toFixed(2)}
+                                  {item.cashierName ? ` • ${item.cashierName}` : ''}
+                                </Text>
+                                {item.refunded && item.refundReason && (
+                                  <Text style={{ fontSize: 11, color: '#ef4444', fontStyle: 'italic', marginTop: 2 }}>Reason: {item.refundReason}</Text>
+                                )}
+                            </View>
+                            {!item.refunded && (
+                              <TouchableOpacity onPress={() => handleRefund(item._id, item.totalUSD || item.total || item.amount || 0)} style={[styles.deleteBtn, { backgroundColor: '#f59e0b' }]}>
+                                  <Text style={{color: 'white', fontWeight: 'bold', fontSize: 12}}>Refund</Text>
+                              </TouchableOpacity>
+                            )}
+                        </View>
+                    )}
+                />
+            </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showRefundModal} animationType="fade" transparent onRequestClose={() => setShowRefundModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Process Refund</Text>
+            
+            {refundTarget && (() => {
+              const sale = recentSales.find(s => s._id === refundTarget.id);
+              if (sale && sale.items && Array.isArray(sale.items)) {
+                return (
+                  <View style={{ maxHeight: 150, width: '100%', marginBottom: 10 }}>
+                    <Text style={{ fontSize: 12, fontWeight: 'bold', color: Colors.dark.textSecondary, marginBottom: 5 }}>ITEMS</Text>
+                    <FlatList
+                      data={sale.items}
+                      keyExtractor={(item, index) => index.toString()}
+                      renderItem={({ item }) => (
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                           <Text style={{ fontSize: 14, color: Colors.dark.text, flex: 1 }} numberOfLines={1}>
+                            {item.quantity} x {item.name}
+                          </Text>
+                          <Text style={{ fontSize: 14, fontWeight: '600', color: Colors.brand.cyan }}>
+                            {symbol()} {convert((Number(item.price || 0) * Number(item.quantity || 0))).toFixed(2)}
+                          </Text>
+                        </View>
+                      )}
+                    />
+                    <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', marginVertical: 10 }} />
+                  </View>
+                );
+              }
+              return null;
+            })()}
+
+            <Text style={{marginBottom: 15, color: Colors.dark.textSecondary}}>
+              Refund amount: ${refundTarget?.amount.toFixed(2)}
+            </Text>
+            
+            <Text style={{fontWeight: '600', marginBottom: 5, color: Colors.dark.text}}>Reason for Refund</Text>
+            <TextInput
+              style={{ borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8, padding: 10, height: 80, textAlignVertical: 'top', fontSize: 16, color: Colors.dark.text, width: '100%' }}
+              placeholder="e.g. Defective item, Customer changed mind"
+              placeholderTextColor="rgba(255,255,255,0.3)"
+              value={refundReason}
+              onChangeText={setRefundReason}
+              multiline
+            />
+
+            <View style={styles.modalActions}>
+              <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowRefundModal(false)}>
+                <Text style={[styles.btnText, { color: Colors.dark.textSecondary }]}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalBtn, styles.refundBtn]} onPress={confirmRefund}>
+                <Ionicons name="return-up-back" size={18} color="white" style={{ marginRight: 6 }} />
+                <Text style={[styles.btnText, {color: 'white'}]}>Confirm Refund</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal visible={showPaymentModal} animationType="slide" transparent onRequestClose={() => setShowPaymentModal(false)}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+          style={styles.modalOverlay}
+        >
+          <View style={[styles.modalContent, { maxHeight: '90%' }]}>
+            <Text style={styles.modalTitle}>Payment Details</Text>
+            
+            <ScrollView 
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={{ flexGrow: 1 }}
+              style={{ width: '100%' }}
+            >
+              <View style={{ width: '100%', marginBottom: 15 }}>
+                {cartItems.map((item) => (
+                  <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
+                    <Text style={{ fontSize: 14, color: '#94a3b8', flex: 1 }} numberOfLines={1}>
+                      {item.quantity} x {item.name}
+                    </Text>
+                    <Text style={{ fontSize: 14, fontWeight: '600', color: '#f1f5f9' }}>
+                      {symbol()} {convert((item.price || 0) * item.quantity).toFixed(2)}
+                    </Text>
+                  </View>
+                ))}
+                <View style={{ height: 1, backgroundColor: 'rgba(255,255,255,0.08)', width: '100%', marginTop: 10 }} />
+              </View>
+
+              <View style={{marginBottom: 20, alignItems: 'center'}}>
+                  <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 4}}>Total Due</Text>
+                  <Text style={{fontSize: 32, fontWeight: 'bold', color: '#f1f5f9'}}>
+                      {symbol()} {convert(totalUSD).toFixed(2)}
+                  </Text>
+              </View>
+
+              <View style={{marginBottom: 20}}>
+                  <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 8}}>Amount Tendered</Text>
+                  <View style={{flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', borderRadius: 12, paddingHorizontal: 15, backgroundColor: 'rgba(255,255,255,0.04)'}}>
+                      <Text style={{fontSize: 20, fontWeight: 'bold', color: '#94a3b8'}}>{symbol()}</Text>
+                      <TextInput
+                          style={{flex: 1, fontSize: 24, fontWeight: 'bold', color: '#f1f5f9', paddingVertical: 12, marginLeft: 10}}
+                          placeholder="0.00"
+                          placeholderTextColor="rgba(255,255,255,0.3)"
+                          keyboardType="numeric"
+                          value={tenderedAmount}
+                          onChangeText={setTenderedAmount}
+                          collapsable={false}
+                          autoFocus
+                      />
+                  </View>
+
+                  <View style={styles.denomContainer}>
+                      {[1, 5, 10, 20, 50, 100, 200].map((amount) => (
+                          <TouchableOpacity 
+                              key={amount} 
+                              style={styles.denomBtn}
+                              onPress={() => setTenderedAmount(amount.toString())}
+                          >
+                              <Text style={styles.denomText}>{symbol()}{amount}</Text>
+                          </TouchableOpacity>
+                      ))}
+                  </View>
+              </View>
+
+              <View style={{marginBottom: 25, alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.04)', padding: 15, borderRadius: 12}}>
+                  <Text style={{fontSize: 14, color: '#94a3b8', marginBottom: 4}}>Change Due</Text>
+                  <Text style={{fontSize: 28, fontWeight: 'bold', color: (parseFloat(tenderedAmount || '0') - convert(totalUSD)) < 0 ? '#f43f5e' : '#10b981'}}>
+                      {symbol()} {Math.max(0, (parseFloat(tenderedAmount || '0') - convert(totalUSD))).toFixed(2)}
+                  </Text>
+              </View>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity style={[styles.modalBtn, styles.cancelBtn]} onPress={() => setShowPaymentModal(false)} disabled={loading}>
+                  <Text style={[styles.btnText, { color: '#94a3b8' }]}>Cancel</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={[styles.modalBtn, styles.confirmBtn]} 
+                  onPress={() => {
+                      const tendered = parseFloat(tenderedAmount || '0');
+                      const total = convert(totalUSD);
+                      
+                      if (tendered < total && Math.abs(tendered - total) > 0.01) {
+                           if (!tenderedAmount) {
+                               setTenderedAmount(total.toFixed(2));
+                               return;
+                           }
+                           Alert.alert("Insufficient Amount", "Tendered amount is less than total.");
+                           return;
+                      }
+                      processTransaction();
+                  }}
+                  disabled={loading}
+                >
+                  {loading ? <ActivityIndicator color="white" /> : <Text style={[styles.btnText, {color: 'white'}]}>Confirm & Print</Text>}
+                </TouchableOpacity>
+              </View>
+              
+              <TouchableOpacity 
+                  style={{marginTop: 15, padding: 10, alignItems: 'center'}} 
+                  onPress={() => setTenderedAmount(convert(totalUSD).toFixed(2))}
+                  disabled={loading}
+              >
+                  <Text style={{color: Colors.brand.cyan, fontWeight: '600'}}>Pay Exact Amount</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* FOOTER */}
       <View style={styles.footer}>
@@ -412,45 +919,130 @@ export default function CartScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, backgroundColor: 'white' },
-  title: { fontSize: 20, fontWeight: 'bold', color: '#1e293b' },
-  rateBadge: { backgroundColor: '#eff6ff', paddingVertical: 4, paddingHorizontal: 10, borderRadius: 20, borderWidth: 1, borderColor: '#dbeafe' },
-  rateText: { fontSize: 12, color: '#1e40af', fontWeight: 'bold' },
-  rateTimeText: { fontSize: 8, color: '#64748b', textAlign: 'center', marginTop: 2 },
+  container: { flex: 1, backgroundColor: Colors.dark.bg },
+  header: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    justifyContent: 'space-between', 
+    padding: 20, 
+    backgroundColor: Colors.dark.bgSecondary,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.dark.border,
+  },
+  title: { fontSize: 20, fontWeight: 'bold', color: Colors.dark.text },
+  shopSub: { fontSize: 12, color: Colors.dark.textSecondary, fontWeight: '600' },
+  rateBadge: { 
+    backgroundColor: 'rgba(255, 255, 255, 0.06)', 
+    paddingVertical: 4, 
+    paddingHorizontal: 10, 
+    borderRadius: 20, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  rateText: { fontSize: 12, color: Colors.brand.cyan, fontWeight: 'bold' },
+  rateTimeText: { fontSize: 8, color: Colors.dark.textMuted, textAlign: 'center', marginTop: 2 },
   
-  currencySelector: { flexDirection: 'row', backgroundColor: 'white', paddingBottom: 15, paddingHorizontal: 20, gap: 10 },
-  currBtn: { flex: 1, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', alignItems: 'center' },
-  currBtnActive: { backgroundColor: '#1e40af', borderColor: '#1e40af' },
-  currBtnText: { fontWeight: 'bold', color: '#64748b', fontSize: 13 },
+  currencySelector: { 
+    flexDirection: 'row', 
+    backgroundColor: Colors.dark.bgSecondary, 
+    paddingBottom: 15, 
+    paddingHorizontal: 20, 
+    gap: 10,
+  },
+  currBtn: { 
+    flex: 1, 
+    padding: 10, 
+    borderRadius: 10, 
+    borderWidth: 1, 
+    borderColor: Colors.dark.border, 
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.03)',
+  },
+  currBtnActive: { backgroundColor: Colors.brand.blue, borderColor: Colors.brand.blue },
+  currBtnText: { fontWeight: 'bold', color: Colors.dark.textSecondary, fontSize: 13 },
   currBtnTextActive: { color: 'white' },
 
-  searchBox: { flexDirection: 'row', alignItems: 'center', margin: 20, padding: 12, backgroundColor: 'white', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
-  input: { flex: 1, marginLeft: 10, fontSize: 16, color: '#1e293b' },
-  dropdown: { position: 'absolute', top: 75, left: 20, right: 20, backgroundColor: 'white', borderRadius: 12, elevation: 8, zIndex: 3000, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10 },
-  dropItem: { padding: 15, borderBottomWidth: 1, borderBottomColor: '#f1f5f9', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dropName: { fontWeight: 'bold', color: '#1e293b' },
-  dropSub: { fontSize: 11, color: '#94a3b8' },
-  dropPrice: { color: '#1e40af', fontWeight: 'bold' },
+  searchBox: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    margin: 20, 
+    padding: 12, 
+    backgroundColor: Colors.dark.surface, 
+    borderRadius: 12, 
+    borderWidth: 1, 
+    borderColor: Colors.dark.border,
+  },
+  input: { flex: 1, marginLeft: 10, fontSize: 16, color: Colors.dark.text },
+  dropdown: { 
+    position: 'absolute', 
+    top: 75, 
+    left: 20, 
+    right: 20, 
+    backgroundColor: Colors.dark.bgSecondary, 
+    borderRadius: 12, 
+    elevation: 8, 
+    zIndex: 3000, 
+    shadowColor: '#000', 
+    shadowOpacity: 0.25, 
+    shadowRadius: 10,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
+  },
+  dropItem: { 
+    padding: 15, 
+    borderBottomWidth: 1, 
+    borderBottomColor: Colors.dark.border, 
+    flexDirection: 'row', 
+    justifyContent: 'space-between', 
+    alignItems: 'center',
+  },
+  dropName: { fontWeight: 'bold', color: Colors.dark.text },
+  dropSub: { fontSize: 11, color: Colors.dark.textMuted },
+  dropPrice: { color: Colors.brand.cyan, fontWeight: 'bold' },
 
-  cartItem: { flexDirection: 'row', backgroundColor: 'white', padding: 16, borderRadius: 15, marginBottom: 12, alignItems: 'center', borderWidth: 1, borderColor: '#f1f5f9' },
-  itemName: { fontSize: 16, fontWeight: '700', color: '#1e293b' },
-  itemPrice: { color: '#64748b', fontSize: 13, marginTop: 2 },
+  cartItem: { 
+    flexDirection: 'row', 
+    backgroundColor: Colors.dark.surface, 
+    padding: 16, 
+    borderRadius: 15, 
+    marginBottom: 12, 
+    alignItems: 'center', 
+    borderWidth: 1, 
+    borderColor: Colors.dark.border,
+  },
+  itemName: { fontSize: 16, fontWeight: '700', color: Colors.dark.text },
+  itemPrice: { color: Colors.dark.textSecondary, fontSize: 13, marginTop: 2 },
   qtyBox: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  qtyText: { fontSize: 18, fontWeight: 'bold', color: '#1e293b', minWidth: 20, textAlign: 'center' },
+  qtyText: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text, minWidth: 20, textAlign: 'center' },
 
-  footer: { padding: 25, backgroundColor: 'white', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  footer: { 
+    padding: 25, 
+    paddingBottom: 120, 
+    backgroundColor: Colors.dark.bgSecondary, 
+    borderTopWidth: 1, 
+    borderTopColor: Colors.dark.border,
+  },
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
-  totalLabel: { fontSize: 18, color: '#64748b', fontWeight: '600' },
-  totalValue: { fontSize: 26, fontWeight: '900', color: '#1e293b' },
-  payBtn: { backgroundColor: '#1e40af', padding: 18, borderRadius: 15, alignItems: 'center' },
+  totalLabel: { fontSize: 18, color: Colors.dark.textSecondary, fontWeight: '600' },
+  totalValue: { fontSize: 26, fontWeight: '900', color: Colors.dark.text },
+  payBtn: { 
+    backgroundColor: Colors.brand.blue, 
+    padding: 18, 
+    borderRadius: 15, 
+    alignItems: 'center',
+    shadowColor: Colors.brand.blue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
   payBtnContent: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   payText: { color: 'white', fontSize: 17, fontWeight: 'bold' },
-  emptyText: { textAlign: 'center', marginTop: 50, color: '#94a3b8', fontSize: 15 },
+  emptyText: { textAlign: 'center', marginTop: 50, color: Colors.dark.textMuted, fontSize: 15 },
 
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.65)', justifyContent: 'center', alignItems: 'center', padding: 20 },
   modalContent: { 
-    backgroundColor: 'white', 
+    backgroundColor: Colors.dark.bgSecondary, 
     borderRadius: 16, 
     padding: 20, 
     maxHeight: '80%', 
@@ -461,6 +1053,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
+    borderWidth: 1,
+    borderColor: Colors.dark.border,
   },
   closeModalButton: {
     position: 'absolute',
@@ -469,14 +1063,27 @@ const styles = StyleSheet.create({
     zIndex: 10,
     padding: 5,
   },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  modalBtn: { flex: 1, padding: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  cancelBtn: { backgroundColor: '#f1f5f9' },
-  confirmBtn: { backgroundColor: '#1e40af' },
-  editBtn: { backgroundColor: '#f59e0b' },
-  btnText: { fontWeight: 'bold', fontSize: 16 },
+  modalActions: { flexDirection: 'row', gap: 12, marginTop: 20 },
+  modalBtn: { 
+    flex: 1, 
+    paddingVertical: 14, 
+    borderRadius: 12, 
+    alignItems: 'center', 
+    justifyContent: 'center',
+    flexDirection: 'row',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cancelBtn: { backgroundColor: 'rgba(255,255,255,0.06)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)', shadowOpacity: 0, elevation: 0 },
+  confirmBtn: { backgroundColor: Colors.brand.blue, shadowColor: Colors.brand.blue, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  editBtn: { backgroundColor: Colors.brand.amber, shadowColor: Colors.brand.amber, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  refundBtn: { backgroundColor: Colors.brand.rose, shadowColor: Colors.brand.rose, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  btnText: { fontWeight: '700', fontSize: 15 },
   deleteAction: {
-    backgroundColor: '#ef4444',
+    backgroundColor: Colors.brand.rose,
     justifyContent: 'center',
     alignItems: 'center',
     width: 80,
@@ -490,5 +1097,42 @@ const styles = StyleSheet.create({
     right: 0,
     bottom: 0,
     zIndex: 1500,
+  },
+  camera: { flex: 1 },
+  cameraOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  closeButton: { position: 'absolute', top: 50, right: 20, padding: 10, backgroundColor: 'rgba(0,0,0,0.5)', borderRadius: 20 },
+  scanFrame: { width: 250, height: 250, borderWidth: 2, borderColor: 'white', backgroundColor: 'transparent', marginBottom: 20 },
+  textScanFrame: { width: '80%', height: 120, borderColor: '#10b981', borderStyle: 'dashed' },
+  scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', marginBottom: 30 },
+  shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: 'white', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 2, borderColor: 'black' },
+  headerIconBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 8 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  modalTitle: { fontSize: 18, fontWeight: 'bold', color: Colors.dark.text },
+  parkedItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: Colors.dark.border },
+  parkedDate: { fontWeight: 'bold', color: Colors.dark.text, marginBottom: 4 },
+  parkedDetails: { color: Colors.dark.textSecondary, fontSize: 12 },
+  restoreBtn: { backgroundColor: Colors.brand.emerald, padding: 8, borderRadius: 8 },
+  deleteBtn: { backgroundColor: Colors.brand.rose, padding: 8, borderRadius: 8 },
+  denomContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 12,
+  },
+  denomBtn: {
+    backgroundColor: 'rgba(255,255,255,0.06)',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.1)',
+    minWidth: 50,
+    alignItems: 'center',
+  },
+  denomText: {
+    color: Colors.dark.text,
+    fontWeight: '600',
+    fontSize: 14,
   },
 });

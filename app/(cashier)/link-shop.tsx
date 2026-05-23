@@ -11,9 +11,12 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
+  Image
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { API_BASE_URL } from '../config';
+import { Colors } from '../../constants/theme';
 
 export default function LinkShopScreen() {
   const [branchCode, setBranchCode] = useState('');
@@ -60,35 +63,34 @@ export default function LinkShopScreen() {
 
   // STEP 1: New Confirmation Logic
   const handleLinkShop = () => {
-  const formattedCode = branchCode.trim().toUpperCase();
+    const formattedCode = branchCode.trim().toUpperCase();
 
-  if (!formattedCode) {
-    Alert.alert('Error', 'Please enter the branch code.');
-    return;
-  }
+    if (!formattedCode) {
+      Alert.alert('Error', 'Please enter the branch code.');
+      return;
+    }
 
-  // Ensure this Alert block is exactly like this:
-  Alert.alert(
-    'Confirm Link Request',
-    `Join branch: ${formattedCode}?`,
-    [
-      { text: 'Cancel', style: 'cancel' },
-      { 
-        text: 'Yes', 
-        onPress: () => executeRequest(formattedCode) // <--- Check this line!
-      },
-    ]
-  );
-};
+    Alert.alert(
+      'Confirm Link Request',
+      `Join branch: ${formattedCode}?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Yes', 
+          onPress: () => executeRequest(formattedCode)
+        },
+      ]
+    );
+  };
 
   return (
     <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       style={styles.container}
     >
       <View style={styles.card}>
         <View style={styles.iconContainer}>
-          <Ionicons name="link-outline" size={50} color="#1e40af" />
+          <Image source={require('../../assets/images/stolar-logo.jpeg')} style={styles.logoImage} />
         </View>
         
         <Text style={styles.title}>Join a Shop Branch</Text>
@@ -103,25 +105,32 @@ export default function LinkShopScreen() {
             value={branchCode}
             onChangeText={setBranchCode}
             autoCapitalize="characters"
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#64748b"
             maxLength={10}
           />
           <Text style={styles.inputHint}>Check your WhatsApp for the code</Text>
         </View>
 
         <TouchableOpacity 
-          style={[styles.button, isLoading && styles.buttonDisabled]} 
+          style={styles.button} 
           onPress={handleLinkShop} 
           disabled={isLoading}
         >
-          {isLoading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Text style={styles.buttonText}>Send Link Request</Text>
-              <Ionicons name="send-outline" size={18} color="white" style={{marginLeft: 10}} />
-            </>
-          )}
+          <LinearGradient 
+            colors={isLoading ? ['#475569', '#475569'] : ['#0891b2', '#06b6d4']} 
+            start={{ x: 0, y: 0 }} 
+            end={{ x: 1, y: 0 }} 
+            style={styles.buttonGradient}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Text style={styles.buttonText}>Send Link Request</Text>
+                <Ionicons name="send-outline" size={18} color="white" style={{marginLeft: 10}} />
+              </>
+            )}
+          </LinearGradient>
         </TouchableOpacity>
 
         <TouchableOpacity 
@@ -136,17 +145,53 @@ export default function LinkShopScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, justifyContent: 'center', padding: 25, backgroundColor: '#f1f5f9' },
-  card: { backgroundColor: '#fff', padding: 30, borderRadius: 25, elevation: 8, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: 5 }, alignItems: 'center' },
-  iconContainer: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#eff6ff', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
-  title: { fontSize: 26, fontWeight: 'bold', color: '#1e3a8a', marginBottom: 12 },
-  subtitle: { fontSize: 14, color: '#64748b', textAlign: 'center', marginBottom: 30, lineHeight: 22 },
+  container: { flex: 1, justifyContent: 'center', padding: 25, backgroundColor: Colors.dark.bg },
+  card: { 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    padding: 30, 
+    borderRadius: 25, 
+    borderWidth: 1, 
+    borderColor: 'rgba(255,255,255,0.08)',
+    alignItems: 'center' 
+  },
+  iconContainer: { 
+    width: 80, 
+    height: 80, 
+    borderRadius: 40, 
+    backgroundColor: 'rgba(255,255,255,0.05)', 
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.08)',
+    justifyContent: 'center', 
+    alignItems: 'center', 
+    marginBottom: 20,
+    overflow: 'hidden'
+  },
+  logoImage: { width: 60, height: 60, resizeMode: 'contain' },
+  title: { fontSize: 22, fontWeight: 'bold', color: Colors.dark.text, marginBottom: 12 },
+  subtitle: { fontSize: 14, color: Colors.dark.textSecondary, textAlign: 'center', marginBottom: 30, lineHeight: 22 },
   inputWrapper: { width: '100%', marginBottom: 30 },
-  input: { width: '100%', height: 60, borderColor: '#e2e8f0', borderWidth: 2, borderRadius: 15, paddingHorizontal: 20, fontSize: 20, fontWeight: 'bold', textAlign: 'center', color: '#1e293b', backgroundColor: '#f8fafc' },
-  inputHint: { textAlign: 'center', color: '#94a3b8', fontSize: 12, marginTop: 8 },
-  button: { backgroundColor: '#1e40af', width: '100%', padding: 18, borderRadius: 15, flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-  buttonDisabled: { backgroundColor: '#94a3b8' },
+  input: { 
+    width: '100%', 
+    height: 60, 
+    borderColor: 'rgba(255,255,255,0.08)', 
+    borderWidth: 1, 
+    borderRadius: 15, 
+    paddingHorizontal: 20, 
+    fontSize: 20, 
+    fontWeight: 'bold', 
+    textAlign: 'center', 
+    color: Colors.dark.text, 
+    backgroundColor: 'rgba(255,255,255,0.03)' 
+  },
+  inputHint: { textAlign: 'center', color: Colors.dark.textMuted, fontSize: 12, marginTop: 8 },
+  button: { width: '100%', borderRadius: 15, overflow: 'hidden' },
+  buttonGradient: { 
+    padding: 18, 
+    flexDirection: 'row', 
+    justifyContent: 'center', 
+    alignItems: 'center' 
+  },
   buttonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
   cancelLink: { marginTop: 25 },
-  cancelText: { color: '#ef4444', fontWeight: '600', fontSize: 14 }
+  cancelText: { color: '#f43f5e', fontWeight: '600', fontSize: 14 }
 });
