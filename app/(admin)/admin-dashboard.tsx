@@ -27,8 +27,9 @@ interface ActivityItem {
 
 interface DashboardStats {
   users: number;
-  products: number;
-  sales: number;
+  shops: number;
+  estimatedMRR: number;
+  totalCashEarnings: number;
 }
 
 // --- Helper Component (Defined outside to prevent re-renders) ---
@@ -55,7 +56,12 @@ const StatCard = ({ title, value, icon, gradientColors, loading }: any) => (
 export default function AdminDashboard() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [stats, setStats] = useState<DashboardStats>({ users: 0, products: 0, sales: 0 });
+  const [stats, setStats] = useState<DashboardStats>({
+    users: 0,
+    shops: 0,
+    estimatedMRR: 0,
+    totalCashEarnings: 0
+  });
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -64,38 +70,37 @@ export default function AdminDashboard() {
     try {
       if (!refreshing) setLoading(true);
 
-      const [usersRes, productsRes, salesRes, recentSalesRes, recentUsersRes] = await Promise.all([
+      const [usersRes, shopsRes, historyRes, recentUsersRes] = await Promise.all([
         fetch(`${API_BASE_URL}/users`),
-        fetch(`${API_BASE_URL}/products`),
-        fetch(`${API_BASE_URL}/sales/recent`), // Get all sales for total calc
-        fetch(`${API_BASE_URL}/sales/recent?limit=5`), // Get last 5 for activity feed
-        fetch(`${API_BASE_URL}/users?limit=5`), // Get last 5 users
+        fetch(`${API_BASE_URL}/shops`),
+        fetch(`${API_BASE_URL}/admin/payment-history`),
+        fetch(`${API_BASE_URL}/users?limit=5`),
       ]);
 
       const usersData = await usersRes.json();
-      const productsData = await productsRes.json();
-      const salesData = await salesRes.json();
-      const recentSalesData = await recentSalesRes.json();
+      const shopsData = await shopsRes.json();
+      const historyData = await historyRes.json();
       const recentUsersData = await recentUsersRes.json();
 
-      // Safe Data Handling
       const safeUsers = Array.isArray(usersData) ? usersData : [];
-      const safeProducts = Array.isArray(productsData) ? productsData : [];
-      const safeSales = Array.isArray(salesData) ? salesData : [];
-      const safeRecentSales = Array.isArray(recentSalesData) ? recentSalesData : [];
+      const safeShops = Array.isArray(shopsData) ? shopsData : [];
       const safeRecentUsers = Array.isArray(recentUsersData) ? recentUsersData : [];
+      const totalCashRevenue = historyData?.totalAmount || 0;
 
-      // 1. Calculate System Revenue (MRR) based on Manager Plans
-      const totalRevenue = safeUsers.reduce((acc: number, user: any) => {
+      // Calculate MRR from active manager subscriptions
+      const mrr = safeUsers.reduce((acc: number, user: any) => {
         if (user.role === 'manager') {
+          const isExpired = user.subscriptionExpiry 
+            ? new Date(user.subscriptionExpiry) < new Date() 
+            : false;
+          if (isExpired) return acc;
+
           const count = user.shopCount || 0;
-          // Premium (2+ shops) = R400, Standard = R150
           return acc + (count >= 2 ? 400 : 150);
         }
         return acc;
       }, 0);
 
-      // 2. Process Recent Activity (Combine Sales & Users)
       const usersActivity = safeRecentUsers.map((user: any) => ({
         _id: user._id,
         type: 'user',
@@ -104,15 +109,15 @@ export default function AdminDashboard() {
         subtitle: `Role: ${user.role} • ${user.email}`,
       }));
 
-      // Combine and Sort by newest first
       const combined = [...usersActivity]
         .sort((a, b) => b.date.getTime() - a.date.getTime())
-        .slice(0, 10); // Keep only top 10
+        .slice(0, 10);
 
       setStats({
         users: safeUsers.length,
-        products: safeProducts.length,
-        sales: totalRevenue,
+        shops: safeShops.length,
+        estimatedMRR: mrr,
+        totalCashEarnings: totalCashRevenue,
       });
       setRecentActivity(combined as ActivityItem[]);
 
@@ -172,32 +177,32 @@ export default function AdminDashboard() {
         <View style={styles.statsContainer}>
           <View style={styles.statsRow}>
             <StatCard 
-              title="Monthly Revenue" 
-              value={`R${stats.sales.toFixed(2)}`} 
+              title="Total Cash Collected" 
+              value={`R${stats.totalCashEarnings.toFixed(2)}`} 
               icon="cash-outline" 
               gradientColors={['#10b981', '#059669']} 
               loading={loading}
             />
             <StatCard 
-              title="Total Users" 
-              value={stats.users} 
-              icon="people-outline" 
+              title="Active Monthly MRR" 
+              value={`R${stats.estimatedMRR.toFixed(2)}`} 
+              icon="stats-chart-outline" 
               gradientColors={['#0284c7', '#0ea5e9']} 
               loading={loading}
             />
           </View>
           <View style={styles.statsRow}>
              <StatCard 
-              title="Inventory" 
-              value={stats.products} 
-              icon="cube-outline" 
-              gradientColors={['#f59e0b', '#d97706']} 
-              loading={loading}
-            />
+               title="Registered Shops" 
+               value={stats.shops} 
+               icon="storefront-outline" 
+               gradientColors={['#f59e0b', '#d97706']} 
+               loading={loading}
+             />
              <StatCard 
-              title="System Health" 
-              value="100%" 
-              icon="pulse-outline" 
+              title="Platform Users" 
+              value={stats.users} 
+              icon="people-outline" 
               gradientColors={['#0ea5e9', '#38bdf8']} 
               loading={loading}
             />
@@ -210,32 +215,32 @@ export default function AdminDashboard() {
         <View style={styles.grid}>
           <TouchableOpacity 
             style={styles.gridItem} 
-            onPress={() => router.push('/(admin)/manage-staff')}
+            onPress={() => router.push('/(admin)/manage-users')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#f0f9ff' }]}>
               <Ionicons name="people" size={24} color="#0ea5e9" />
             </View>
-            <Text style={styles.gridText}>Staff List</Text>
+            <Text style={styles.gridText}>Manage Users</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.gridItem}
-            onPress={() => router.push('/(admin)/all-products')}
+            onPress={() => router.push('/(admin)/shops')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#ecfdf5' }]}>
-              <Ionicons name="cart" size={24} color="#10b981" />
+              <Ionicons name="storefront" size={24} color="#10b981" />
             </View>
-            <Text style={styles.gridText}>Products</Text>
+            <Text style={styles.gridText}>Shops</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
             style={styles.gridItem}
-            onPress={() => router.push('/(admin)/sales-reports')}
+            onPress={() => router.push('/(admin)/subscription-reports')}
           >
             <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
-              <Ionicons name="stats-chart" size={24} color="#f59e0b" />
+              <Ionicons name="bar-chart" size={24} color="#f59e0b" />
             </View>
-            <Text style={styles.gridText}>Reports</Text>
+            <Text style={styles.gridText}>Subscription Reports</Text>
           </TouchableOpacity>
         
           <TouchableOpacity 

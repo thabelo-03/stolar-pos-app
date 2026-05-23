@@ -14,21 +14,26 @@ import {
   StatusBar,
   StyleSheet,
   Text,
+  TextInput,
   TouchableOpacity,
   View
 } from 'react-native';
 import { LineChart } from 'react-native-chart-kit';
 import { API_BASE_URL } from '../config';
 
-const API_SALES = `${API_BASE_URL}/sales/recent`;
 const SCREEN_WIDTH = Dimensions.get('window').width;
 
-// Define Types
-interface Sale {
+interface PaymentRecord {
   _id: string;
-  total: number;
-  date: string; // ISO String
-  items: any[];
+  managerId: string;
+  managerName: string;
+  managerEmail: string;
+  amount: number;
+  months: number;
+  paymentMethod: string;
+  date: string;
+  isSeed?: boolean;
+  details?: string;
 }
 
 interface ChartPoint {
@@ -36,73 +41,103 @@ interface ChartPoint {
   value: number;
 }
 
-export default function SalesReports() {
+export default function SubscriptionReports() {
   const router = useRouter();
-  const [sales, setSales] = useState<Sale[]>([]);
+  const [payments, setPayments] = useState<PaymentRecord[]>([]);
+  const [filteredPayments, setFilteredPayments] = useState<PaymentRecord[]>([]);
   const [chartData, setChartData] = useState<ChartPoint[]>([]);
-  const [stats, setStats] = useState({ totalRevenue: 0, totalCount: 0 });
+  const [stats, setStats] = useState({ totalCollected: 0, activeMRR: 0, count: 0 });
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchSales = async () => {
+  const fetchSubscriptionData = async () => {
     try {
       if (!refreshing) setLoading(true);
-      const res = await fetch(API_SALES);
-      const data = await res.json();
       
-      if (Array.isArray(data)) {
-        processData(data);
-      }
+      // 1. Fetch Payment History
+      const historyRes = await fetch(`${API_BASE_URL}/admin/payment-history`);
+      const historyData = await historyRes.json();
+      const rawPayments = Array.isArray(historyData?.history) ? historyData.history : [];
+      
+      // 2. Fetch Users to calculate active MRR
+      const usersRes = await fetch(`${API_BASE_URL}/users`);
+      const usersData = await usersRes.json();
+      const safeUsers = Array.isArray(usersData) ? usersData : [];
+
+      // Calculate MRR from active manager subscriptions
+      const activeMRR = safeUsers.reduce((acc: number, user: any) => {
+        if (user.role === 'manager') {
+          const isExpired = user.subscriptionExpiry 
+            ? new Date(user.subscriptionExpiry) < new Date() 
+            : false;
+          if (isExpired) return acc;
+
+          const count = user.shopCount || 0;
+          return acc + (count >= 2 ? 400 : 150);
+        }
+        return acc;
+      }, 0);
+
+      // Process raw payments
+      setPayments(rawPayments);
+      setFilteredPayments(rawPayments);
+
+      // Calculate Stats
+      const totalColl = rawPayments.reduce((sum: number, item: any) => sum + (item.amount || 0), 0);
+      setStats({
+        totalCollected: totalColl,
+        activeMRR,
+        count: rawPayments.length
+      });
+
+      // Format Chart Data (group by date)
+      const dailyMap: Record<string, number> = {};
+      const sortedPayments = [...rawPayments].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+      
+      sortedPayments.forEach(payment => {
+        const d = new Date(payment.date);
+        const dayLabel = `${d.getDate()}/${d.getMonth() + 1}`;
+        dailyMap[dayLabel] = (dailyMap[dayLabel] || 0) + payment.amount;
+      });
+
+      const points = Object.keys(dailyMap).map(k => ({
+        label: k,
+        value: dailyMap[k]
+      })).slice(-7); // Last 7 data points
+
+      setChartData(points);
+
     } catch (e) {
-      console.error("Failed to fetch sales:", e);
+      console.error("Failed to fetch subscription data:", e);
+      Alert.alert("Error", "Could not fetch subscription reports.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  const processData = (data: Sale[]) => {
-    // 1. Calculate Summary Stats
-    const totalRev = data.reduce((sum, item) => sum + (item.total || 0), 0);
-    setStats({
-      totalRevenue: totalRev,
-      totalCount: data.length
-    });
-
-    // 2. Prepare Chart Data (Group by Day)
-    const dailyMap: Record<string, number> = {};
-    
-    // Sort oldest to newest for the chart
-    const sortedForChart = [...data].sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-    sortedForChart.forEach(sale => {
-      const date = new Date(sale.date);
-      const dayLabel = `${date.getDate()}/${date.getMonth() + 1}`; // e.g. "24/10"
-      
-      if (dailyMap[dayLabel]) {
-        dailyMap[dayLabel] += sale.total;
-      } else {
-        dailyMap[dayLabel] = sale.total;
-      }
-    });
-
-    // Convert Map to Array and take last 7 days
-    const chartPoints = Object.keys(dailyMap).map(key => ({
-      label: key,
-      value: dailyMap[key]
-    })).slice(-7); // Last 7 days only
-
-    setChartData(chartPoints);
-    setSales(data); // Store raw data for the list
-  };
+  useEffect(() => {
+    fetchSubscriptionData();
+  }, []);
 
   useEffect(() => {
-    fetchSales();
-  }, []);
+    if (searchTerm.trim() === '') {
+      setFilteredPayments(payments);
+    } else {
+      const q = searchTerm.toLowerCase();
+      const filtered = payments.filter(p => 
+        (p.managerName && p.managerName.toLowerCase().includes(q)) || 
+        (p.managerEmail && p.managerEmail.toLowerCase().includes(q)) ||
+        (p.details && p.details.toLowerCase().includes(q))
+      );
+      setFilteredPayments(filtered);
+    }
+  }, [searchTerm, payments]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchSales();
+    fetchSubscriptionData();
   }, []);
 
   const handleLogout = async () => {
@@ -130,7 +165,6 @@ export default function SalesReports() {
               padding: 24px;
               color: #ffffff;
               margin-bottom: 24px;
-              box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
             }
             .header-title {
               font-family: 'Outfit', sans-serif;
@@ -149,7 +183,7 @@ export default function SalesReports() {
             
             .kpi-grid {
               display: grid;
-              grid-template-columns: repeat(2, 1fr);
+              grid-template-columns: repeat(3, 1fr);
               gap: 16px;
               margin-bottom: 28px;
             }
@@ -177,7 +211,7 @@ export default function SalesReports() {
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              font-size: 12px;
+              font-size: 11px;
               margin-top: 20px;
             }
             th { 
@@ -186,7 +220,7 @@ export default function SalesReports() {
               font-weight: 700; 
               text-transform: uppercase;
               letter-spacing: 0.5px;
-              font-size: 11px;
+              font-size: 10px;
               border-bottom: 2px solid #cbd5e1;
               padding: 12px 10px;
               text-align: left;
@@ -200,8 +234,8 @@ export default function SalesReports() {
               background-color: #fafbfb; 
             }
             .amount-text {
-              font-weight: 600;
-              color: #0f172a;
+              font-weight: 700;
+              color: #10b981;
             }
             
             .footer { 
@@ -217,18 +251,22 @@ export default function SalesReports() {
         </head>
         <body>
           <div class="header-banner">
-            <h1 class="header-title">Executive Sales Report</h1>
+            <h1 class="header-title">Platform Subscription Earnings Report</h1>
             <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
           </div>
           
           <div class="kpi-grid">
             <div class="kpi-card">
-              <div class="kpi-label">Total Revenue</div>
-              <div class="kpi-value">R ${stats.totalRevenue.toFixed(2)}</div>
+              <div class="kpi-label">Total Cash Collected</div>
+              <div class="kpi-value">R ${stats.totalCollected.toFixed(2)}</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Active Monthly MRR</div>
+              <div class="kpi-value">R ${stats.activeMRR.toFixed(2)}</div>
             </div>
             <div class="kpi-card">
               <div class="kpi-label">Total Transactions</div>
-              <div class="kpi-value">${stats.totalCount}</div>
+              <div class="kpi-value">${stats.count}</div>
             </div>
           </div>
 
@@ -236,27 +274,36 @@ export default function SalesReports() {
             <thead>
               <tr>
                 <th>Date & Time</th>
-                <th>Transaction ID</th>
-                <th>Items Sold</th>
-                <th style="text-align: right;">Amount</th>
+                <th>Manager</th>
+                <th>Email</th>
+                <th>Plan Details</th>
+                <th>Duration</th>
+                <th style="text-align: right;">Amount Paid</th>
               </tr>
             </thead>
             <tbody>
-              ${sales.map(item => `
-                <tr>
-                  <td style="color: #64748b; font-weight: 500;">
-                    ${new Date(item.date).toLocaleDateString()} ${new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </td>
-                  <td style="font-family: monospace;">${item._id}</td>
-                  <td>${item.items.length} ${item.items.length === 1 ? 'item' : 'items'}</td>
-                  <td style="text-align: right;" class="amount-text">R ${item.total.toFixed(2)}</td>
-                </tr>
-              `).join('')}
+              ${filteredPayments.map(item => {
+                const dateObj = item.date ? new Date(item.date) : null;
+                const formattedDate = dateObj && !isNaN(dateObj.getTime())
+                  ? `${dateObj.toLocaleDateString()} ${dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+                  : 'N/A';
+                const amountPaid = typeof item.amount === 'number' ? item.amount.toFixed(2) : '0.00';
+                return `
+                  <tr>
+                    <td style="color: #64748b; font-weight: 500;">${formattedDate}</td>
+                    <td style="font-weight: 600;">${item.managerName || 'N/A'}</td>
+                    <td>${item.managerEmail || 'N/A'}</td>
+                    <td>${item.details || 'Manual Activation'}</td>
+                    <td>${item.months || 0} month(s)</td>
+                    <td style="text-align: right;" class="amount-text">R ${amountPaid}</td>
+                  </tr>
+                `;
+              }).join('')}
             </tbody>
           </table>
           
           <div class="footer">
-            Stolar POS System • Executive Business Intelligence
+            Stolar POS Platform • Owner Executive Intelligence
           </div>
         </body>
       </html>
@@ -271,7 +318,7 @@ export default function SalesReports() {
 
   const renderHeader = () => (
     <View>
-      {/* 1. Summary Cards */}
+      {/* Summary Cards */}
       <View style={styles.summaryContainer}>
         <LinearGradient
           colors={['#10b981', '#059669']}
@@ -283,51 +330,47 @@ export default function SalesReports() {
             <Ionicons name="cash" size={20} color="white" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.summaryLabel}>Total Revenue</Text>
-            <Text style={styles.summaryValue}>R{stats.totalRevenue.toFixed(2)}</Text>
+            <Text style={styles.summaryLabel}>Total Earnings</Text>
+            <Text style={styles.summaryValue}>R{stats.totalCollected.toFixed(2)}</Text>
           </View>
         </LinearGradient>
 
         <LinearGradient
-          colors={['#6366f1', '#0284c7']}
+          colors={['#0284c7', '#0ea5e9']}
           style={styles.summaryCard}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
         >
           <View style={styles.summaryIconBox}>
-            <Ionicons name="receipt" size={20} color="white" />
+            <Ionicons name="stats-chart" size={20} color="white" />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={styles.summaryLabel}>Transactions</Text>
-            <Text style={styles.summaryValue}>{stats.totalCount}</Text>
+            <Text style={styles.summaryLabel}>Monthly MRR</Text>
+            <Text style={styles.summaryValue}>R{stats.activeMRR.toFixed(2)}</Text>
           </View>
         </LinearGradient>
       </View>
 
-      {/* 2. Chart Section */}
-      <View style={styles.chartWrapper}>
-        <Text style={styles.sectionTitle}>Weekly Trend</Text>
-        {chartData.length > 0 ? (
+      {/* Chart Section */}
+      {chartData.length > 0 && (
+        <View style={styles.chartWrapper}>
+          <Text style={styles.sectionTitle}>Revenue Cash Flows</Text>
           <LineChart
             data={{
               labels: chartData.map(d => d.label),
               datasets: [{ data: chartData.map(d => d.value) }]
             }}
-            width={SCREEN_WIDTH - 48} // Padding adjustments
-            height={220}
+            width={SCREEN_WIDTH - 48}
+            height={160}
             yAxisLabel="R"
             chartConfig={chartConfig}
             bezier
             style={styles.chart}
           />
-        ) : (
-          <View style={styles.noChartData}>
-            <Text style={{ color: '#94a3b8', fontWeight: '600' }}>Not enough data for chart</Text>
-          </View>
-        )}
-      </View>
+        </View>
+      )}
 
-      <Text style={[styles.sectionTitle, { marginLeft: 24, marginTop: 10, marginBottom: 12 }]}>Recent Transactions</Text>
+      <Text style={[styles.sectionTitle, { marginLeft: 24, marginTop: 10, marginBottom: 12 }]}>Subscription History</Text>
     </View>
   );
 
@@ -335,7 +378,6 @@ export default function SalesReports() {
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      {/* Lavender Header Background */}
       <LinearGradient
         colors={['#0284c7', '#0ea5e9', '#38bdf8']}
         style={styles.header}
@@ -346,7 +388,7 @@ export default function SalesReports() {
           <TouchableOpacity onPress={() => router.back()} style={styles.iconButton}>
             <Ionicons name="arrow-back" size={20} color="white" />
           </TouchableOpacity>
-          <Text style={styles.headerCenterTitle}>Executive Hub</Text>
+          <Text style={styles.headerCenterTitle}>Earnings Console</Text>
           <View style={{ flexDirection: 'row', gap: 10 }}>
             <TouchableOpacity onPress={handleExportPDF} style={styles.iconButton}>
               <Ionicons name="document-text-outline" size={20} color="white" />
@@ -357,8 +399,28 @@ export default function SalesReports() {
           </View>
         </View>
 
-        <Text style={styles.title}>Sales Reports</Text>
-        <Text style={styles.subtitle}>Overview & Live Business Intelligence</Text>
+        <Text style={styles.title}>Subscription Reports</Text>
+        <Text style={styles.subtitle}>Track Earnings & Monthly Recurring Revenue</Text>
+
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color="#94a3b8" />
+          <TextInput
+            placeholder="Search by manager name or email..."
+            placeholderTextColor="#94a3b8"
+            style={styles.searchInput}
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+            autoCapitalize="none"
+          />
+          {searchTerm.length > 0 && (
+            <Ionicons 
+              name="close-circle" 
+              size={18} 
+              color="#cbd5e1" 
+              onPress={() => setSearchTerm('')} 
+            />
+          )}
+        </View>
       </LinearGradient>
 
       {loading ? (
@@ -367,7 +429,7 @@ export default function SalesReports() {
         </View>
       ) : (
         <FlatList
-          data={sales}
+          data={filteredPayments}
           keyExtractor={(item) => item._id}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={{ paddingBottom: 50 }}
@@ -380,27 +442,26 @@ export default function SalesReports() {
             />
           }
           renderItem={({ item }) => (
-            <View style={styles.saleCard}>
+            <View style={styles.paymentCard}>
               <View style={styles.iconBox}>
-                <Ionicons name="receipt-outline" size={20} color="#0ea5e9" />
+                <Ionicons name="card-outline" size={20} color="#0ea5e9" />
               </View>
-              <View style={styles.saleInfo}>
-                <Text style={styles.saleTotal}>R{item.total.toFixed(2)}</Text>
-                <Text style={styles.saleItems}>{item.items.length} {item.items.length === 1 ? 'item' : 'items'} sold</Text>
+              <View style={styles.paymentInfo}>
+                <Text style={styles.paymentName}>{item.managerName || 'Platform Manager'}</Text>
+                <Text style={styles.paymentSub}>{item.managerEmail || 'N/A'}</Text>
+                <Text style={styles.paymentDetails}>{item.details || 'Subscription Payment'} ({item.months} mo)</Text>
               </View>
               <View style={{ alignItems: 'flex-end' }}>
-                <Text style={styles.saleDate}>
+                <Text style={styles.paymentAmount}>+R{item.amount.toFixed(2)}</Text>
+                <Text style={styles.paymentDate}>
                   {new Date(item.date).toLocaleDateString()}
-                </Text>
-                <Text style={styles.saleTime}>
-                  {new Date(item.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </Text>
               </View>
             </View>
           )}
           ListEmptyComponent={
             <View style={styles.center}>
-               <Text style={{color: '#94a3b8', marginTop: 40, fontWeight: '600'}}>No transactions found.</Text>
+               <Text style={{color: '#94a3b8', marginTop: 40, fontWeight: '600'}}>No subscription payments found.</Text>
             </View>
           }
         />
@@ -415,12 +476,12 @@ const chartConfig = {
   backgroundGradientFrom: '#ffffff',
   backgroundGradientTo: '#ffffff',
   decimalPlaces: 0, 
-  color: (opacity = 1) => `rgba(14, 165, 233, ${opacity})`, // Light Blue Lines
-  labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`, // Grey Labels
+  color: (opacity = 1) => `rgba(14, 165, 233, ${opacity})`,
+  labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
   style: { borderRadius: 16 },
   propsForDots: {
-    r: '5',
-    strokeWidth: '2.5',
+    r: '4',
+    strokeWidth: '2',
     stroke: '#38bdf8',
   },
 };
@@ -433,15 +494,14 @@ const styles = StyleSheet.create({
   header: {
     paddingHorizontal: 24,
     paddingTop: 50,
-    paddingBottom: 30,
+    paddingBottom: 20,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
     shadowColor: "#0ea5e9",
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.1,
     shadowRadius: 8,
-    elevation: 0,
-    zIndex: 0,
+    elevation: 3,
   },
   headerTopRow: {
     flexDirection: 'row',
@@ -459,23 +519,40 @@ const styles = StyleSheet.create({
   },
   headerCenterTitle: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '800',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
-  title: { fontSize: 28, fontWeight: '800', color: 'white' },
-  subtitle: { fontSize: 14, color: '#e9e3ff', marginTop: 4, fontWeight: '500' },
+  title: { fontSize: 24, fontWeight: '800', color: 'white' },
+  subtitle: { fontSize: 13, color: '#f0f9ff', marginTop: 4, fontWeight: '500', opacity: 0.9 },
+
+  // Search Bar
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 44,
+    marginTop: 15,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#0f172a',
+  },
 
   // Summary Cards
   summaryContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 24,
-    marginTop: -25, // Overlap effect
+    marginTop: -20,
     marginBottom: 20,
-    zIndex: 10,     // Ensure cards are above header
-    elevation: 10,  // Ensure cards are above header on Android
+    zIndex: 10,
+    elevation: 5,
   },
   summaryCard: {
     width: '48%',
@@ -483,11 +560,6 @@ const styles = StyleSheet.create({
     padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
-    elevation: 5,
-    shadowColor: '#0ea5e9',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
   },
   summaryIconBox: {
     width: 38,
@@ -498,8 +570,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 10,
   },
-  summaryLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 11, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
-  summaryValue: { color: 'white', fontSize: 18, fontWeight: '800', marginTop: 2 },
+  summaryLabel: { color: 'rgba(255,255,255,0.85)', fontSize: 10, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.5 },
+  summaryValue: { color: 'white', fontSize: 16, fontWeight: '800', marginTop: 2 },
 
   // Chart
   chartWrapper: {
@@ -509,44 +581,44 @@ const styles = StyleSheet.create({
     padding: 16,
     shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
+    shadowOpacity: 0.04,
     shadowRadius: 12,
-    elevation: 3,
+    elevation: 2,
     borderWidth: 1,
-    borderColor: '#e9e3ff',
+    borderColor: '#e0f2fe',
     marginBottom: 20,
   },
-  sectionTitle: { fontSize: 15, fontWeight: '800', color: '#0f172a', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle: { fontSize: 13, fontWeight: '800', color: '#334155', textTransform: 'uppercase', letterSpacing: 0.5 },
   chart: { borderRadius: 16, marginTop: 12 },
-  noChartData: { height: 100, justifyContent: 'center', alignItems: 'center' },
 
   // List Item
-  saleCard: {
+  paymentCard: {
     backgroundColor: 'white',
     marginHorizontal: 24,
     marginBottom: 12,
-    padding: 16,
+    padding: 14,
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
     shadowColor: '#0ea5e9',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.03,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.02,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 1,
     borderWidth: 1,
-    borderColor: '#e9e3ff',
+    borderColor: '#e0f2fe',
   },
   iconBox: {
-    width: 42, height: 42,
-    backgroundColor: '#f3e8ff',
+    width: 40, height: 40,
+    backgroundColor: '#e0f2fe',
     borderRadius: 12,
     justifyContent: 'center', alignItems: 'center',
-    marginRight: 14,
+    marginRight: 12,
   },
-  saleInfo: { flex: 1 },
-  saleTotal: { fontSize: 16, fontWeight: '800', color: '#0f172a' },
-  saleItems: { fontSize: 13, color: '#64748b', fontWeight: '500', marginTop: 2 },
-  saleDate: { fontSize: 12, color: '#94a3b8', fontWeight: '700' },
-  saleTime: { fontSize: 11, color: '#cbd5e1', fontWeight: '600', marginTop: 2 },
+  paymentInfo: { flex: 1 },
+  paymentName: { fontSize: 14, fontWeight: '700', color: '#0f172a' },
+  paymentSub: { fontSize: 11, color: '#64748b', marginTop: 1 },
+  paymentDetails: { fontSize: 11, color: '#0ea5e9', fontWeight: '600', marginTop: 2 },
+  paymentAmount: { fontSize: 14, fontWeight: '800', color: '#10b981' },
+  paymentDate: { fontSize: 10, color: '#94a3b8', fontWeight: '600', marginTop: 4 },
 });

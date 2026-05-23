@@ -34,10 +34,10 @@ interface User {
 const API_ALL_USERS = `${API_BASE_URL}/users`;
 const API_CASH_PAYERS = `${API_BASE_URL}/users/cash-payers`;
 
-export default function ManageStaff() {
+export default function ManageUsers() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [staff, setStaff] = useState<User[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filterMode, setFilterMode] = useState<'all' | 'expired' | 'cash'>('all');
@@ -61,23 +61,21 @@ export default function ManageStaff() {
 
   const [loadingHistory, setLoadingHistory] = useState(false);
 
-  const fetchStaff = async () => {
+  const fetchUsers = async () => {
     try {
-      // Only show global loading on first load, not during refresh
       if (!refreshing) setLoading(true);
       
-      // If 'expired', we fetch all and filter locally
       const url = filterMode === 'cash' ? API_CASH_PAYERS : API_ALL_USERS;
       const res = await fetch(url);
       const data = await res.json();
       
       if (Array.isArray(data)) {
-        setStaff(data);
+        setUsers(data);
       } else {
-        setStaff([]);
+        setUsers([]);
       }
     } catch (e) {
-      Alert.alert("Connection Error", "Could not fetch staff list.");
+      Alert.alert("Connection Error", "Could not fetch users list.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -85,12 +83,12 @@ export default function ManageStaff() {
   };
 
   useEffect(() => {
-    fetchStaff();
+    fetchUsers();
   }, [filterMode]);
 
   const onRefresh = useCallback(() => {
     setRefreshing(true);
-    fetchStaff();
+    fetchUsers();
   }, [filterMode]);
 
   const handleToggleBlock = async (user: User) => {
@@ -113,8 +111,8 @@ export default function ManageStaff() {
               });
               if (res.ok) {
                 // Optimistic update
-                setStaff(staff.map(u => u._id === user._id ? { ...u, status: newStatus } : u));
-                fetchStaff(); // Force refresh from server to ensure state is synced
+                setUsers(users.map(u => u._id === user._id ? { ...u, status: newStatus } : u));
+                fetchUsers();
               }
             } catch (e) {
               Alert.alert("Error", "Failed to update status");
@@ -134,8 +132,7 @@ export default function ManageStaff() {
         onPress: async () => {
           try {
             await fetch(`${API_ALL_USERS}/${id}`, { method: 'DELETE' });
-            // Optimistic remove
-            setStaff(staff.filter(u => u._id !== id));
+            setUsers(users.filter(u => u._id !== id));
           } catch (e) {
             Alert.alert("Error", "Could not delete user");
           }
@@ -170,8 +167,6 @@ export default function ManageStaff() {
     try {
       const months = parseInt(monthsToAdd) || 1;
       
-      console.log("Sending activation request:", { userId, userName, userEmail, planType });
-
       const response = await fetch(`${API_BASE_URL}/admin/activate-user`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -188,12 +183,8 @@ export default function ManageStaff() {
       const data = await response.json();
       if (data.success || response.ok) {
         Alert.alert("Success", `Activated ${userName} for ${monthsToAdd} month(s).`);
-        if (data.historySaved === false) {
-           Alert.alert("Warning", "User activated, but payment history record failed to save.");
-        }
         setModalVisible(false);
-        fetchStaff();
-        // Refresh history immediately so it's ready when viewed
+        fetchUsers();
         fetchPaymentHistory(); 
       } else {
         Alert.alert("Error", data.message || "Activation failed");
@@ -225,7 +216,6 @@ export default function ManageStaff() {
       const res = await fetch(`${API_BASE_URL}/admin/payment-history${query}`);
       if (res.ok) {
         const data = await res.json();
-        console.log("Payment history loaded:", data.history?.length);
         setPaymentHistory(Array.isArray(data.history) ? data.history : []);
         setTotalHistoryAmount(data.totalAmount || 0);
       }
@@ -275,64 +265,13 @@ export default function ManageStaff() {
         setDeleteModalVisible(false);
         setDeleteReason('');
         setPaymentToDelete(null);
-        fetchPaymentHistory(); // Refresh list
+        fetchPaymentHistory();
       } else {
         Alert.alert("Error", "Failed to delete payment record.");
       }
     } catch (e) {
       Alert.alert("Error", "Network error.");
     }
-  };
-
-  const handleSeedHistory = async () => {
-    const managers = staff.filter(u => u.role === 'manager');
-    if (managers.length === 0) {
-        Alert.alert("Error", "No managers found to seed data for.");
-        return;
-    }
-
-    Alert.alert(
-        "Seed Data",
-        "This will create 3 dummy cash payment records for random managers to populate the database fields. Continue?",
-        [
-            { text: "Cancel", style: "cancel" },
-            { 
-                text: "Seed", 
-                onPress: async () => {
-                    setLoadingHistory(true);
-                    try {
-                        const promises = [];
-                        for(let i=0; i<3; i++) {
-                            const mgr = managers[Math.floor(Math.random() * managers.length)];
-                            const m = Math.floor(Math.random() * 3) + 1;
-                            promises.push(
-                                fetch(`${API_BASE_URL}/admin/activate-user`, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json' },
-                                    body: JSON.stringify({
-                                        userId: mgr._id,
-                                        managerName: mgr.name,
-                                        managerEmail: mgr.email,
-                                        months: m,
-                                        amount: m * 10,
-                                        paymentMethod: 'cash',
-                                        isSeed: true
-                                    })
-                                })
-                            );
-                        }
-                        await Promise.all(promises);
-                        Alert.alert("Success", "Seeded 3 records.");
-                        fetchPaymentHistory();
-                    } catch (e) {
-                        Alert.alert("Error", "Failed to seed data.");
-                    } finally {
-                        setLoadingHistory(false);
-                    }
-                }
-            }
-        ]
-    );
   };
 
   const handleExpireManagers = async () => {
@@ -350,7 +289,7 @@ export default function ManageStaff() {
               const res = await fetch(`${API_BASE_URL}/test/expire-managers`, { method: 'POST' });
               const data = await res.json();
               Alert.alert("Success", data.message);
-              fetchStaff();
+              fetchUsers();
             } catch (e) {
               Alert.alert("Error", "Failed to expire managers");
             } finally {
@@ -362,18 +301,16 @@ export default function ManageStaff() {
     );
   };
 
-
-  const getDisplayedStaff = () => {
-    let result = staff;
+  const getDisplayedUsers = () => {
+    let result = users;
 
     if (filterMode === 'expired') {
       result = result.filter(u => {
         if (u.role !== 'manager') return false;
-        // Fix: Default to false (Active) if expiry is missing, matching the badge logic
         return u.subscriptionExpiry ? new Date(u.subscriptionExpiry) < new Date() : false;
       });
     }
-      if (searchQuery) {
+    if (searchQuery) {
       const q = searchQuery.toLowerCase();
       result = result.filter(u => u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q));
     }
@@ -382,10 +319,10 @@ export default function ManageStaff() {
 
   const getRoleColor = (role: string) => {
     switch(role) {
-      case 'admin': return '#0ea5e9'; // Light Blue
-      case 'manager': return '#0284c7'; // Indigo/Blue
-      case 'cashier': return '#10b981'; // Green
-      default: return '#7dd3fc'; // Grey/Lavender
+      case 'admin': return '#0ea5e9';
+      case 'manager': return '#0284c7';
+      case 'cashier': return '#10b981';
+      default: return '#7dd3fc';
     }
   };
 
@@ -396,92 +333,85 @@ export default function ManageStaff() {
     const isPremium = (item.shopCount || 0) >= 2;
 
     return (
-    <View style={[styles.card, item.status === 'blocked' && styles.cardBlocked]}>
-      <View style={styles.cardContent}>
-        
-        {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: item.status === 'blocked' ? '#fee2e2' : '#f0f9ff' }]}>
-          <Text style={[styles.avatarText, { color: item.status === 'blocked' ? '#dc2626' : '#0ea5e9' }]}>
-            {item.name.charAt(0).toUpperCase()}
-          </Text>
-        </View>
-
-        {/* Info */}
-        <View style={styles.infoContainer}>
-          <View style={styles.nameRow}>
-            <Text style={styles.name}>{item.name}</Text>
-            {isPremium && (
-              <View style={{ backgroundColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 }}>
-                <Text style={{ color: 'white', fontSize: 10, fontWeight: 'bold' }}>PREMIUM</Text>
-              </View>
-            )}
-            {item.status === 'blocked' && (
-              <View style={styles.blockedBadge}>
-                <Text style={styles.blockedText}>BLOCKED</Text>
-              </View>
-            )}
+      <View style={[styles.card, item.status === 'blocked' && styles.cardBlocked]}>
+        <View style={styles.cardContent}>
+          <View style={[styles.avatar, { backgroundColor: item.status === 'blocked' ? '#fee2e2' : '#f0f9ff' }]}>
+            <Text style={[styles.avatarText, { color: item.status === 'blocked' ? '#dc2626' : '#0ea5e9' }]}>
+              {item.name.charAt(0).toUpperCase()}
+            </Text>
           </View>
-          
-          <View style={styles.roleContainer}>
-             <View style={[styles.roleDot, { backgroundColor: getRoleColor(item.role) }]} />
-             <Text style={styles.roleText}>{item.role.charAt(0).toUpperCase() + item.role.slice(1)}</Text>
-             <Text style={styles.emailText}> • {item.email}</Text>
-             {item.role === 'manager' && (
-                <Text style={[styles.expiryText, { color: isExpired ? '#ef4444' : '#10b981' }]}>
-                   {isExpired ? ' • Expired' : ' • Active'}
-                </Text>
-             )}
+
+          <View style={styles.infoContainer}>
+            <View style={styles.nameRow}>
+              <Text style={styles.name}>{item.name}</Text>
+              {isPremium && (
+                <View style={styles.premiumBadge}>
+                  <Text style={styles.premiumText}>PREMIUM</Text>
+                </View>
+              )}
+              {item.status === 'blocked' && (
+                <View style={styles.blockedBadge}>
+                  <Text style={styles.blockedText}>BLOCKED</Text>
+                </View>
+              )}
+            </View>
+            
+            <View style={styles.roleContainer}>
+               <View style={[styles.roleDot, { backgroundColor: getRoleColor(item.role) }]} />
+               <Text style={styles.roleText}>{item.role.charAt(0).toUpperCase() + item.role.slice(1)}</Text>
+               <Text style={styles.emailText}> • {item.email}</Text>
+               {item.role === 'manager' && (
+                  <Text style={[styles.expiryText, { color: isExpired ? '#ef4444' : '#10b981' }]}>
+                     {isExpired ? ' • Expired' : ' • Active'}
+                  </Text>
+               )}
+            </View>
           </View>
         </View>
 
-      </View>
-
-      {/* Action Buttons Row */}
-      <View style={styles.actionRow}>
-        <TouchableOpacity onPress={() => Linking.openURL(`mailto:${item.email}`)} style={styles.actionButton}>
-          <Ionicons name="mail-outline" size={18} color="#0ea5e9" />
-          <Text style={[styles.actionText, { color: '#0ea5e9' }]}>Email</Text>
-        </TouchableOpacity>
-
-        {item.role === 'manager' && (
-          <TouchableOpacity onPress={() => openActivationModal(item)} style={styles.actionButton}>
-            <Ionicons name="card-outline" size={18} color="#10b981" />
-            <Text style={[styles.actionText, { color: '#10b981' }]}>Activate</Text>
+        <View style={styles.actionRow}>
+          <TouchableOpacity onPress={() => Linking.openURL(`mailto:${item.email}`)} style={styles.actionButton}>
+            <Ionicons name="mail-outline" size={18} color="#0ea5e9" />
+            <Text style={[styles.actionText, { color: '#0ea5e9' }]}>Email</Text>
           </TouchableOpacity>
-        )}
 
-        <TouchableOpacity onPress={() => handleToggleBlock(item)} style={styles.actionButton}>
-          <Ionicons 
-            name={item.status === 'blocked' ? "lock-open-outline" : "ban-outline"} 
-            size={18} 
-            color={item.status === 'blocked' ? "#10b981" : "#f59e0b"} 
-          />
-          <Text style={[styles.actionText, { color: item.status === 'blocked' ? "#10b981" : "#f59e0b" }]}>
-            {item.status === 'blocked' ? "Unblock" : "Block"}
-          </Text>
-        </TouchableOpacity>
+          {item.role === 'manager' && (
+            <TouchableOpacity onPress={() => openActivationModal(item)} style={styles.actionButton}>
+              <Ionicons name="card-outline" size={18} color="#10b981" />
+              <Text style={[styles.actionText, { color: '#10b981' }]}>Activate</Text>
+            </TouchableOpacity>
+          )}
 
-        <TouchableOpacity onPress={() => handleDelete(item._id, item.name)} style={styles.actionButton}>
-          <Ionicons name="trash-outline" size={18} color="#ef4444" />
-          <Text style={[styles.actionText, { color: "#ef4444" }]}>Delete</Text>
-        </TouchableOpacity>
+          <TouchableOpacity onPress={() => handleToggleBlock(item)} style={styles.actionButton}>
+            <Ionicons 
+              name={item.status === 'blocked' ? "lock-open-outline" : "ban-outline"} 
+              size={18} 
+              color={item.status === 'blocked' ? "#10b981" : "#f59e0b"} 
+            />
+            <Text style={[styles.actionText, { color: item.status === 'blocked' ? "#10b981" : "#f59e0b" }]}>
+              {item.status === 'blocked' ? "Unblock" : "Block"}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => handleDelete(item._id, item.name)} style={styles.actionButton}>
+            <Ionicons name="trash-outline" size={18} color="#ef4444" />
+            <Text style={[styles.actionText, { color: "#ef4444" }]}>Delete</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
     );
   };
 
-  const displayedStaff = getDisplayedStaff();
-
-  const expiredManagers = staff.filter(u => 
+  const displayedUsers = getDisplayedUsers();
+  const expiredManagers = users.filter(u => 
     u.role === 'manager' && 
-    // Fix: Default to false (Active) if expiry is missing
     (u.subscriptionExpiry ? new Date(u.subscriptionExpiry) < new Date() : false)
   );
-    return (
+
+  return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       
-      {/* Header */}
       <LinearGradient
         colors={['#0284c7', '#0ea5e9', '#38bdf8']}
         start={{ x: 0, y: 0 }}
@@ -494,8 +424,8 @@ export default function ManageStaff() {
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
             <View style={{ flex: 1 }}>
-               <Text style={styles.title}>Team Members</Text>
-               <Text style={styles.subtitle}>{staff.length} Active Users</Text>
+               <Text style={styles.title}>Manage Users</Text>
+               <Text style={styles.subtitle}>{users.length} Active Users</Text>
             </View>
           </View>
           <View style={{ flexDirection: 'row', gap: 10 }}>
@@ -514,14 +444,13 @@ export default function ManageStaff() {
             </TouchableOpacity>
             <TouchableOpacity 
               style={styles.addButton}
-              onPress={() => router.push('/(auth)/signup')} // Navigate to create user
+              onPress={() => router.push('/(auth)/signup')}
             >
               <Ionicons name="add" size={20} color="white" />
             </TouchableOpacity>
           </View>
         </View>
 
-        {/* Search Bar */}
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#bae6fd" style={{ marginRight: 8 }} />
           <TextInput 
@@ -542,13 +471,12 @@ export default function ManageStaff() {
           )}
         </View>
 
-        {/* Filter Tabs */}
         <View style={styles.filterContainer}>
           <TouchableOpacity 
             style={[styles.filterTab, filterMode === 'all' && styles.filterTabActive]}
             onPress={() => setFilterMode('all')}
           >
-            <Text style={[styles.filterText, filterMode === 'all' && styles.filterTextActive]}>All Staff</Text>
+            <Text style={[styles.filterText, filterMode === 'all' && styles.filterTextActive]}>All Users</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.filterTab, filterMode === 'expired' && styles.filterTabActive]}
@@ -565,14 +493,13 @@ export default function ManageStaff() {
         </View>
       </LinearGradient>
 
-      {/* List */}
       {loading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color="#0ea5e9" />
         </View>
       ) : (
         <FlatList
-          data={displayedStaff}
+          data={displayedUsers}
           keyExtractor={(item) => item._id}
           renderItem={renderUserItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
@@ -587,7 +514,6 @@ export default function ManageStaff() {
         />
       )}
 
-      {/* Floating Action Button for Manual Cash Payment */}
       <TouchableOpacity style={styles.fab} onPress={() => openActivationModal()}>
         <LinearGradient
           colors={['#0284c7', '#0ea5e9']}
@@ -744,7 +670,6 @@ export default function ManageStaff() {
 
           {/* TABS & FILTERS */}
           <View style={{ paddingHorizontal: 20, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' }}>
-            {/* View Toggle */}
             <View style={styles.historyToggleContainer}>
               <TouchableOpacity 
                 style={[styles.historyTab, historyView === 'active' && styles.historyTabActive]} 
@@ -760,7 +685,6 @@ export default function ManageStaff() {
               </TouchableOpacity>
             </View>
 
-            {/* Date Filters (Only for Active View) */}
             {historyView === 'active' && (
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
@@ -919,6 +843,9 @@ const styles = StyleSheet.create({
   name: { fontSize: 16, fontWeight: '700', color: '#0c4a6e' },
   blockedBadge: { backgroundColor: '#fee2e2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
   blockedText: { color: '#dc2626', fontSize: 10, fontWeight: 'bold' },
+
+  premiumBadge: { backgroundColor: '#f59e0b', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
+  premiumText: { color: 'white', fontSize: 10, fontWeight: 'bold' },
 
   roleContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
   roleDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },

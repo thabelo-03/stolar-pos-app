@@ -38,7 +38,7 @@ export default function LoginScreen() {
         
         if (token && role) {
           if (role === 'admin') {
-            router.replace('/(admin)/manage-staff');
+            router.replace('/(admin)/admin-dashboard');
           } else if (role === 'manager') {
             router.replace('/(manager)');
           } else {
@@ -82,7 +82,7 @@ export default function LoginScreen() {
         }
 
         if (data.role === 'admin') {
-          router.replace('/(admin)/manage-staff');
+          router.replace('/(admin)/admin-dashboard');
         } else if (data.role === 'manager') {
           // Intercept: Check if manager has shops to select from for POS mode
           try {
