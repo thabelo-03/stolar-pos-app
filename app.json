@@ -1,11 +1,11 @@
 {
   "expo": {
-    "name": "atolar-app",
-    "slug": "atolar-app",
+    "name": "Stolar",
+    "slug": "stolar",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/stolar-logo.jpeg",
-    "scheme": "atolarapp",
+    "scheme": "stolar",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
