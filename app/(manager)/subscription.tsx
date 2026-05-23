@@ -64,7 +64,7 @@ export default function SubscriptionPage() {
   if (!user) {
     return (
       <View style={[styles.loadingContainer, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
-        <ActivityIndicator size="large" color="#7c3aed" />
+        <ActivityIndicator size="large" color="#0ea5e9" />
         <Text style={styles.loadingText}>Loading user data...</Text>
       </View>
     );
@@ -74,7 +74,7 @@ export default function SubscriptionPage() {
     <View style={[styles.container, { paddingTop: insets.top + 20, paddingBottom: insets.bottom + 20 }]}>
       <View style={styles.headerContainer}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="#7c3aed" />
+          <Ionicons name="arrow-back" size={24} color="#0ea5e9" />
         </TouchableOpacity>
       </View>
       
@@ -143,7 +143,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#f5f3ff',
+    backgroundColor: '#f0f9ff',
   },
   loadingText: {
     marginTop: 10,
@@ -153,7 +153,7 @@ const styles = StyleSheet.create({
   },
   container: { 
     flex: 1, 
-    backgroundColor: '#f5f3ff',
+    backgroundColor: '#f0f9ff',
     paddingHorizontal: 20 
   },
   headerContainer: {
@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
     padding: 8,
     backgroundColor: 'white',
     borderRadius: 12,
-    shadowColor: '#4f46e5',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     width: '100%', 
     padding: 24, 
     alignItems: 'center',
-    shadowColor: "#4f46e5",
+    shadowColor: "#0284c7",
     shadowOffset: { width: 0, height: 10 }, 
     shadowOpacity: 0.08, 
     shadowRadius: 24,
@@ -196,11 +196,11 @@ const styles = StyleSheet.create({
   },
   logoWrapper: {
     padding: 4,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: '#f0f9ff',
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: '#ddd6fe',
-    shadowColor: '#4f46e5',
+    borderColor: '#bae6fd',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 8,
@@ -230,18 +230,18 @@ const styles = StyleSheet.create({
   
   detailsCard: { 
     width: '100%', 
-    backgroundColor: '#f5f3ff', 
+    backgroundColor: '#f0f9ff', 
     padding: 16, 
     borderRadius: 16, 
     marginBottom: 24, 
     borderWidth: 1, 
-    borderColor: '#ddd6fe',
+    borderColor: '#bae6fd',
   },
   row: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
   label: { color: '#475569', fontSize: 14, fontWeight: '600' }, 
   value: { color: '#0f172a', fontSize: 14, fontWeight: 'bold' }, 
-  amount: { color: '#7c3aed', fontWeight: 'bold', fontSize: 22 }, 
-  divider: { height: 1, backgroundColor: '#ddd6fe', marginVertical: 12 }, 
+  amount: { color: '#0ea5e9', fontWeight: 'bold', fontSize: 22 }, 
+  divider: { height: 1, backgroundColor: '#bae6fd', marginVertical: 12 }, 
   
   paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 16, borderRadius: 16, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },
   paymentTitle: { fontWeight: 'bold', color: '#166534', marginBottom: 12, fontSize: 16, textAlign: 'center' },

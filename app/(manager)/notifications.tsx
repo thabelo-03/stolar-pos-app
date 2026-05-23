@@ -120,11 +120,11 @@ export default function ManagerNotifications() {
       activeOpacity={0.8}
     >
       <View style={styles.row}>
-        <View style={[styles.iconBox, { backgroundColor: item.type === 'link_request' ? '#f5f3ff' : '#ecfdf5' }]}>
+        <View style={[styles.iconBox, { backgroundColor: item.type === 'link_request' ? '#f0f9ff' : '#ecfdf5' }]}>
             <Ionicons 
               name={item.type === 'link_request' ? 'link' : 'notifications'} 
               size={20} 
-              color={item.type === 'link_request' ? '#7c3aed' : '#10b981'} 
+              color={item.type === 'link_request' ? '#0ea5e9' : '#10b981'} 
             />
         </View>
         <View style={styles.content}>
@@ -142,7 +142,7 @@ export default function ManagerNotifications() {
 
   return (
     <View style={styles.container}>
-      <LinearGradient colors={['#4f46e5', '#7c3aed', '#9333ea']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0284c7', '#0ea5e9', '#38bdf8']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
@@ -154,7 +154,7 @@ export default function ManagerNotifications() {
 
       {loading ? (
         <View style={styles.center}>
-            <ActivityIndicator size="large" color="#7c3aed" />
+            <ActivityIndicator size="large" color="#0ea5e9" />
         </View>
       ) : (
         <FlatList
@@ -163,7 +163,7 @@ export default function ManagerNotifications() {
             renderItem={renderItem}
             contentContainerStyle={{ padding: 16 }}
             refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} />
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} />
             }
             ListEmptyComponent={
                 <View style={styles.emptyContainer}>
@@ -178,7 +178,7 @@ export default function ManagerNotifications() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   header: {
     padding: 20,
     borderBottomLeftRadius: 24,
@@ -197,7 +197,7 @@ const styles = StyleSheet.create({
     padding: 16, 
     borderRadius: 20, 
     marginBottom: 12, 
-    shadowColor: '#4f46e5', 
+    shadowColor: '#0284c7', 
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05, 
     shadowRadius: 12, 
@@ -205,8 +205,8 @@ const styles = StyleSheet.create({
   },
   unreadCard: { 
     borderLeftWidth: 4, 
-    borderLeftColor: '#7c3aed', 
-    backgroundColor: 'rgba(124, 58, 237, 0.03)' 
+    borderLeftColor: '#0ea5e9', 
+    backgroundColor: 'rgba(14, 165, 233, 0.03)' 
   },
   row: { flexDirection: 'row', alignItems: 'center' },
   iconBox: { width: 44, height: 44, borderRadius: 22, justifyContent: 'center', alignItems: 'center', marginRight: 12 },

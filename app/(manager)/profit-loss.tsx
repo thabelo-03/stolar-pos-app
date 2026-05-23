@@ -234,7 +234,7 @@ export default function ProfitLoss() {
   return (
     <View style={styles.container}>
       <LinearGradient 
-        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
         start={{ x: 0, y: 0 }} 
         end={{ x: 1, y: 1 }} 
         style={[styles.header, { paddingTop: insets.top + 15 }]}
@@ -296,7 +296,7 @@ export default function ProfitLoss() {
 
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {loading ? (
-          <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color="#0ea5e9" style={{ marginTop: 40 }} />
         ) : (
           <View style={styles.reportContainer}>
             
@@ -331,12 +331,12 @@ export default function ProfitLoss() {
                   backgroundGradientFrom: "#ffffff",
                   backgroundGradientTo: "#ffffff",
                   decimalPlaces: 2,
-                  color: (opacity = 1) => chartView === 'profit' ? `rgba(16, 185, 129, ${opacity})` : `rgba(124, 58, 237, ${opacity})`,
+                  color: (opacity = 1) => chartView === 'profit' ? `rgba(16, 185, 129, ${opacity})` : `rgba(14, 165, 233, ${opacity})`,
                   labelColor: (opacity = 1) => `rgba(71, 85, 105, ${opacity})`,
                   barPercentage: 0.7,
                   propsForBackgroundLines: {
                     strokeWidth: 1,
-                    stroke: "#f5f3ff",
+                    stroke: "#f0f9ff",
                     strokeDasharray: "", // solid lines
                   },
                 }}
@@ -349,7 +349,7 @@ export default function ProfitLoss() {
 
             <View style={styles.statCard}>
               <Text style={styles.statLabel}>Total Revenue</Text>
-              <Text style={[styles.statValue, { color: '#7c3aed' }]}>{symbol} {stats.revenue.toFixed(2)}</Text>
+              <Text style={[styles.statValue, { color: '#0ea5e9' }]}>{symbol} {stats.revenue.toFixed(2)}</Text>
             </View>
             
             <View style={styles.statCard}>
@@ -378,7 +378,7 @@ export default function ProfitLoss() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -389,21 +389,21 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, marginRight: 15 },
   headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 },
-  filterSection: { padding: 20, backgroundColor: 'white', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 10 },
-  currencySelector: { alignSelf: 'flex-end', backgroundColor: '#f5f3ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#ddd6fe', marginBottom: 10 },
-  currencyText: { color: '#7c3aed', fontWeight: 'bold', fontSize: 12 },
+  filterSection: { padding: 20, backgroundColor: 'white', borderBottomLeftRadius: 24, borderBottomRightRadius: 24, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.04, shadowRadius: 12, elevation: 2, marginBottom: 10 },
+  currencySelector: { alignSelf: 'flex-end', backgroundColor: '#f0f9ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, borderWidth: 1, borderColor: '#bae6fd', marginBottom: 10 },
+  currencyText: { color: '#0ea5e9', fontWeight: 'bold', fontSize: 12 },
   dateRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 15 },
   label: { color: '#475569', fontWeight: 'bold', fontSize: 14 },
-  datePickerBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f5f3ff', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#ddd6fe' },
-  dateText: { fontSize: 14, color: '#7c3aed', fontWeight: 'bold' },
+  datePickerBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f0f9ff', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 12, borderWidth: 1, borderColor: '#bae6fd' },
+  dateText: { fontSize: 14, color: '#0ea5e9', fontWeight: 'bold' },
   shopFilterContainer: { flexDirection: 'row', marginTop: 5 },
-  shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f5f3ff', marginRight: 10, borderWidth: 1, borderColor: '#ddd6fe' },
-  activeShopChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
-  shopChipText: { color: '#7c3aed', fontWeight: '600', fontSize: 13 },
+  shopChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f9ff', marginRight: 10, borderWidth: 1, borderColor: '#bae6fd' },
+  activeShopChip: { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' },
+  shopChipText: { color: '#0ea5e9', fontWeight: '600', fontSize: 13 },
   activeShopChipText: { color: 'white' },
   reportContainer: { padding: 20, gap: 15 },
-  statCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
-  chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  statCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 20, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
   statLabel: { color: '#475569', fontSize: 14, fontWeight: '600' },
@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
   profitSubtext: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
   toggleContainer: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 2 },
   toggleBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
-  toggleBtnActive: { backgroundColor: 'white', shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  toggleBtnActive: { backgroundColor: 'white', shadowColor: '#0284c7', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
   toggleText: { fontSize: 12, color: '#475569', fontWeight: '600' },
-  toggleTextActive: { color: '#7c3aed' },
+  toggleTextActive: { color: '#0ea5e9' },
 });

@@ -143,7 +143,7 @@ export default function AdminDashboard() {
   return (
     <View style={styles.container}>
       <LinearGradient 
-        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
         start={{ x: 0, y: 0 }} 
         end={{ x: 1, y: 1 }} 
         style={[styles.header, { paddingTop: insets.top + 15 }]}
@@ -154,7 +154,7 @@ export default function AdminDashboard() {
         </View>
         <View style={{ flexDirection: 'row', gap: 10 }}>
           <View style={styles.headerIcon}>
-             <Ionicons name="shield-checkmark" size={24} color="#a78bfa" />
+             <Ionicons name="shield-checkmark" size={24} color="#7dd3fc" />
           </View>
           <TouchableOpacity onPress={handleLogout} style={[styles.headerIcon, { backgroundColor: 'rgba(244, 63, 94, 0.2)' }]}>
              <Ionicons name="log-out-outline" size={24} color="#f43f5e" />
@@ -165,7 +165,7 @@ export default function AdminDashboard() {
       <ScrollView 
         contentContainerStyle={styles.scrollContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} tintColor="#0ea5e9" />
         }
       >
         {/* Quick Stats Grid */}
@@ -182,7 +182,7 @@ export default function AdminDashboard() {
               title="Total Users" 
               value={stats.users} 
               icon="people-outline" 
-              gradientColors={['#4f46e5', '#7c3aed']} 
+              gradientColors={['#0284c7', '#0ea5e9']} 
               loading={loading}
             />
           </View>
@@ -198,7 +198,7 @@ export default function AdminDashboard() {
               title="System Health" 
               value="100%" 
               icon="pulse-outline" 
-              gradientColors={['#7c3aed', '#9333ea']} 
+              gradientColors={['#0ea5e9', '#38bdf8']} 
               loading={loading}
             />
           </View>
@@ -212,8 +212,8 @@ export default function AdminDashboard() {
             style={styles.gridItem} 
             onPress={() => router.push('/(admin)/manage-staff')}
           >
-            <View style={[styles.iconBox, { backgroundColor: '#f5f3ff' }]}>
-              <Ionicons name="people" size={24} color="#7c3aed" />
+            <View style={[styles.iconBox, { backgroundColor: '#f0f9ff' }]}>
+              <Ionicons name="people" size={24} color="#0ea5e9" />
             </View>
             <Text style={styles.gridText}>Staff List</Text>
           </TouchableOpacity>
@@ -242,8 +242,8 @@ export default function AdminDashboard() {
             style={styles.gridItem}
             onPress={() => router.push('/(admin)/system-logs')}
           >
-            <View style={[styles.iconBox, { backgroundColor: '#f5f3ff' }]}>
-              <Ionicons name="terminal" size={24} color="#7c3aed" />
+            <View style={[styles.iconBox, { backgroundColor: '#f0f9ff' }]}>
+              <Ionicons name="terminal" size={24} color="#0ea5e9" />
             </View>
             <Text style={styles.gridText}>System Logs</Text>
           </TouchableOpacity>
@@ -253,7 +253,7 @@ export default function AdminDashboard() {
         <Text style={styles.sectionLabel}>Live Feed</Text>
         <View style={styles.activityCard}>
           {loading && !refreshing ? (
-            <ActivityIndicator color="#7c3aed" style={{ padding: 20 }} />
+            <ActivityIndicator color="#0ea5e9" style={{ padding: 20 }} />
           ) : recentActivity.length === 0 ? (
             <Text style={styles.emptyText}>No recent activity found.</Text>
           ) : (
@@ -261,12 +261,12 @@ export default function AdminDashboard() {
               <View key={activity._id} style={styles.activityItem}>
                 <View style={[
                   styles.activityIcon, 
-                  { backgroundColor: activity.type === 'sale' ? '#ecfdf5' : '#f5f3ff' }
+                  { backgroundColor: activity.type === 'sale' ? '#ecfdf5' : '#f0f9ff' }
                 ]}>
                   <Ionicons 
                     name={activity.type === 'sale' ? "receipt" : "person-add"} 
                     size={18} 
-                    color={activity.type === 'sale' ? "#10b981" : "#7c3aed"} 
+                    color={activity.type === 'sale' ? "#10b981" : "#0ea5e9"} 
                   />
                 </View>
                 <View style={{ flex: 1, marginLeft: 12 }}>
@@ -288,7 +288,7 @@ export default function AdminDashboard() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   
   // Header
   header: { 
@@ -309,7 +309,7 @@ const styles = StyleSheet.create({
   // Stats
   statsContainer: { marginBottom: 10 },
   statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 14 },
-  statCard: { width: '48%', borderRadius: 20, overflow: 'hidden', shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 },
+  statCard: { width: '48%', borderRadius: 20, overflow: 'hidden', shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 12, elevation: 4 },
   gradient: { padding: 16, height: 110, justifyContent: 'center' },
   statContent: { flexDirection: 'column', height: '100%', justifyContent: 'space-between' },
   iconContainer: { 
@@ -327,14 +327,14 @@ const styles = StyleSheet.create({
   gridItem: { 
     backgroundColor: 'white', width: '48%', padding: 16, borderRadius: 20, 
     alignItems: 'center', marginBottom: 16, 
-    shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4
+    shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4
   },
   iconBox: { padding: 12, borderRadius: 14, marginBottom: 10 },
   gridText: { fontWeight: '700', color: '#475569', fontSize: 13 },
 
   // Activity Feed
-  activityCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
-  activityItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f5f3ff', paddingBottom: 16 },
+  activityCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  activityItem: { flexDirection: 'row', alignItems: 'center', marginBottom: 16, borderBottomWidth: 1, borderBottomColor: '#f0f9ff', paddingBottom: 16 },
   activityIcon: { padding: 8, borderRadius: 10 },
   activityTitleText: { color: '#0f172a', fontSize: 14, fontWeight: '600' },
   activitySubtitle: { color: '#64748b', fontSize: 12, marginTop: 2 },

@@ -867,7 +867,7 @@ app.post('/api/sales', async (req, res) => {
             recipient: shop.manager,
             sender: cashierId,
             type: 'system',
-            message: `New Sale: $${Number(totalUSD).toFixed(2)} by ${cashierName}`,
+            message: `New Sale: R${Number(totalUSD).toFixed(2)} by ${cashierName}`,
             relatedId: newSale._id
           }).save();
         }

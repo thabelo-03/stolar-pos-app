@@ -382,10 +382,10 @@ export default function ManageStaff() {
 
   const getRoleColor = (role: string) => {
     switch(role) {
-      case 'admin': return '#7c3aed'; // Purple
-      case 'manager': return '#4f46e5'; // Indigo/Blue
+      case 'admin': return '#0ea5e9'; // Light Blue
+      case 'manager': return '#0284c7'; // Indigo/Blue
       case 'cashier': return '#10b981'; // Green
-      default: return '#8b5cf6'; // Grey/Lavender
+      default: return '#7dd3fc'; // Grey/Lavender
     }
   };
 
@@ -400,8 +400,8 @@ export default function ManageStaff() {
       <View style={styles.cardContent}>
         
         {/* Avatar */}
-        <View style={[styles.avatar, { backgroundColor: item.status === 'blocked' ? '#fee2e2' : '#f5f3ff' }]}>
-          <Text style={[styles.avatarText, { color: item.status === 'blocked' ? '#dc2626' : '#7c3aed' }]}>
+        <View style={[styles.avatar, { backgroundColor: item.status === 'blocked' ? '#fee2e2' : '#f0f9ff' }]}>
+          <Text style={[styles.avatarText, { color: item.status === 'blocked' ? '#dc2626' : '#0ea5e9' }]}>
             {item.name.charAt(0).toUpperCase()}
           </Text>
         </View>
@@ -439,8 +439,8 @@ export default function ManageStaff() {
       {/* Action Buttons Row */}
       <View style={styles.actionRow}>
         <TouchableOpacity onPress={() => Linking.openURL(`mailto:${item.email}`)} style={styles.actionButton}>
-          <Ionicons name="mail-outline" size={18} color="#7c3aed" />
-          <Text style={[styles.actionText, { color: '#7c3aed' }]}>Email</Text>
+          <Ionicons name="mail-outline" size={18} color="#0ea5e9" />
+          <Text style={[styles.actionText, { color: '#0ea5e9' }]}>Email</Text>
         </TouchableOpacity>
 
         {item.role === 'manager' && (
@@ -483,7 +483,7 @@ export default function ManageStaff() {
       
       {/* Header */}
       <LinearGradient
-        colors={['#4f46e5', '#7c3aed', '#9333ea']}
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
         style={[styles.header, { paddingTop: insets.top + 15 }]}
@@ -523,10 +523,10 @@ export default function ManageStaff() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#ddd6fe" style={{ marginRight: 8 }} />
+          <Ionicons name="search" size={20} color="#bae6fd" style={{ marginRight: 8 }} />
           <TextInput 
             placeholder="Search by name or email..." 
-            placeholderTextColor="#ddd6fe"
+            placeholderTextColor="#bae6fd"
             style={styles.searchInput}
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -536,7 +536,7 @@ export default function ManageStaff() {
             <Ionicons 
               name="close-circle" 
               size={20} 
-              color="#ddd6fe" 
+              color="#bae6fd" 
               onPress={() => setSearchQuery('')} 
             />
           )}
@@ -568,7 +568,7 @@ export default function ManageStaff() {
       {/* List */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#7c3aed" />
+          <ActivityIndicator size="large" color="#0ea5e9" />
         </View>
       ) : (
         <FlatList
@@ -577,7 +577,7 @@ export default function ManageStaff() {
           renderItem={renderUserItem}
           contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} tintColor="#0ea5e9" />
           }
           ListEmptyComponent={
             <View style={styles.center}>
@@ -590,7 +590,7 @@ export default function ManageStaff() {
       {/* Floating Action Button for Manual Cash Payment */}
       <TouchableOpacity style={styles.fab} onPress={() => openActivationModal()}>
         <LinearGradient
-          colors={['#4f46e5', '#7c3aed']}
+          colors={['#0284c7', '#0ea5e9']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
@@ -610,8 +610,8 @@ export default function ManageStaff() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <View style={{ padding: 8, backgroundColor: '#f5f3ff', borderRadius: 20, marginRight: 10 }}>
-                    <Ionicons name="cash" size={24} color="#7c3aed" />
+                <View style={{ padding: 8, backgroundColor: '#f0f9ff', borderRadius: 20, marginRight: 10 }}>
+                    <Ionicons name="cash" size={24} color="#0ea5e9" />
                 </View>
                 <View style={{ flex: 1 }}>
                     <Text style={styles.modalTitle}>Record Payment</Text>
@@ -646,7 +646,7 @@ export default function ManageStaff() {
               </>
             ) : (
               <>
-                <Text style={styles.modalSubtitle}>Extend subscription for <Text style={{fontWeight: 'bold', color: '#1e1b4b'}}>{selectedUser.name}</Text></Text>
+                <Text style={styles.modalSubtitle}>Extend subscription for <Text style={{fontWeight: 'bold', color: '#0c4a6e'}}>{selectedUser.name}</Text></Text>
                 
                 <View style={styles.inputGroup}>
                   <Text style={styles.label}>Months to Add:</Text>
@@ -734,7 +734,7 @@ export default function ManageStaff() {
             <Text style={styles.historyTitle}>Payment History</Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
               <TouchableOpacity onPress={() => historyView === 'active' ? fetchPaymentHistory() : fetchDeletedHistory()}>
-                  <Ionicons name="refresh-circle" size={30} color="#7c3aed" />
+                  <Ionicons name="refresh-circle" size={30} color="#0ea5e9" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
                   <Ionicons name="close-circle" size={30} color="#94a3b8" />
@@ -783,7 +783,7 @@ export default function ManageStaff() {
           </View>
 
           {loadingHistory ? (
-            <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 50 }} />
+            <ActivityIndicator size="large" color="#0ea5e9" style={{ marginTop: 50 }} />
           ) : (
             <FlatList
               data={historyView === 'active' ? paymentHistory : deletedHistory}
@@ -835,7 +835,7 @@ export default function ManageStaff() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   // Header
@@ -844,7 +844,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: "#4f46e5",
+    shadowColor: "#0284c7",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -889,8 +889,8 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   filterTabActive: { backgroundColor: 'white' },
-  filterText: { color: '#ddd6fe', fontWeight: '600', fontSize: 13 },
-  filterTextActive: { color: '#7c3aed', fontWeight: '700' },
+  filterText: { color: '#bae6fd', fontWeight: '600', fontSize: 13 },
+  filterTextActive: { color: '#0ea5e9', fontWeight: '700' },
 
   // Card
   card: {
@@ -898,7 +898,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 16,
     padding: 16,
-    shadowColor: '#4f46e5',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.04,
     shadowRadius: 12,
@@ -916,7 +916,7 @@ const styles = StyleSheet.create({
   
   infoContainer: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center' },
-  name: { fontSize: 16, fontWeight: '700', color: '#1e1b4b' },
+  name: { fontSize: 16, fontWeight: '700', color: '#0c4a6e' },
   blockedBadge: { backgroundColor: '#fee2e2', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 8 },
   blockedText: { color: '#dc2626', fontSize: 10, fontWeight: 'bold' },
 
@@ -930,7 +930,7 @@ const styles = StyleSheet.create({
   actionRow: {
     flexDirection: 'row',
     borderTopWidth: 1,
-    borderTopColor: '#f5f3ff',
+    borderTopColor: '#f0f9ff',
     paddingTop: 12,
   },
   actionButton: {
@@ -944,31 +944,31 @@ const styles = StyleSheet.create({
 
   // Modal
   modalOverlay: { flex: 1, backgroundColor: 'rgba(15, 23, 42, 0.4)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContainer: { backgroundColor: '#fff', borderRadius: 24, padding: 24, width: '100%', maxWidth: 350, shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 16, elevation: 5 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#1e1b4b', marginBottom: 4 },
+  modalContainer: { backgroundColor: '#fff', borderRadius: 24, padding: 24, width: '100%', maxWidth: 350, shadowColor: '#0284c7', shadowOpacity: 0.1, shadowRadius: 16, elevation: 5 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#0c4a6e', marginBottom: 4 },
   modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20 },
   inputGroup: { marginBottom: 24 },
-  label: { fontSize: 14, fontWeight: '600', color: '#1e1b4b', marginBottom: 8 },
-  input: { borderWidth: 1, borderColor: '#ddd6fe', borderRadius: 12, padding: 12, fontSize: 16, backgroundColor: '#f9f5ff', color: '#1e1b4b' },
+  label: { fontSize: 14, fontWeight: '600', color: '#0c4a6e', marginBottom: 8 },
+  input: { borderWidth: 1, borderColor: '#bae6fd', borderRadius: 12, padding: 12, fontSize: 16, backgroundColor: '#f0f9ff', color: '#0c4a6e' },
   
   planSelector: { flexDirection: 'row', gap: 10 },
-  planOption: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#ddd6fe', alignItems: 'center', backgroundColor: '#fff' },
-  planOptionActive: { backgroundColor: '#f5f3ff', borderColor: '#7c3aed' },
+  planOption: { flex: 1, padding: 12, borderRadius: 12, borderWidth: 1, borderColor: '#bae6fd', alignItems: 'center', backgroundColor: '#fff' },
+  planOptionActive: { backgroundColor: '#f0f9ff', borderColor: '#0ea5e9' },
   planText: { color: '#64748b', fontWeight: '600', fontSize: 12 },
-  planTextActive: { color: '#7c3aed', fontWeight: 'bold' },
+  planTextActive: { color: '#0ea5e9', fontWeight: 'bold' },
 
   modalActions: { flexDirection: 'row', gap: 12 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
   cancelBtn: { backgroundColor: '#f1f5f9' },
   cancelBtnText: { color: '#64748b', fontWeight: 'bold' },
-  confirmBtn: { backgroundColor: '#7c3aed' },
+  confirmBtn: { backgroundColor: '#0ea5e9' },
   confirmBtnText: { color: '#fff', fontWeight: 'bold' },
 
   // User Selection List
   userSelectItem: { flexDirection: 'row', alignItems: 'center', padding: 12, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  userSelectAvatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f5f3ff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  userSelectAvatarText: { color: '#7c3aed', fontWeight: 'bold', fontSize: 16 },
-  userSelectName: { fontSize: 14, fontWeight: 'bold', color: '#1e1b4b' },
+  userSelectAvatar: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#f0f9ff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  userSelectAvatarText: { color: '#0ea5e9', fontWeight: 'bold', fontSize: 16 },
+  userSelectName: { fontSize: 14, fontWeight: 'bold', color: '#0c4a6e' },
   userSelectEmail: { fontSize: 12, color: '#64748b' },
 
   // FAB
@@ -978,7 +978,7 @@ const styles = StyleSheet.create({
     right: 24,
     borderRadius: 24,
     elevation: 5,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,
@@ -994,23 +994,23 @@ const styles = StyleSheet.create({
   fabText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 
   // History Modal
-  historyContainer: { flex: 1, backgroundColor: '#f5f3ff' },
+  historyContainer: { flex: 1, backgroundColor: '#f0f9ff' },
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
-  historyTitle: { fontSize: 22, fontWeight: 'bold', color: '#1e1b4b' },
-  historyToggleContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f5f3ff', borderRadius: 12, padding: 4 },
+  historyTitle: { fontSize: 22, fontWeight: 'bold', color: '#0c4a6e' },
+  historyToggleContainer: { flexDirection: 'row', marginBottom: 15, backgroundColor: '#f0f9ff', borderRadius: 12, padding: 4 },
   historyTab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
   historyTabActive: { backgroundColor: 'white' },
-  historyTabText: { color: '#7c3aed', fontWeight: '600' },
-  historyTabTextActive: { color: '#7c3aed', fontWeight: 'bold' },
-  historyItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 10, shadowColor: '#4f46e5', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
+  historyTabText: { color: '#0ea5e9', fontWeight: '600' },
+  historyTabTextActive: { color: '#0ea5e9', fontWeight: 'bold' },
+  historyItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 16, borderRadius: 16, marginBottom: 10, shadowColor: '#0284c7', shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
   historyIcon: { width: 40, height: 40, borderRadius: 12, backgroundColor: '#ecfdf5', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-  historyName: { fontSize: 15, fontWeight: 'bold', color: '#1e1b4b' },
+  historyName: { fontSize: 15, fontWeight: 'bold', color: '#0c4a6e' },
   historyDate: { fontSize: 12, color: '#64748b' },
   historyAmount: { fontSize: 16, fontWeight: '800', color: '#10b981' },
   historyMethod: { fontSize: 12, color: '#94a3b8', textTransform: 'capitalize' },
   
   dateFilterBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, backgroundColor: '#f1f5f9' },
-  dateFilterBtnActive: { backgroundColor: '#7c3aed' },
+  dateFilterBtnActive: { backgroundColor: '#0ea5e9' },
   dateFilterText: { fontSize: 12, color: '#64748b', fontWeight: '600' },
   dateFilterTextActive: { color: 'white' },
 });

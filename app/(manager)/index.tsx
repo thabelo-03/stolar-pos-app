@@ -231,7 +231,7 @@ const ManagerIndex = () => {
       salesByShop[sId] = (salesByShop[sId] || 0) + (sale.totalUSD || sale.total || sale.amount || 0);
     });
 
-    const colors = ['#c4b5fd', '#a78bfa', '#7c3aed', '#9333ea', '#ddd6fe', '#ede9fe'];
+    const colors = ['#bae6fd', '#7dd3fc', '#0ea5e9', '#38bdf8', '#bae6fd', '#e0f2fe'];
     const pieData = shops.map((shop, index) => ({
       name: shop.name,
       population: salesByShop[shop._id] || 0,
@@ -443,7 +443,7 @@ const ManagerIndex = () => {
       const avgPerShop = shops.length > 0 ? rangeRevenue / shops.length : rangeRevenue;
       insights.push({
         icon: 'trending-up',
-        color: '#7c3aed',
+        color: '#0ea5e9',
         title: 'Revenue Insight',
         message: shops.length > 1
           ? `Avg R${(rangeRevenue / shops.length).toFixed(0)}/shop this period. Focus on under-performing locations to lift overall revenue.`
@@ -452,7 +452,7 @@ const ManagerIndex = () => {
     } else {
       insights.push({
         icon: 'bar-chart-outline',
-        color: '#9333ea',
+        color: '#38bdf8',
         title: 'No Sales Yet',
         message: 'Record your first sale to start seeing AI-powered trends and recommendations.',
       });
@@ -494,7 +494,7 @@ const ManagerIndex = () => {
   const renderHeader = () => (
     <View>
       <LinearGradient
-        colors={['#4f46e5', '#7c3aed', '#9333ea']}
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']}
         style={[styles.header, { paddingTop: insets.top + 16, paddingBottom: 40 }]}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -522,7 +522,7 @@ const ManagerIndex = () => {
       {/* KPI Metrics Row */}
       <View style={styles.kpiContainer}>
         <View style={[styles.kpiCard, styles.kpiCardIndigo]}>
-          <Ionicons name="cash-outline" size={18} color="#7c3aed" style={styles.kpiIcon} />
+          <Ionicons name="cash-outline" size={18} color="#0ea5e9" style={styles.kpiIcon} />
           <Text style={styles.kpiLabel}>Today</Text>
           <Text style={styles.kpiValue}>R{totalRevenue.toFixed(0)}</Text>
         </View>
@@ -550,7 +550,7 @@ const ManagerIndex = () => {
             <Text style={styles.aiInsightsTitle}>Stolar AI Insights</Text>
           </View>
           {aiInsights.map((insight, idx) => (
-            <View key={idx} style={[styles.aiInsightRow, idx < aiInsights.length - 1 && { borderBottomWidth: 1, borderBottomColor: '#ede9fe' }]}>
+            <View key={idx} style={[styles.aiInsightRow, idx < aiInsights.length - 1 && { borderBottomWidth: 1, borderBottomColor: '#e0f2fe' }]}>
               <View style={[styles.aiInsightIcon, { backgroundColor: insight.color + '18' }]}>
                 <Ionicons name={insight.icon as any} size={18} color={insight.color} />
               </View>
@@ -569,12 +569,12 @@ const ManagerIndex = () => {
           <Text style={styles.chartTitle}>Sales Performance</Text>
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
             <TouchableOpacity onPress={() => { setDatePickerMode('start'); setShowDatePicker(true); }} style={styles.dateButton}>
-              <Ionicons name="calendar-outline" size={16} color="#7c3aed" />
+              <Ionicons name="calendar-outline" size={16} color="#0ea5e9" />
               <Text style={styles.dateButtonText}>{startDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
             </TouchableOpacity>
             <Text style={{ color: '#94a3b8' }}>-</Text>
             <TouchableOpacity onPress={() => { setDatePickerMode('end'); setShowDatePicker(true); }} style={styles.dateButton}>
-              <Ionicons name="calendar-outline" size={16} color="#7c3aed" />
+              <Ionicons name="calendar-outline" size={16} color="#0ea5e9" />
               <Text style={styles.dateButtonText}>{endDate.toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}</Text>
             </TouchableOpacity>
           </View>
@@ -593,7 +593,7 @@ const ManagerIndex = () => {
             backgroundGradientFrom: "#ffffff",
             backgroundGradientTo: "#ffffff",
             decimalPlaces: 0,
-            color: (opacity = 1) => `rgba(124, 58, 237, ${opacity})`,
+            color: (opacity = 1) => `rgba(14, 165, 233, ${opacity})`,
             labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`,
             style: { borderRadius: 12 },
             barPercentage: 0.5,
@@ -708,12 +708,12 @@ const ManagerIndex = () => {
       <View style={styles.sectionHeader}>
         <View>
           <Text style={styles.title}>My Shops</Text>
-          <Text style={{ fontSize: 12, color: '#a78bfa', fontWeight: '600', marginTop: 1 }}>
+          <Text style={{ fontSize: 12, color: '#7dd3fc', fontWeight: '600', marginTop: 1 }}>
             {shops.length} {shops.length === 1 ? 'location' : 'locations'} registered
           </Text>
         </View>
         <TouchableOpacity style={styles.addShopButton} onPress={() => router.push('/(manager)/register-shop')}>
-          <LinearGradient colors={['#7c3aed', '#9333ea']} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
+          <LinearGradient colors={['#0ea5e9', '#38bdf8']} style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20 }} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }}>
             <Ionicons name="add" size={18} color="white" />
             <Text style={styles.addShopButtonText}>Add Shop</Text>
           </LinearGradient>
@@ -733,15 +733,15 @@ const ManagerIndex = () => {
         <TouchableOpacity style={styles.menuOverlay} onPress={() => setMenuVisible(false)}>
           <View style={styles.menuContainer}>
             <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="person-circle-outline" size={24} color="#7c3aed" />
+              <Ionicons name="person-circle-outline" size={24} color="#0ea5e9" />
               <Text style={styles.menuItemText}>Profile</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="settings-outline" size={24} color="#7c3aed" />
+              <Ionicons name="settings-outline" size={24} color="#0ea5e9" />
               <Text style={styles.menuItemText}>Settings</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSwitchToCashier}>
-              <Ionicons name="calculator-outline" size={24} color="#7c3aed" />
+              <Ionicons name="calculator-outline" size={24} color="#0ea5e9" />
               <Text style={styles.menuItemText}>Switch to POS</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem} onPress={handleSignOut}>
@@ -749,7 +749,7 @@ const ManagerIndex = () => {
               <Text style={[styles.menuItemText, { color: '#ef4444' }]}>Sign Out</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.menuItem}>
-              <Ionicons name="help-circle-outline" size={24} color="#7c3aed" />
+              <Ionicons name="help-circle-outline" size={24} color="#0ea5e9" />
               <Text style={styles.menuItemText}>Help</Text>
             </TouchableOpacity>
           </View>
@@ -767,8 +767,8 @@ const ManagerIndex = () => {
             <View style={[styles.editModalContent, { backgroundColor: '#ffffff' }]}>
                 {/* Header */}
                 <View style={{ alignItems: 'center', marginBottom: 16 }}>
-                    <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: '#f5f3ff', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
-                        <Ionicons name="storefront" size={28} color="#7c3aed" />
+                    <View style={{ width: 56, height: 56, borderRadius: 18, backgroundColor: '#f0f9ff', justifyContent: 'center', alignItems: 'center', marginBottom: 12 }}>
+                        <Ionicons name="storefront" size={28} color="#0ea5e9" />
                     </View>
                     <Text style={styles.modalTitle}>Select Shop for POS</Text>
                     <Text style={{ textAlign: 'center', color: '#64748b', fontSize: 13, marginTop: 2 }}>Choose which shop to manage as a cashier.</Text>
@@ -779,15 +779,15 @@ const ManagerIndex = () => {
                     keyExtractor={(item) => item._id}
                     renderItem={({ item }) => (
                         <TouchableOpacity style={styles.shopSelectionItem} onPress={() => handleSelectShopForPOS(item)} activeOpacity={0.75}>
-                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#7c3aed', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
+                            <View style={{ width: 36, height: 36, borderRadius: 10, backgroundColor: '#0ea5e9', justifyContent: 'center', alignItems: 'center', marginRight: 12 }}>
                                 <Ionicons name="storefront" size={18} color="white" />
                             </View>
                             <View style={{ flex: 1 }}>
                                 <Text style={styles.shopSelectionText}>{item.name}</Text>
                                 {item.location ? <Text style={{ fontSize: 12, color: '#94a3b8', marginTop: 1 }}>{item.location}</Text> : null}
                             </View>
-                            <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#ede9fe', justifyContent: 'center', alignItems: 'center' }}>
-                                <Ionicons name="chevron-forward" size={16} color="#7c3aed" />
+                            <View style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: '#e0f2fe', justifyContent: 'center', alignItems: 'center' }}>
+                                <Ionicons name="chevron-forward" size={16} color="#0ea5e9" />
                             </View>
                         </TouchableOpacity>
                     )}
@@ -796,10 +796,10 @@ const ManagerIndex = () => {
                 />
 
                 <TouchableOpacity
-                    style={{ marginTop: 16, width: '100%', paddingVertical: 14, borderRadius: 14, backgroundColor: '#f5f3ff', borderWidth: 1.5, borderColor: '#ede9fe', alignItems: 'center' }}
+                    style={{ marginTop: 16, width: '100%', paddingVertical: 14, borderRadius: 14, backgroundColor: '#f0f9ff', borderWidth: 1.5, borderColor: '#e0f2fe', alignItems: 'center' }}
                     onPress={() => setShopSelectionVisible(false)}
                 >
-                    <Text style={{ fontWeight: '700', color: '#7c3aed', fontSize: 15 }}>Cancel</Text>
+                    <Text style={{ fontWeight: '700', color: '#0ea5e9', fontSize: 15 }}>Cancel</Text>
                 </TouchableOpacity>
             </View>
         </View>
@@ -937,7 +937,7 @@ const ManagerIndex = () => {
           <TouchableOpacity style={styles.shopItem} onPress={() => handleShopPress(item)} activeOpacity={0.85}>
             {/* Left accent bar */}
             <LinearGradient
-              colors={['#4f46e5', '#7c3aed']}
+              colors={['#0284c7', '#0ea5e9']}
               style={styles.shopItemAccent}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
@@ -955,7 +955,7 @@ const ManagerIndex = () => {
               </View>
               {item.branchCode ? (
                 <View style={styles.shopBranchRow}>
-                  <Ionicons name="barcode-outline" size={11} color="#a78bfa" />
+                  <Ionicons name="barcode-outline" size={11} color="#7dd3fc" />
                   <Text style={styles.shopBranchCode}>{item.branchCode}</Text>
                 </View>
               ) : null}
@@ -963,12 +963,12 @@ const ManagerIndex = () => {
             {/* Actions */}
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
               <TouchableOpacity onPress={() => handleEditPress(item)} style={styles.shopActionBtn}>
-                <Ionicons name="create-outline" size={17} color="#7c3aed" />
+                <Ionicons name="create-outline" size={17} color="#0ea5e9" />
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDeleteShop(item._id, item.name)} style={[styles.shopActionBtn, { backgroundColor: '#fee2e2' }]}>
                 <Ionicons name="trash-outline" size={17} color="#f43f5e" />
               </TouchableOpacity>
-              <Ionicons name="chevron-forward" size={18} color="#c4b5fd" />
+              <Ionicons name="chevron-forward" size={18} color="#bae6fd" />
             </View>
           </TouchableOpacity>
         )}
@@ -977,7 +977,7 @@ const ManagerIndex = () => {
             style={styles.registerShopButton}
             onPress={() => router.push('/(manager)/register-shop')}
           >
-            <Ionicons name="add-circle-outline" size={28} color="#7c3aed" />
+            <Ionicons name="add-circle-outline" size={28} color="#0ea5e9" />
             <Text style={styles.registerShopButtonText}>Register Your First Shop</Text>
             <Text style={{ fontSize: 13, color: '#94a3b8', marginTop: 4 }}>Tap to get started</Text>
           </TouchableOpacity>
@@ -1015,7 +1015,7 @@ const styles = StyleSheet.create({
     },
     kpiCardIndigo: {
         borderTopWidth: 3,
-        borderTopColor: '#7c3aed',
+        borderTopColor: '#0ea5e9',
     },
     kpiCardGreen: {
         borderTopWidth: 3,
@@ -1080,7 +1080,7 @@ const styles = StyleSheet.create({
         borderRadius: 18,
         marginBottom: 12,
         marginHorizontal: 20,
-        shadowColor: '#7c3aed',
+        shadowColor: '#0ea5e9',
         shadowOffset: { width: 0, height: 3 },
         shadowOpacity: 0.10,
         shadowRadius: 10,
@@ -1088,7 +1088,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
         minHeight: 78,
         borderWidth: 1,
-        borderColor: '#ede9fe',
+        borderColor: '#e0f2fe',
     },
     shopItemAccent: {
         width: 6,
@@ -1098,7 +1098,7 @@ const styles = StyleSheet.create({
         width: 44,
         height: 44,
         borderRadius: 14,
-        backgroundColor: '#7c3aed',
+        backgroundColor: '#0ea5e9',
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: 12,
@@ -1110,14 +1110,14 @@ const styles = StyleSheet.create({
         backgroundColor: 'rgba(255,255,255,0.2)',
         justifyContent: 'center', alignItems: 'center',
     },
-    shopName: { fontSize: 15, fontWeight: '800', color: '#1e1b4b', marginBottom: 2 },
+    shopName: { fontSize: 15, fontWeight: '800', color: '#0c4a6e', marginBottom: 2 },
     shopLocationRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
     shopLocation: { fontSize: 12, color: '#94a3b8', fontWeight: '500', flex: 1 },
     shopBranchRow: { flexDirection: 'row', alignItems: 'center', gap: 3, marginTop: 3 },
-    shopBranchCode: { fontSize: 11, color: '#a78bfa', fontWeight: '700', letterSpacing: 0.5 },
+    shopBranchCode: { fontSize: 11, color: '#7dd3fc', fontWeight: '700', letterSpacing: 0.5 },
     shopActionBtn: {
         width: 34, height: 34, borderRadius: 10,
-        backgroundColor: '#f5f3ff',
+        backgroundColor: '#f0f9ff',
         justifyContent: 'center', alignItems: 'center',
     },
 
@@ -1129,7 +1129,7 @@ const styles = StyleSheet.create({
         borderStyle: 'dashed',
     },
     registerShopButtonText: {
-        marginTop: 12, fontSize: 16, fontWeight: '800', color: '#7c3aed',
+        marginTop: 12, fontSize: 16, fontWeight: '800', color: '#0ea5e9',
     },
 
     // Menu
@@ -1153,9 +1153,9 @@ const styles = StyleSheet.create({
         padding: 14,
         backgroundColor: '#faf5ff',
         borderRadius: 14, marginBottom: 10,
-        borderWidth: 1.5, borderColor: '#ede9fe',
+        borderWidth: 1.5, borderColor: '#e0f2fe',
     },
-    shopSelectionText: { fontSize: 15, fontWeight: '700', color: '#1e1b4b', flex: 1 },
+    shopSelectionText: { fontSize: 15, fontWeight: '700', color: '#0c4a6e', flex: 1 },
 
     centeredModalOverlay: {
         flex: 1, backgroundColor: 'rgba(0,0,0,0.65)',
@@ -1177,7 +1177,7 @@ const styles = StyleSheet.create({
     modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8, gap: 12 },
     modalButton: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center' },
     cancelButton: { backgroundColor: '#f1f5f9' },
-    saveButton: { backgroundColor: '#7c3aed' },
+    saveButton: { backgroundColor: '#0ea5e9' },
     buttonText: { fontWeight: '700', color: '#475569' },
 
     // AI Insights
@@ -1188,8 +1188,8 @@ const styles = StyleSheet.create({
         marginHorizontal: 20,
         marginBottom: 12,
         borderWidth: 1,
-        borderColor: '#ede9fe',
-        shadowColor: '#7c3aed',
+        borderColor: '#e0f2fe',
+        shadowColor: '#0ea5e9',
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -1197,7 +1197,7 @@ const styles = StyleSheet.create({
     },
     aiInsightsBadge: {
         width: 26, height: 26, borderRadius: 8,
-        backgroundColor: '#7c3aed',
+        backgroundColor: '#0ea5e9',
         justifyContent: 'center', alignItems: 'center',
         marginRight: 8,
     },
@@ -1241,10 +1241,10 @@ const styles = StyleSheet.create({
     chartTitle: { fontSize: 15, fontWeight: '800', color: '#0f172a' },
     dateButton: {
         flexDirection: 'row', alignItems: 'center',
-        backgroundColor: '#f5f3ff', paddingHorizontal: 10,
+        backgroundColor: '#f0f9ff', paddingHorizontal: 10,
         paddingVertical: 6, borderRadius: 10,
     },
-    dateButtonText: { marginLeft: 5, color: '#7c3aed', fontSize: 12, fontWeight: '700' },
+    dateButtonText: { marginLeft: 5, color: '#0ea5e9', fontSize: 12, fontWeight: '700' },
 
     rowContainer: {
         flexDirection: 'row', marginHorizontal: 15,
@@ -1258,10 +1258,10 @@ const styles = StyleSheet.create({
     },
     miniRankBadge: {
         width: 22, height: 22, borderRadius: 11,
-        backgroundColor: '#f5f3ff', justifyContent: 'center',
+        backgroundColor: '#f0f9ff', justifyContent: 'center',
         alignItems: 'center', marginRight: 8,
     },
-    miniRankText: { color: '#7c3aed', fontWeight: '800', fontSize: 10 },
+    miniRankText: { color: '#0ea5e9', fontWeight: '800', fontSize: 10 },
     miniTopItemName: { fontSize: 12, color: '#334155', fontWeight: '600' },
     miniTopItemQty: { fontSize: 10, color: '#94a3b8' },
 
@@ -1274,16 +1274,16 @@ const styles = StyleSheet.create({
         backgroundColor: '#fee2e2', justifyContent: 'center',
         alignItems: 'center', marginRight: 10,
     },
-    rankText: { color: '#7c3aed', fontWeight: '800', fontSize: 12 },
+    rankText: { color: '#0ea5e9', fontWeight: '800', fontSize: 12 },
     topItemName: { flex: 1, fontSize: 14, color: '#334155', fontWeight: '600' },
     topItemQty: { fontSize: 12, color: '#94a3b8', fontWeight: '600' },
 
     paymentOption: {
         flex: 1, alignItems: 'center', padding: 12,
         backgroundColor: '#faf5ff', borderRadius: 14,
-        borderWidth: 1, borderColor: '#ede9fe',
+        borderWidth: 1, borderColor: '#e0f2fe',
     },
-    paymentOptionText: { marginTop: 6, fontSize: 12, fontWeight: '700', color: '#7c3aed' },
+    paymentOptionText: { marginTop: 6, fontSize: 12, fontWeight: '700', color: '#0ea5e9' },
 
     actionRow: {
         flexDirection: 'row', alignItems: 'center',
@@ -1298,9 +1298,9 @@ const styles = StyleSheet.create({
 
     compactActionBtn: {
         flex: 1, flexDirection: 'row', alignItems: 'center',
-        justifyContent: 'center', backgroundColor: '#f5f3ff',
+        justifyContent: 'center', backgroundColor: '#f0f9ff',
         paddingVertical: 12, borderRadius: 14, marginHorizontal: 4,
-        borderWidth: 1, borderColor: '#ede9fe',
+        borderWidth: 1, borderColor: '#e0f2fe',
     },
     compactActionText: { fontSize: 12, fontWeight: '700', color: '#334155', marginLeft: 8 },
 

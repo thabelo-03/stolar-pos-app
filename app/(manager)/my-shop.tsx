@@ -38,7 +38,7 @@ export default function MyShopScreen() {
   if (loading) {
     return (
       <View style={styles.center}>
-        <ActivityIndicator size="large" color="#7c3aed" />
+        <ActivityIndicator size="large" color="#0ea5e9" />
       </View>
     );
   }
@@ -57,7 +57,7 @@ export default function MyShopScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 40 }} showsVerticalScrollIndicator={false}>
-      <LinearGradient colors={['#4f46e5', '#7c3aed', '#9333ea']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0284c7', '#0ea5e9', '#38bdf8']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="white" />
          </TouchableOpacity>
@@ -68,7 +68,7 @@ export default function MyShopScreen() {
       <View style={styles.card}>
         <View style={styles.headerRow}>
           <View style={styles.iconBox}>
-            <Ionicons name="storefront" size={28} color="#7c3aed" />
+            <Ionicons name="storefront" size={28} color="#0ea5e9" />
           </View>
           <View style={{ flex: 1 }}>
             <Text style={styles.shopName}>{shop.name}</Text>
@@ -110,7 +110,7 @@ export default function MyShopScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   header: { 
     padding: 20, 
     flexDirection: 'row', 
@@ -121,13 +121,13 @@ const styles = StyleSheet.create({
   },
   backButton: { padding: 4 },
   headerTitle: { color: 'white', fontSize: 20, fontWeight: 'bold', letterSpacing: 0.5 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f5f3ff', padding: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f9ff', padding: 20 },
   card: { 
     backgroundColor: 'white', 
     borderRadius: 20, 
     padding: 20, 
     margin: 20, 
-    shadowColor: '#4f46e5', 
+    shadowColor: '#0284c7', 
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06, 
     shadowRadius: 16, 
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     width: 56, 
     height: 56, 
     borderRadius: 28, 
-    backgroundColor: '#f5f3ff', 
+    backgroundColor: '#f0f9ff', 
     justifyContent: 'center', 
     alignItems: 'center' 
   },
@@ -148,21 +148,21 @@ const styles = StyleSheet.create({
   infoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
   label: { fontSize: 14, color: '#475569', fontWeight: '600' },
   value: { fontSize: 14, color: '#0f172a', fontWeight: 'bold' },
-  badge: { backgroundColor: '#f5f3ff', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#ddd6fe' },
-  badgeText: { fontSize: 13, fontWeight: '700', color: '#7c3aed' },
+  badge: { backgroundColor: '#f0f9ff', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, borderWidth: 1, borderColor: '#bae6fd' },
+  badgeText: { fontSize: 13, fontWeight: '700', color: '#0ea5e9' },
   errorText: { fontSize: 16, color: '#f43f5e', marginBottom: 15, fontWeight: '600', textAlign: 'center' },
-  backBtn: { paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#ddd6fe' },
-  backText: { color: '#7c3aed', fontWeight: 'bold' },
+  backBtn: { paddingVertical: 12, paddingHorizontal: 24, backgroundColor: '#fff', borderRadius: 12, borderWidth: 1, borderColor: '#bae6fd' },
+  backText: { color: '#0ea5e9', fontWeight: 'bold' },
   actionContainer: { paddingHorizontal: 20 },
   actionBtn: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     justifyContent: 'center', 
-    backgroundColor: '#7c3aed', 
+    backgroundColor: '#0ea5e9', 
     padding: 16, 
     borderRadius: 16, 
     gap: 8,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

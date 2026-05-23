@@ -348,7 +348,7 @@ export default function ManagerAddStockScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-      <LinearGradient colors={['#4f46e5', '#7c3aed', '#9333ea']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
+      <LinearGradient colors={['#0284c7', '#0ea5e9', '#38bdf8']} style={[styles.header, { paddingTop: insets.top + 10 }]}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
@@ -384,7 +384,7 @@ export default function ManagerAddStockScreen() {
                             setActiveScanField('name');
                         }
                     }} style={styles.scanIconBtn}>
-                        <Ionicons name="scan-outline" size={20} color="#7c3aed" />
+                        <Ionicons name="scan-outline" size={20} color="#0ea5e9" />
                     </TouchableOpacity>
                 </View>
                 <Text style={styles.helperText}>Must include weight/volume (e.g. 1kg, 1L)</Text>
@@ -435,7 +435,7 @@ export default function ManagerAddStockScreen() {
                             setActiveScanField('barcode');
                         }
                     }} style={styles.scanIconBtn}>
-                        <Ionicons name="camera-outline" size={20} color="#7c3aed" />
+                        <Ionicons name="camera-outline" size={20} color="#0ea5e9" />
                     </TouchableOpacity>
                 </View>
             </View>
@@ -511,12 +511,12 @@ export default function ManagerAddStockScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 20 }} />
+          <ActivityIndicator size="large" color="#0ea5e9" style={{ marginTop: 20 }} />
         ) : (
           <View style={styles.actionContainer}>
             {!isEditMode && (
               <TouchableOpacity style={styles.secondaryButton} onPress={() => handleSave(true)} disabled={loading}>
-                <Ionicons name="duplicate-outline" size={20} color="#7c3aed" style={{ marginRight: 8 }} />
+                <Ionicons name="duplicate-outline" size={20} color="#0ea5e9" style={{ marginRight: 8 }} />
                 <Text style={styles.secondaryButtonText}>Save & Add Another</Text>
               </TouchableOpacity>
             )}
@@ -557,7 +557,7 @@ export default function ManagerAddStockScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -573,7 +573,7 @@ const styles = StyleSheet.create({
   
   form: { padding: 20, gap: 20, paddingBottom: 120 },
   
-  card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 20, shadowColor: '#4f46e5', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  card: { backgroundColor: '#ffffff', borderRadius: 20, padding: 20, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
   cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a', marginBottom: 16, textTransform: 'uppercase', letterSpacing: 1 },
   cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
 
@@ -586,34 +586,34 @@ const styles = StyleSheet.create({
   scanIconBtn: { padding: 10, borderLeftWidth: 1, borderLeftColor: '#e2e8f0' },
   
   chipScroll: { marginTop: 10, flexDirection: 'row' },
-  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f5f3ff', marginRight: 8, borderWidth: 1, borderColor: '#ddd6fe' },
-  activeChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
-  chipText: { color: '#7c3aed', fontSize: 13, fontWeight: '600' },
+  chip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f0f9ff', marginRight: 8, borderWidth: 1, borderColor: '#bae6fd' },
+  activeChip: { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' },
+  chipText: { color: '#0ea5e9', fontSize: 13, fontWeight: '600' },
   activeChipText: { color: '#ffffff' },
 
   currencyToggle: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 10, padding: 3 },
   currBtn: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8 },
-  currBtnActive: { backgroundColor: 'white', shadowColor: '#4f46e5', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+  currBtnActive: { backgroundColor: 'white', shadowColor: '#0284c7', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
   currText: { fontSize: 12, fontWeight: '600', color: '#475569' },
-  currTextActive: { color: '#7c3aed' },
+  currTextActive: { color: '#0ea5e9' },
   currencySymbol: { fontSize: 18, fontWeight: 'bold', color: '#475569', marginLeft: 15, marginRight: 5 },
 
   row: { flexDirection: 'row', gap: 15 },
   
-  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f5f3ff', padding: 12, borderRadius: 12 },
+  marginContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 5, marginBottom: 15, backgroundColor: '#f0f9ff', padding: 12, borderRadius: 12 },
   marginLabel: { fontSize: 14, fontWeight: '600', color: '#475569' },
   marginBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 },
   marginValue: { fontSize: 14, fontWeight: 'bold' },
 
   actionContainer: { gap: 12, marginTop: 10 },
   primaryButton: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#0ea5e9',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -625,17 +625,17 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   secondaryButton: {
-    backgroundColor: '#f5f3ff',
+    backgroundColor: '#f0f9ff',
     paddingVertical: 16,
     borderRadius: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#ddd6fe',
+    borderColor: '#bae6fd',
   },
   secondaryButtonText: {
-    color: '#7c3aed',
+    color: '#0ea5e9',
     fontSize: 16,
     fontWeight: 'bold',
   },
@@ -648,11 +648,11 @@ const styles = StyleSheet.create({
     width: 280, 
     height: 180, 
     borderWidth: 2, 
-    borderColor: '#7c3aed', 
+    borderColor: '#0ea5e9', 
     backgroundColor: 'transparent', 
     borderRadius: 15, 
     marginBottom: 20,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.8,
     shadowRadius: 10,
@@ -660,5 +660,5 @@ const styles = StyleSheet.create({
   textScanFrame: { height: 100, borderStyle: 'dashed' },
   scanText: { color: 'white', fontSize: 18, fontWeight: 'bold', backgroundColor: 'rgba(0,0,0,0.5)', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 10 },
   shutterButton: { width: 70, height: 70, borderRadius: 35, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', position: 'absolute', bottom: 50 },
-  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#7c3aed' },
+  shutterInner: { width: 60, height: 60, borderRadius: 30, borderWidth: 3, borderColor: '#0ea5e9' },
 });

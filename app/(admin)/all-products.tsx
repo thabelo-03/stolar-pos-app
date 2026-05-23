@@ -78,7 +78,7 @@ export default function AllProducts() {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={styles.iconContainer}>
-          <Ionicons name="cube-outline" size={22} color="#7c3aed" />
+          <Ionicons name="cube-outline" size={22} color="#0ea5e9" />
         </View>
         <View style={{ flex: 1 }}>
           <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
@@ -111,7 +111,7 @@ export default function AllProducts() {
       
       {/* Header Section */}
       <LinearGradient 
-        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
         start={{ x: 0, y: 0 }} 
         end={{ x: 1, y: 1 }} 
         style={[styles.header, { paddingTop: insets.top + 15 }]}
@@ -150,7 +150,7 @@ export default function AllProducts() {
       {/* Content Section */}
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#7c3aed" />
+          <ActivityIndicator size="large" color="#0ea5e9" />
         </View>
       ) : (
         <FlatList
@@ -159,11 +159,11 @@ export default function AllProducts() {
           renderItem={renderProductItem}
           contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} tintColor="#0ea5e9" />
           }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="basket-outline" size={64} color="#ddd6fe" style={{ marginBottom: 16 }} />
+              <Ionicons name="basket-outline" size={64} color="#bae6fd" style={{ marginBottom: 16 }} />
               <Text style={styles.emptyText}>No products found</Text>
             </View>
           }
@@ -174,7 +174,7 @@ export default function AllProducts() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   
   // Header
@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: "#4f46e5",
+    shadowColor: "#0284c7",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -220,7 +220,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginBottom: 16,
     padding: 16,
-    shadowColor: '#4f46e5',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
@@ -229,7 +229,7 @@ const styles = StyleSheet.create({
   cardHeader: { flexDirection: 'row', alignItems: 'center' },
   iconContainer: {
     width: 44, height: 44,
-    backgroundColor: '#f5f3ff',
+    backgroundColor: '#f0f9ff',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',

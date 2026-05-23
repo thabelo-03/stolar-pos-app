@@ -127,7 +127,7 @@ export default function SalesReports() {
         </LinearGradient>
 
         <LinearGradient
-          colors={['#6366f1', '#4f46e5']}
+          colors={['#6366f1', '#0284c7']}
           style={styles.summaryCard}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
@@ -175,7 +175,7 @@ export default function SalesReports() {
       
       {/* Lavender Header Background */}
       <LinearGradient
-        colors={['#4f46e5', '#7c3aed', '#9333ea']}
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -196,7 +196,7 @@ export default function SalesReports() {
 
       {loading ? (
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#7c3aed" />
+          <ActivityIndicator size="large" color="#0ea5e9" />
         </View>
       ) : (
         <FlatList
@@ -208,14 +208,14 @@ export default function SalesReports() {
             <RefreshControl 
               refreshing={refreshing} 
               onRefresh={onRefresh} 
-              colors={['#7c3aed']} 
-              tintColor="#7c3aed" 
+              colors={['#0ea5e9']} 
+              tintColor="#0ea5e9" 
             />
           }
           renderItem={({ item }) => (
             <View style={styles.saleCard}>
               <View style={styles.iconBox}>
-                <Ionicons name="receipt-outline" size={20} color="#7c3aed" />
+                <Ionicons name="receipt-outline" size={20} color="#0ea5e9" />
               </View>
               <View style={styles.saleInfo}>
                 <Text style={styles.saleTotal}>${item.total.toFixed(2)}</Text>
@@ -248,18 +248,18 @@ const chartConfig = {
   backgroundGradientFrom: '#ffffff',
   backgroundGradientTo: '#ffffff',
   decimalPlaces: 0, 
-  color: (opacity = 1) => `rgba(124, 58, 237, ${opacity})`, // Purple/Violet Lines
+  color: (opacity = 1) => `rgba(14, 165, 233, ${opacity})`, // Light Blue Lines
   labelColor: (opacity = 1) => `rgba(100, 116, 139, ${opacity})`, // Grey Labels
   style: { borderRadius: 16 },
   propsForDots: {
     r: '5',
     strokeWidth: '2.5',
-    stroke: '#9333ea',
+    stroke: '#38bdf8',
   },
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   // Header
@@ -269,7 +269,7 @@ const styles = StyleSheet.create({
     paddingBottom: 30,
     borderBottomLeftRadius: 32,
     borderBottomRightRadius: 32,
-    shadowColor: "#7c3aed",
+    shadowColor: "#0ea5e9",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
     shadowRadius: 8,
@@ -317,7 +317,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOpacity: 0.1,
     shadowOffset: { width: 0, height: 4 },
     shadowRadius: 10,
@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 24,
     borderRadius: 24,
     padding: 16,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.05,
     shadowRadius: 12,
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.03,
     shadowRadius: 8,

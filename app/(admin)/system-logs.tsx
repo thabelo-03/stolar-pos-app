@@ -184,7 +184,7 @@ export default function SystemLogs() {
       
       {/* Top Header */}
       <LinearGradient 
-        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
         start={{ x: 0, y: 0 }} 
         end={{ x: 1, y: 1 }} 
         style={[styles.header, { paddingTop: insets.top + 15 }]}
@@ -215,10 +215,10 @@ export default function SystemLogs() {
 
         {/* Search */}
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#ddd6fe" />
+          <Ionicons name="search" size={20} color="#bae6fd" />
           <TextInput
             placeholder="Search terminal events..."
-            placeholderTextColor="#ddd6fe"
+            placeholderTextColor="#bae6fd"
             style={styles.searchInput}
             value={searchTerm}
             onChangeText={setSearchTerm}
@@ -228,7 +228,7 @@ export default function SystemLogs() {
             <Ionicons 
               name="close-circle" 
               size={20} 
-              color="#ddd6fe" 
+              color="#bae6fd" 
               onPress={() => setSearchTerm('')} 
             />
           )}
@@ -257,11 +257,11 @@ export default function SystemLogs() {
         renderItem={renderLogItem}
         contentContainerStyle={styles.listContent}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#7c3aed']} tintColor="#7c3aed" />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} tintColor="#0ea5e9" />
         }
         ListEmptyComponent={
           <View style={styles.emptyState}>
-            <Ionicons name="server-outline" size={64} color="#ddd6fe" style={{ marginBottom: 16 }} />
+            <Ionicons name="server-outline" size={64} color="#bae6fd" style={{ marginBottom: 16 }} />
             <Text style={styles.emptyText}>No terminal events matched query.</Text>
           </View>
         }
@@ -270,7 +270,7 @@ export default function SystemLogs() {
       {/* Floating Share Button */}
       <TouchableOpacity style={styles.fab} onPress={handleCopyLogs}>
         <LinearGradient
-          colors={['#4f46e5', '#7c3aed']}
+          colors={['#0284c7', '#0ea5e9']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={styles.fabGradient}
@@ -284,7 +284,7 @@ export default function SystemLogs() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   
   // Header
   header: {
@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
-    shadowColor: "#4f46e5",
+    shadowColor: "#0284c7",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 12,
@@ -340,8 +340,8 @@ const styles = StyleSheet.create({
   },
   tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 10 },
   tabActive: { backgroundColor: 'white' },
-  tabText: { color: '#ddd6fe', fontWeight: '600', fontSize: 11 },
-  tabTextActive: { color: '#7c3aed', fontWeight: '700' },
+  tabText: { color: '#bae6fd', fontWeight: '600', fontSize: 11 },
+  tabTextActive: { color: '#0ea5e9', fontWeight: '700' },
 
   // List Feed
   listContent: { padding: 16, paddingBottom: 100 },
@@ -351,7 +351,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 12,
     borderLeftWidth: 4,
-    shadowColor: '#4f46e5',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.03,
     shadowRadius: 8,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
     right: 24,
     borderRadius: 24,
     elevation: 5,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 6,

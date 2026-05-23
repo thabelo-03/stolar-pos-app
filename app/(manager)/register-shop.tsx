@@ -97,7 +97,7 @@ export default function RegisterShop() {
   return (
     <View style={styles.container}>
       <LinearGradient 
-        colors={['#4f46e5', '#7c3aed', '#9333ea']} 
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
         start={{ x: 0, y: 0 }} 
         end={{ x: 1, y: 1 }} 
         style={[styles.header, { paddingTop: insets.top + 15 }]}
@@ -112,7 +112,7 @@ export default function RegisterShop() {
         <View style={styles.form}>
           <Text style={styles.label}>Shop Name</Text>
           <View style={styles.inputContainer}>
-              <Ionicons name="storefront" size={20} color="#7c3aed" style={styles.icon} />
+              <Ionicons name="storefront" size={20} color="#0ea5e9" style={styles.icon} />
               <TextInput 
                 placeholder="e.g. Zondo General Dealer" 
                 placeholderTextColor="#94a3b8"
@@ -124,7 +124,7 @@ export default function RegisterShop() {
 
           <Text style={styles.label}>Shop Location</Text>
           <View style={styles.inputContainer}>
-              <Ionicons name="location" size={20} color="#7c3aed" style={styles.icon} />
+              <Ionicons name="location" size={20} color="#0ea5e9" style={styles.icon} />
               <TextInput 
                 placeholder="e.g. Khalanyoni" 
                 placeholderTextColor="#94a3b8"
@@ -135,7 +135,7 @@ export default function RegisterShop() {
           </View>
 
           <TouchableOpacity 
-            style={[styles.btn, loading && { backgroundColor: '#a78bfa' }]} 
+            style={[styles.btn, loading && { backgroundColor: '#7dd3fc' }]} 
             onPress={() => handleRegisterShop(false)}
             disabled={loading}
           >
@@ -158,7 +158,7 @@ export default function RegisterShop() {
             </View>
             
             <Text style={styles.premiumDesc}>
-              You are adding multiple shops. This requires the <Text style={{fontWeight: 'bold', color: '#7c3aed'}}>Premium Plan</Text>.
+              You are adding multiple shops. This requires the <Text style={{fontWeight: 'bold', color: '#0ea5e9'}}>Premium Plan</Text>.
             </Text>
 
             <View style={styles.planDetails}>
@@ -192,7 +192,7 @@ export default function RegisterShop() {
             </View>
 
             <TouchableOpacity 
-              style={[styles.modalBtn, { backgroundColor: '#7c3aed' }]} 
+              style={[styles.modalBtn, { backgroundColor: '#0ea5e9' }]} 
               onPress={() => handleRegisterShop(true)}
             >
               <Text style={styles.modalBtnText}>Accept & Create Shop</Text>
@@ -235,7 +235,7 @@ export default function RegisterShop() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   header: {
     paddingHorizontal: 20,
     paddingBottom: 20,
@@ -260,7 +260,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 20,
     margin: 20,
-    shadowColor: '#4f46e5',
+    shadowColor: '#0284c7',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.06,
     shadowRadius: 16,
@@ -271,12 +271,12 @@ const styles = StyleSheet.create({
   icon: { marginRight: 10 },
   input: { flex: 1, fontSize: 16, color: '#0f172a', height: '100%' },
   btn: { 
-    backgroundColor: '#7c3aed', 
+    backgroundColor: '#0ea5e9', 
     paddingVertical: 16, 
     borderRadius: 16, 
     alignItems: 'center', 
     marginTop: 10,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,
@@ -286,22 +286,22 @@ const styles = StyleSheet.create({
   
   // Modal Styles
   modalOverlay: { flex: 1, backgroundColor: 'rgba(5, 7, 14, 0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: 'white', width: '85%', borderRadius: 24, padding: 30, alignItems: 'center', shadowColor: '#4f46e5', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
+  modalContent: { backgroundColor: 'white', width: '85%', borderRadius: 24, padding: 30, alignItems: 'center', shadowColor: '#0284c7', shadowOpacity: 0.15, shadowRadius: 20, elevation: 10 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: '#0f172a', marginTop: 10, textAlign: 'center' },
   modalSub: { color: '#475569', fontSize: 15, marginTop: 10 },
-  codeBox: { backgroundColor: '#f5f3ff', padding: 15, borderRadius: 16, width: '100%', alignItems: 'center', marginVertical: 20, borderWidth: 1, borderColor: '#ddd6fe' },
-  codeText: { fontSize: 32, fontWeight: 'bold', color: '#7c3aed', letterSpacing: 2 },
-  modalBtn: { backgroundColor: '#7c3aed', width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
+  codeBox: { backgroundColor: '#f0f9ff', padding: 15, borderRadius: 16, width: '100%', alignItems: 'center', marginVertical: 20, borderWidth: 1, borderColor: '#bae6fd' },
+  codeText: { fontSize: 32, fontWeight: 'bold', color: '#0ea5e9', letterSpacing: 2 },
+  modalBtn: { backgroundColor: '#0ea5e9', width: '100%', paddingVertical: 16, borderRadius: 16, alignItems: 'center' },
   modalBtnText: { color: 'white', fontWeight: 'bold', fontSize: 16 },
   
   // Premium Modal Specifics
   premiumHeader: { alignItems: 'center', marginBottom: 10 },
   premiumDesc: { textAlign: 'center', color: '#475569', marginBottom: 20, fontSize: 15, lineHeight: 22 },
-  planDetails: { width: '100%', backgroundColor: '#f5f3ff', padding: 15, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#ddd6fe' },
+  planDetails: { width: '100%', backgroundColor: '#f0f9ff', padding: 15, borderRadius: 16, marginBottom: 20, borderWidth: 1, borderColor: '#bae6fd' },
   planRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   planText: { marginLeft: 10, color: '#475569', fontSize: 14, fontWeight: '500' },
   priceTag: { marginTop: 10, alignItems: 'center', borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: 10 },
-  priceText: { fontSize: 18, fontWeight: 'bold', color: '#7c3aed' },
+  priceText: { fontSize: 18, fontWeight: 'bold', color: '#0ea5e9' },
   noteText: { fontSize: 11, color: '#94a3b8', marginTop: 15, textAlign: 'center', fontStyle: 'italic' },
   
   paymentInfoBox: { width: '100%', backgroundColor: '#f0fdf4', padding: 12, borderRadius: 12, marginBottom: 15, borderWidth: 1, borderColor: '#bbf7d0' },

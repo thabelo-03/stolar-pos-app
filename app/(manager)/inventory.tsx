@@ -412,12 +412,12 @@ export default function ManagerInventoryScreen() {
               margin: 0;
             }
             .header-banner {
-              background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+              background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
               border-radius: 16px;
               padding: 24px;
               color: #ffffff;
               margin-bottom: 24px;
-              box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
+              box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
             }
             .header-title {
               font-family: 'Outfit', sans-serif;
@@ -442,7 +442,7 @@ export default function ManagerInventoryScreen() {
               margin-bottom: 28px;
             }
             .kpi-card {
-              border: 1px solid #ede9fe;
+              border: 1px solid #e0f2fe;
               border-radius: 14px;
               padding: 16px;
               background-color: #faf5ff;
@@ -451,7 +451,7 @@ export default function ManagerInventoryScreen() {
             .kpi-label {
               font-size: 10px;
               font-weight: 700;
-              color: #7c3aed;
+              color: #0ea5e9;
               text-transform: uppercase;
               letter-spacing: 0.5px;
               margin-bottom: 6px;
@@ -459,14 +459,14 @@ export default function ManagerInventoryScreen() {
             .kpi-value {
               font-size: 18px;
               font-weight: 800;
-              color: #1e1b4b;
+              color: #0c4a6e;
             }
             .kpi-highlight {
-              background-color: #f5f3ff;
-              border-color: #ddd6fe;
+              background-color: #f0f9ff;
+              border-color: #bae6fd;
             }
             .kpi-highlight .kpi-label {
-              color: #7c3aed;
+              color: #0ea5e9;
             }
             .kpi-highlight .kpi-value {
               color: #5b21b6;
@@ -599,7 +599,7 @@ export default function ManagerInventoryScreen() {
                 <td colspan="2" style="text-transform: uppercase; letter-spacing: 0.5px;">Grand Total Valuation</td>
                 <td style="text-align: right; font-weight: 800;">${totalStock} Units</td>
                 <td></td>
-                <td style="text-align: right; color: #7c3aed; font-size: 14px; font-weight: 800;">${symbol}${stats.totalValue.toFixed(2)}</td>
+                <td style="text-align: right; color: #0ea5e9; font-size: 14px; font-weight: 800;">${symbol}${stats.totalValue.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>
@@ -624,7 +624,7 @@ export default function ManagerInventoryScreen() {
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       {/* Header with LinearGradient */}
       <LinearGradient
-        colors={['#4f46e5', '#7c3aed', '#9333ea']}
+        colors={['#0284c7', '#0ea5e9', '#38bdf8']}
         style={styles.header}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
@@ -677,7 +677,7 @@ export default function ManagerInventoryScreen() {
 
         {/* Search Bar */}
         <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#7c3aed" style={styles.searchIcon} />
+          <Ionicons name="search" size={20} color="#0ea5e9" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search by name or barcode..."
@@ -693,7 +693,7 @@ export default function ManagerInventoryScreen() {
               setIsScanning(true);
             }
           }}>
-            <MaterialCommunityIcons name="barcode-scan" size={22} color="#7c3aed" />
+            <MaterialCommunityIcons name="barcode-scan" size={22} color="#0ea5e9" />
           </TouchableOpacity>
         </View>
       </LinearGradient>
@@ -720,7 +720,7 @@ export default function ManagerInventoryScreen() {
             style={styles.filterChip} 
             onPress={() => setCurrency(prev => prev === 'USD' ? 'ZAR' : 'USD')}
           >
-            <Text style={[styles.filterText, { color: '#7c3aed' }]}>{currency}</Text>
+            <Text style={[styles.filterText, { color: '#0ea5e9' }]}>{currency}</Text>
           </TouchableOpacity>
 
           <View style={styles.verticalDivider} />
@@ -784,7 +784,7 @@ export default function ManagerInventoryScreen() {
       </Modal>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 40 }} />
+        <ActivityIndicator size="large" color="#0ea5e9" style={{ marginTop: 40 }} />
       ) : (
         <FlatList
           ref={flatListRef}
@@ -811,7 +811,7 @@ export default function ManagerInventoryScreen() {
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
                   <View style={styles.iconBox}>
-                    <MaterialCommunityIcons name="cube-outline" size={22} color="#7c3aed" />
+                    <MaterialCommunityIcons name="cube-outline" size={22} color="#0ea5e9" />
                   </View>
                   <View style={{ flex: 1 }}>
                     <Text style={styles.itemName}>{displayName}</Text>
@@ -872,7 +872,7 @@ export default function ManagerInventoryScreen() {
             );
           }}
           contentContainerStyle={styles.listContent}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#7c3aed" />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#0ea5e9" />}
           ListEmptyComponent={
             <ThemedText style={styles.emptyText}>No inventory items found.</ThemedText>
           }
@@ -926,7 +926,7 @@ export default function ManagerInventoryScreen() {
               
               <TouchableOpacity style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }} onPress={handleBulkUpdate}>
                 <LinearGradient
-                  colors={['#4f46e5', '#7c3aed']}
+                  colors={['#0284c7', '#0ea5e9']}
                   style={{ padding: 14, alignItems: 'center', justifyContent: 'center' }}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -1088,9 +1088,9 @@ export default function ManagerInventoryScreen() {
                             style={[styles.shopOption, targetShopId === shop._id && styles.shopOptionActive]}
                             onPress={() => setTargetShopId(shop._id)}
                         >
-                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#7c3aed' : '#64748b'} />
+                            <Ionicons name="storefront-outline" size={18} color={targetShopId === shop._id ? '#0ea5e9' : '#64748b'} />
                             <Text style={[styles.shopOptionText, targetShopId === shop._id && styles.shopOptionTextActive]}>{shop.name}</Text>
-                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#7c3aed" style={{marginLeft: 'auto'}} />}
+                            {targetShopId === shop._id && <Ionicons name="checkmark-circle" size={18} color="#0ea5e9" style={{marginLeft: 'auto'}} />}
                         </TouchableOpacity>
                     ))
                 )}
@@ -1103,7 +1103,7 @@ export default function ManagerInventoryScreen() {
               
               <TouchableOpacity style={{ flex: 1, borderRadius: 12, overflow: 'hidden' }} onPress={submitTransfer}>
                 <LinearGradient
-                  colors={['#4f46e5', '#7c3aed']}
+                  colors={['#0284c7', '#0ea5e9']}
                   style={{ padding: 14, alignItems: 'center', justifyContent: 'center' }}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 0 }}
@@ -1120,7 +1120,7 @@ export default function ManagerInventoryScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f5f3ff' },
+  container: { flex: 1, backgroundColor: '#f0f9ff' },
   header: {
     paddingTop: 50,
     paddingBottom: 24,
@@ -1169,7 +1169,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     paddingHorizontal: 16,
     height: 52,
-    shadowColor: '#7c3aed',
+    shadowColor: '#0ea5e9',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -1194,7 +1194,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 1,
   },
-  activeFilterChip: { backgroundColor: '#7c3aed', borderColor: '#7c3aed' },
+  activeFilterChip: { backgroundColor: '#0ea5e9', borderColor: '#0ea5e9' },
   filterText: { color: '#64748b', fontWeight: '700', fontSize: 13 },
   activeFilterText: { color: 'white' },
   verticalDivider: { width: 1, height: '100%', backgroundColor: '#cbd5e1', marginHorizontal: 5 },
@@ -1204,7 +1204,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'white', 
     borderRadius: 20, 
     padding: 16, 
-    shadowColor: '#7c3aed', 
+    shadowColor: '#0ea5e9', 
     shadowOffset: { width: 0, height: 4 }, 
     shadowOpacity: 0.05, 
     shadowRadius: 10, 
@@ -1281,7 +1281,7 @@ const styles = StyleSheet.create({
   tabBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 8 },
   activeTabBtn: { backgroundColor: 'white', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 3, elevation: 1 },
   tabText: { fontSize: 13, fontWeight: '700', color: '#64748b' },
-  activeTabText: { color: '#7c3aed' },
+  activeTabText: { color: '#0ea5e9' },
   modalInput: { borderWidth: 1.5, borderColor: '#cbd5e1', borderRadius: 12, padding: 14, fontSize: 16, marginBottom: 20, textAlign: 'center', backgroundColor: '#f8fafc', color: '#0f172a', fontWeight: '700' },
   modalActions: { flexDirection: 'row', gap: 12 },
   modalBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
@@ -1336,25 +1336,25 @@ const styles = StyleSheet.create({
   historyHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 },
   historyUser: { fontWeight: '800', color: '#0f172a', fontSize: 14 },
   historyDate: { color: '#94a3b8', fontSize: 12, fontWeight: '500' },
-  historyAction: { fontSize: 12, color: '#7c3aed', fontWeight: '800', marginBottom: 2 },
+  historyAction: { fontSize: 12, color: '#0ea5e9', fontWeight: '800', marginBottom: 2 },
   historyDetails: { fontSize: 13, color: '#475569', fontWeight: '500' },
   restoreBtn: { backgroundColor: '#f3e8ff', paddingHorizontal: 10, paddingVertical: 6, borderRadius: 8, borderWidth: 1, borderColor: '#d8b4fe' },
-  restoreText: { fontSize: 11, color: '#7c3aed', fontWeight: '800' },
+  restoreText: { fontSize: 11, color: '#0ea5e9', fontWeight: '800' },
   shopOption: { flexDirection: 'row', alignItems: 'center', padding: 14, borderRadius: 12, borderWidth: 1, borderColor: '#cbd5e1', marginBottom: 8, backgroundColor: '#f8fafc' },
-  shopOptionActive: { borderColor: '#7c3aed', backgroundColor: '#f5f3ff' },
+  shopOptionActive: { borderColor: '#0ea5e9', backgroundColor: '#f0f9ff' },
   shopOptionText: { marginLeft: 10, fontSize: 14, color: '#64748b', fontWeight: '600' },
-  shopOptionTextActive: { color: '#7c3aed', fontWeight: '800' },
+  shopOptionTextActive: { color: '#0ea5e9', fontWeight: '800' },
   scrollTopButton: {
     position: 'absolute',
     bottom: 40,
     right: 20,
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#0ea5e9',
     width: 48,
     height: 48,
     borderRadius: 24,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    shadowColor: '#7c3aed', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
+    shadowColor: '#0ea5e9', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.4, shadowRadius: 10,
   },
 });
