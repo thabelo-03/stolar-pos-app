@@ -472,20 +472,91 @@ export default function ProfitReportScreen() {
         <DateTimePicker value={date} mode="date" display="default" onChange={onChange} />
       )}
 
-      {/* Stats Grid */}
-      <View style={styles.statsGrid}>
-        <View style={[styles.card, { backgroundColor: 'rgba(56, 189, 248, 0.08)', borderColor: 'rgba(56, 189, 248, 0.15)', borderWidth: 1 }]}>
-          <Text style={styles.cardLabel}>Revenue</Text>
-          <Text style={[styles.cardValue, { color: '#38bdf8' }]}>{symbol} {reportData.revenue.toFixed(0)}</Text>
+      {/* Unified performance card */}
+      <View style={[styles.unifiedCard, { backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1 }]}>
+        {/* Performance Indicator Header */}
+        <View style={styles.cardHeader}>
+          <View>
+            <Text style={styles.cardSubtitle}>NET PERFORMANCE</Text>
+            <Text style={[styles.mainProfitValue, { color: reportData.profit >= 0 ? '#10b981' : '#f43f5e' }]}>
+              {symbol} {reportData.profit.toFixed(2)}
+            </Text>
+          </View>
+          <View style={[
+            styles.marginBadge, 
+            { backgroundColor: reportData.profit >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)' }
+          ]}>
+            <Text style={[
+              styles.marginBadgeText, 
+              { color: reportData.profit >= 0 ? '#10b981' : '#f43f5e' }
+            ]}>
+              {reportData.margin.toFixed(1)}% Margin
+            </Text>
+          </View>
         </View>
-        <View style={[styles.card, { backgroundColor: 'rgba(244, 63, 94, 0.08)', borderColor: 'rgba(244, 63, 94, 0.15)', borderWidth: 1 }]}>
-          <Text style={styles.cardLabel}>COGS</Text>
-          <Text style={[styles.cardValue, { color: '#f43f5e' }]}>{symbol} {reportData.cost.toFixed(0)}</Text>
+
+        {/* Cost Ratio Progress Bar */}
+        <View style={styles.progressContainer}>
+          <View style={styles.progressLabels}>
+            <Text style={styles.progressLabelText}>Cost of Sales Ratio</Text>
+            <Text style={styles.progressValueText}>
+              {(reportData.revenue > 0 ? (reportData.cost / reportData.revenue) * 100 : 0).toFixed(0)}%
+            </Text>
+          </View>
+          <View style={styles.progressBarTrack}>
+            <View style={[
+              styles.progressBarFill, 
+              { 
+                width: `${Math.min(100, Math.max(0, reportData.revenue > 0 ? (reportData.cost / reportData.revenue) * 100 : 0))}%`,
+                backgroundColor: '#f43f5e'
+              }
+            ]} />
+          </View>
         </View>
-        <View style={[styles.card, { backgroundColor: 'rgba(16, 185, 129, 0.08)', borderColor: 'rgba(16, 185, 129, 0.18)', borderWidth: 1, width: '100%' }]}>
-          <Text style={styles.cardLabel}>Net Profit</Text>
-          <Text style={[styles.cardValue, { color: '#10b981', fontSize: 28 }]}>{symbol} {reportData.profit.toFixed(2)}</Text>
-          <Text style={{ color: '#34d399', fontWeight: '600', marginTop: 4 }}>Margin: {reportData.margin.toFixed(1)}%</Text>
+
+        <View style={styles.cardDivider} />
+
+        {/* Columns for Revenue & Cost */}
+        <View style={styles.gridRow}>
+          {/* Gross Revenue */}
+          <View style={styles.gridCol}>
+            <View style={styles.colHeader}>
+              <View style={[styles.miniIconBox, { backgroundColor: 'rgba(56, 189, 248, 0.15)' }]}>
+                <Ionicons name="trending-up" size={12} color="#38bdf8" />
+              </View>
+              <Text style={styles.colLabel}>GROSS REVENUE</Text>
+            </View>
+            <Text style={[styles.colValue, { color: '#38bdf8' }]}>
+              {symbol} {reportData.revenue.toFixed(0)}
+            </Text>
+          </View>
+
+          {/* COGS */}
+          <View style={styles.gridCol}>
+            <View style={styles.colHeader}>
+              <View style={[styles.miniIconBox, { backgroundColor: 'rgba(244, 63, 94, 0.15)' }]}>
+                <Ionicons name="trending-down" size={12} color="#f43f5e" />
+              </View>
+              <Text style={styles.colLabel}>TOTAL COGS</Text>
+            </View>
+            <Text style={[styles.colValue, { color: Colors.dark.text }]}>
+              {symbol} {reportData.cost.toFixed(0)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Actionable performance status summary */}
+        <View style={styles.cardFooter}>
+          <Ionicons 
+            name={reportData.profit >= 0 ? "checkmark-circle" : "alert-circle"} 
+            size={16} 
+            color={reportData.profit >= 0 ? '#10b981' : '#f43f5e'} 
+          />
+          <Text style={styles.footerText}>
+            {reportData.profit >= 0 
+              ? "Shop is operating profitably. High margins detected." 
+              : "Expenses exceed revenue. Review stock cost prices."}
+          </Text>
         </View>
       </View>
 
@@ -573,6 +644,119 @@ const styles = StyleSheet.create({
   toggleText: { color: Colors.dark.textSecondary, fontWeight: '600', fontSize: 11 },
   toggleTextActive: { color: '#0a0f1e', fontWeight: 'bold' },
 
+  unifiedCard: {
+    padding: 20,
+    borderRadius: 24,
+    marginHorizontal: 20,
+    marginBottom: 20,
+    elevation: 4,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  cardSubtitle: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  mainProfitValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  marginBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  marginBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressContainer: {
+    marginBottom: 16,
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  progressLabelText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  progressValueText: {
+    color: '#f8fafc',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressBarTrack: {
+    height: 5,
+    backgroundColor: '#1e293b',
+    borderRadius: 2.5,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2.5,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#1e293b',
+    marginVertical: 4,
+    opacity: 0.4,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 8,
+  },
+  gridCol: {
+    flex: 1,
+  },
+  colHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  miniIconBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colLabel: {
+    color: '#94a3b8',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  colValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.02)',
+    padding: 8,
+    borderRadius: 10,
+  },
+  footerText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '500',
+    flex: 1,
+  },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingHorizontal: 20, marginBottom: 20 },
   card: { width: '48%', backgroundColor: Colors.dark.surface, borderColor: Colors.dark.border, borderWidth: 1, padding: 15, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
   cardLabel: { fontSize: 12, fontWeight: '600', color: Colors.dark.textSecondary, marginBottom: 5 },

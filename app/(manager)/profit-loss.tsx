@@ -175,7 +175,8 @@ export default function ProfitLoss() {
           
           if (costPrice === 0) console.log(`[DEBUG] Item ${item.name} has 0 cost price!`);
           
-          totalCOGS += (costPrice * quantity);
+          // Convert cost price to the selected currency to ensure consistency in calculations
+          totalCOGS += convert(costPrice) * quantity;
         });
       }
     });
@@ -347,28 +348,96 @@ export default function ProfitLoss() {
               </ScrollView>
             </View>
 
-            <View style={styles.statCard}>
-              <Text style={styles.statLabel}>Total Revenue</Text>
-              <Text style={[styles.statValue, { color: '#0ea5e9' }]}>{symbol} {stats.revenue.toFixed(2)}</Text>
-            </View>
-            
-            <View style={styles.statCard}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-                <Text style={styles.statLabel}>COGS (Cost of Goods)</Text>
-                <Ionicons name="information-circle-outline" size={16} color="#64748b" />
-              </View>
-              <Text style={[styles.statValue, { color: '#f43f5e' }]}>{symbol} {stats.cogs.toFixed(2)}</Text>
-            </View>
-
             <LinearGradient
-              colors={stats.profit >= 0 ? ['#10b981', '#059669'] : ['#f43f5e', '#e11d48']}
+              colors={['#0f172a', '#1e293b']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
-              style={[styles.statCard, styles.profitCard]}
+              style={styles.unifiedCard}
             >
-              <Text style={styles.profitLabel}>Net Profit</Text>
-              <Text style={styles.profitValue}>{symbol} {stats.profit.toFixed(2)}</Text>
-              <Text style={styles.profitSubtext}>(Revenue - COGS)</Text>
+              {/* Performance Indicator Header */}
+              <View style={styles.cardHeader}>
+                <View>
+                  <Text style={styles.cardSubtitle}>NET PERFORMANCE</Text>
+                  <Text style={[styles.mainProfitValue, { color: stats.profit >= 0 ? '#10b981' : '#f43f5e' }]}>
+                    {symbol} {stats.profit.toFixed(2)}
+                  </Text>
+                </View>
+                <View style={[
+                  styles.marginBadge, 
+                  { backgroundColor: stats.profit >= 0 ? 'rgba(16, 185, 129, 0.12)' : 'rgba(244, 63, 94, 0.12)' }
+                ]}>
+                  <Text style={[
+                    styles.marginBadgeText, 
+                    { color: stats.profit >= 0 ? '#10b981' : '#f43f5e' }
+                  ]}>
+                    {(stats.revenue > 0 ? (stats.profit / stats.revenue) * 100 : 0).toFixed(1)}% Margin
+                  </Text>
+                </View>
+              </View>
+
+              {/* Cost Ratio Progress Bar */}
+              <View style={styles.progressContainer}>
+                <View style={styles.progressLabels}>
+                  <Text style={styles.progressLabelText}>Cost of Sales Ratio</Text>
+                  <Text style={styles.progressValueText}>
+                    {(stats.revenue > 0 ? (stats.cogs / stats.revenue) * 100 : 0).toFixed(0)}%
+                  </Text>
+                </View>
+                <View style={styles.progressBarTrack}>
+                  <View style={[
+                    styles.progressBarFill, 
+                    { 
+                      width: `${Math.min(100, Math.max(0, stats.revenue > 0 ? (stats.cogs / stats.revenue) * 100 : 0))}%`,
+                      backgroundColor: '#f43f5e'
+                    }
+                  ]} />
+                </View>
+              </View>
+
+              <View style={styles.cardDivider} />
+
+              {/* Columns for Revenue & COGS */}
+              <View style={styles.gridRow}>
+                {/* Gross Revenue */}
+                <View style={styles.gridCol}>
+                  <View style={styles.colHeader}>
+                    <View style={[styles.miniIconBox, { backgroundColor: 'rgba(14, 165, 233, 0.15)' }]}>
+                      <Ionicons name="trending-up" size={12} color="#0ea5e9" />
+                    </View>
+                    <Text style={styles.colLabel}>GROSS REVENUE</Text>
+                  </View>
+                  <Text style={[styles.colValue, { color: '#0ea5e9' }]}>
+                    {symbol} {stats.revenue.toFixed(2)}
+                  </Text>
+                </View>
+
+                {/* COGS */}
+                <View style={styles.gridCol}>
+                  <View style={styles.colHeader}>
+                    <View style={[styles.miniIconBox, { backgroundColor: 'rgba(244, 63, 94, 0.15)' }]}>
+                      <Ionicons name="trending-down" size={12} color="#f43f5e" />
+                    </View>
+                    <Text style={styles.colLabel}>TOTAL COGS</Text>
+                  </View>
+                  <Text style={[styles.colValue, { color: '#e2e8f0' }]}>
+                    {symbol} {stats.cogs.toFixed(2)}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Actionable performance status summary */}
+              <View style={styles.cardFooter}>
+                <Ionicons 
+                  name={stats.profit >= 0 ? "checkmark-circle" : "alert-circle"} 
+                  size={16} 
+                  color={stats.profit >= 0 ? '#10b981' : '#f43f5e'} 
+                />
+                <Text style={styles.footerText}>
+                  {stats.profit >= 0 
+                    ? "Operating profitably. High margins detected." 
+                    : "Expenses exceed revenue. Review stock cost prices."}
+                </Text>
+              </View>
             </LinearGradient>
           </View>
         )}
@@ -402,16 +471,127 @@ const styles = StyleSheet.create({
   shopChipText: { color: '#0ea5e9', fontWeight: '600', fontSize: 13 },
   activeShopChipText: { color: 'white' },
   reportContainer: { padding: 20, gap: 15 },
-  statCard: { backgroundColor: 'white', padding: 20, borderRadius: 20, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
+  unifiedCard: {
+    padding: 20,
+    borderRadius: 24,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 6,
+    marginBottom: 5,
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  cardSubtitle: {
+    color: '#94a3b8',
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 1.2,
+  },
+  mainProfitValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    marginTop: 2,
+  },
+  marginBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  marginBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressContainer: {
+    marginBottom: 16,
+  },
+  progressLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  progressLabelText: {
+    color: '#94a3b8',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  progressValueText: {
+    color: '#f8fafc',
+    fontSize: 11,
+    fontWeight: '700',
+  },
+  progressBarTrack: {
+    height: 5,
+    backgroundColor: '#334155',
+    borderRadius: 2.5,
+    overflow: 'hidden',
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 2.5,
+  },
+  cardDivider: {
+    height: 1,
+    backgroundColor: '#334155',
+    marginVertical: 4,
+    opacity: 0.4,
+  },
+  gridRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginVertical: 8,
+  },
+  gridCol: {
+    flex: 1,
+  },
+  colHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  miniIconBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  colLabel: {
+    color: '#94a3b8',
+    fontSize: 9,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  colValue: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  cardFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.04)',
+    padding: 8,
+    borderRadius: 10,
+  },
+  footerText: {
+    color: '#cbd5e1',
+    fontSize: 10,
+    fontWeight: '500',
+    flex: 1,
+  },
   chartCard: { backgroundColor: 'white', padding: 15, borderRadius: 20, shadowColor: '#0284c7', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 16, elevation: 4 },
   chartHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   chartTitle: { fontSize: 16, fontWeight: 'bold', color: '#0f172a' },
   statLabel: { color: '#475569', fontSize: 14, fontWeight: '600' },
   statValue: { fontSize: 24, fontWeight: 'bold', marginTop: 5 },
-  profitCard: { borderRadius: 20, padding: 20, shadowColor: '#10b981', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 },
-  profitLabel: { color: 'rgba(255, 255, 255, 0.9)', fontSize: 14, fontWeight: '600' },
-  profitValue: { color: 'white', fontSize: 28, fontWeight: 'bold', marginTop: 5 },
-  profitSubtext: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
   toggleContainer: { flexDirection: 'row', backgroundColor: '#f1f5f9', borderRadius: 8, padding: 2 },
   toggleBtn: { paddingVertical: 4, paddingHorizontal: 10, borderRadius: 6 },
   toggleBtnActive: { backgroundColor: 'white', shadowColor: '#0284c7', shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
