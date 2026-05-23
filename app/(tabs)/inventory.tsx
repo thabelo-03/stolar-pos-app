@@ -325,44 +325,219 @@ export default function CashierInventoryScreen() {
   };
 
   const handleExportPDF = async () => {
+    const totalUniqueProducts = filteredInventory.length;
+    const totalStockCount = filteredInventory.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+    const totalValuation = filteredInventory.reduce((acc, item) => acc + ((Number(item.quantity) || 0) * convert(Number(item.price || 0))), 0);
+
     const html = `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; }
-            h1 { text-align: center; color: #1e3a8a; margin-bottom: 10px; }
-            .subtitle { text-align: center; color: #666; margin-bottom: 20px; }
-            table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 12px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-            th { background-color: #f1f5f9; color: #1e3a8a; font-weight: bold; }
-            tr:nth-child(even) { background-color: #f9fafb; }
-            .footer { margin-top: 30px; text-align: center; font-size: 10px; color: #94a3b8; }
-            .total-row { font-weight: bold; background-color: #e2e8f0; }
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0a0f1e 0%, #162444 100%);
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+              box-shadow: 0 4px 12px rgba(10, 15, 30, 0.15);
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #06b6d4;
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            /* KPI Grid */
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(3, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 16px;
+              background-color: #f8fafc;
+              text-align: center;
+            }
+            .kpi-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 6px;
+            }
+            .kpi-value {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .kpi-highlight {
+              background-color: #ecfeff;
+              border-color: #a5f3fc;
+            }
+            .kpi-highlight .kpi-label {
+              color: #0891b2;
+            }
+            .kpi-highlight .kpi-value {
+              color: #0f766e;
+            }
+
+            /* Table Styling */
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 12px;
+              margin-top: 20px;
+            }
+            th { 
+              background-color: #f8fafc; 
+              color: #475569; 
+              font-weight: 700; 
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-size: 11px;
+              border-bottom: 2px solid #cbd5e1;
+              padding: 12px 10px;
+            }
+            td { 
+              border-bottom: 1px solid #f1f5f9; 
+              padding: 12px 10px; 
+              color: #334155;
+            }
+            tr:nth-child(even) td { 
+              background-color: #fafbfb; 
+            }
+            .low-stock {
+              background-color: #fef3c7;
+              color: #d97706;
+              font-weight: 700;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              display: inline-block;
+              margin-left: 6px;
+            }
+            .out-of-stock {
+              background-color: #fee2e2;
+              color: #dc2626;
+              font-weight: 700;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              display: inline-block;
+              margin-left: 6px;
+            }
+            .total-row td {
+              font-weight: bold;
+              background-color: #f8fafc !important;
+              border-top: 2px solid #cbd5e1;
+              border-bottom: 2px solid #94a3b8;
+              color: #0f172a;
+              font-size: 13px;
+              padding: 14px 10px;
+            }
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
           </style>
         </head>
         <body>
-          <h1>Inventory Report</h1>
-          <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
+          <div class="header-banner">
+            <h1 class="header-title">Inventory Valuation Report</h1>
+            <div class="header-subtitle">Generated on ${new Date().toLocaleString()} • Cashier Workspace</div>
+          </div>
           
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Unique Products</div>
+              <div class="kpi-value">${totalUniqueProducts} Items</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Total Stock Count</div>
+              <div class="kpi-value">${totalStockCount} Units</div>
+            </div>
+            <div class="kpi-card kpi-highlight">
+              <div class="kpi-label">Total Valuation (Retail)</div>
+              <div class="kpi-value">${symbol}${totalValuation.toFixed(2)}</div>
+            </div>
+          </div>
+
           <table>
             <thead>
               <tr>
-                <th>Item Name</th>
-                <th>Barcode</th>
-                <th style="text-align: right;">Stock</th>
-                <th style="text-align: right;">Price</th>
+                <th style="text-align: left;">Item Name</th>
+                <th style="text-align: left;">Barcode</th>
+                <th style="text-align: right; width: 80px;">Stock</th>
+                <th style="text-align: right; width: 100px;">Price</th>
+                <th style="text-align: right; width: 120px;">Total Value</th>
               </tr>
             </thead>
             <tbody>
               ${filteredInventory.map(item => {
                 const qty = Number(item.quantity) || 0;
                 const price = convert(Number(item.price || 0));
-                return `<tr><td>${item.name}</td><td>${item.barcode || '-'}</td><td style="text-align: right;">${qty}</td><td style="text-align: right;">${symbol}${price.toFixed(2)}</td></tr>`;
+                const totalValue = price * qty;
+                
+                let stockStatusHtml = '';
+                if (qty === 0) {
+                  stockStatusHtml = '<span class="out-of-stock">OUT</span>';
+                } else if (qty <= 5) {
+                  stockStatusHtml = '<span class="low-stock">LOW</span>';
+                }
+
+                return `
+                  <tr>
+                    <td style="font-weight: 600; color: #0f172a;">
+                      ${item.name}
+                      ${stockStatusHtml}
+                    </td>
+                    <td style="font-family: monospace; color: #64748b;">${item.barcode || '-'}</td>
+                    <td style="text-align: right; font-weight: 700; color: #1e293b;">${qty}</td>
+                    <td style="text-align: right; font-family: monospace; color: #475569;">${symbol}${price.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: 700; font-family: monospace; color: #0f172a;">${symbol}${totalValue.toFixed(2)}</td>
+                  </tr>
+                `;
               }).join('')}
+              <tr class="total-row">
+                <td colspan="2" style="text-transform: uppercase; letter-spacing: 0.5px;">Grand Total</td>
+                <td style="text-align: right; font-weight: 800;">${totalStockCount} Units</td>
+                <td></td>
+                <td style="text-align: right; color: #0891b2; font-size: 14px; font-weight: 800;">${symbol}${totalValuation.toFixed(2)}</td>
+              </tr>
             </tbody>
           </table>
-          <div class="footer">Stolar POS System</div>
+          
+          <div class="footer">
+            Stolar POS System • Cashier Shift Valuation Summary
+          </div>
         </body>
       </html>
     `;

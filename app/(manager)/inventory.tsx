@@ -397,16 +397,19 @@ export default function ManagerInventoryScreen() {
   };
 
   const handleExportPDF = async () => {
+    const totalStock = filteredInventory.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
     const html = `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
           <style>
             body { 
-              font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+              font-family: 'Inter', -apple-system, sans-serif; 
               padding: 24px; 
               color: #1e293b;
               background-color: #ffffff;
+              margin: 0;
             }
             .header-banner {
               background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
@@ -417,6 +420,7 @@ export default function ManagerInventoryScreen() {
               box-shadow: 0 4px 12px rgba(124, 58, 237, 0.15);
             }
             .header-title {
+              font-family: 'Outfit', sans-serif;
               font-size: 22px;
               font-weight: 800;
               margin: 0;
@@ -457,13 +461,23 @@ export default function ManagerInventoryScreen() {
               font-weight: 800;
               color: #1e1b4b;
             }
+            .kpi-highlight {
+              background-color: #f5f3ff;
+              border-color: #ddd6fe;
+            }
+            .kpi-highlight .kpi-label {
+              color: #7c3aed;
+            }
+            .kpi-highlight .kpi-value {
+              color: #5b21b6;
+            }
             
             /* Table Styling */
             table { 
               width: 100%; 
               border-collapse: collapse; 
               font-size: 12px;
-              margin-top: 10px;
+              margin-top: 20px;
             }
             th { 
               background-color: #f8fafc; 
@@ -482,6 +496,26 @@ export default function ManagerInventoryScreen() {
             }
             tr:nth-child(even) td { 
               background-color: #fafbfb; 
+            }
+            .low-stock {
+              background-color: #fef3c7;
+              color: #d97706;
+              font-weight: 700;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              display: inline-block;
+              margin-left: 6px;
+            }
+            .out-of-stock {
+              background-color: #fee2e2;
+              color: #dc2626;
+              font-weight: 700;
+              padding: 2px 6px;
+              border-radius: 4px;
+              font-size: 10px;
+              display: inline-block;
+              margin-left: 6px;
             }
             .total-row td { 
               font-weight: bold; 
@@ -507,7 +541,7 @@ export default function ManagerInventoryScreen() {
         <body>
           <div class="header-banner">
             <h1 class="header-title">Inventory Valuation Report</h1>
-            <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
+            <div class="header-subtitle">Generated on ${new Date().toLocaleString()} • Manager Workspace</div>
           </div>
           
           <div class="kpi-grid">
@@ -517,11 +551,11 @@ export default function ManagerInventoryScreen() {
             </div>
             <div class="kpi-card">
               <div class="kpi-label">Total Stock Count</div>
-              <div class="kpi-value">${filteredInventory.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0)} Units</div>
+              <div class="kpi-value">${totalStock} Units</div>
             </div>
-            <div class="kpi-card" style="background-color: #f0fdf4; border-color: #bbf7d0;">
-              <div class="kpi-label" style="color: #16a34a;">Total Valuation (Retail)</div>
-              <div class="kpi-value" style="color: #14532d;">${symbol}${stats.totalValue.toFixed(2)}</div>
+            <div class="kpi-card kpi-highlight">
+              <div class="kpi-label">Total Valuation (Retail)</div>
+              <div class="kpi-value">${symbol}${stats.totalValue.toFixed(2)}</div>
             </div>
           </div>
           
@@ -530,9 +564,9 @@ export default function ManagerInventoryScreen() {
               <tr>
                 <th style="text-align: left;">Item Name</th>
                 <th style="text-align: left;">Barcode</th>
-                <th style="text-align: right;">Stock</th>
-                <th style="text-align: right;">Price</th>
-                <th style="text-align: right;">Value</th>
+                <th style="text-align: right; width: 80px;">Stock</th>
+                <th style="text-align: right; width: 100px;">Price</th>
+                <th style="text-align: right; width: 120px;">Total Value</th>
               </tr>
             </thead>
             <tbody>
@@ -540,21 +574,32 @@ export default function ManagerInventoryScreen() {
                 const qty = Number(item.quantity) || 0;
                 const price = convert(Number(item.price || 0));
                 const value = price * qty;
+
+                let stockStatusHtml = '';
+                if (qty === 0) {
+                  stockStatusHtml = '<span class="out-of-stock">OUT</span>';
+                } else if (qty <= 5) {
+                  stockStatusHtml = '<span class="low-stock">LOW</span>';
+                }
+
                 return `
                   <tr>
-                    <td style="font-weight: 600; color: #0f172a;">${item.name}</td>
+                    <td style="font-weight: 600; color: #0f172a;">
+                      ${item.name}
+                      ${stockStatusHtml}
+                    </td>
                     <td style="font-family: monospace; color: #64748b;">${item.barcode || '-'}</td>
-                    <td style="text-align: right; font-weight: 700;">${qty}</td>
-                    <td style="text-align: right;">${symbol}${price.toFixed(2)}</td>
-                    <td style="text-align: right; font-weight: 700; color: #0f172a;">${symbol}${value.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: 700; color: #1e293b;">${qty}</td>
+                    <td style="text-align: right; font-family: monospace; color: #475569;">${symbol}${price.toFixed(2)}</td>
+                    <td style="text-align: right; font-weight: 700; font-family: monospace; color: #0f172a;">${symbol}${value.toFixed(2)}</td>
                   </tr>
                 `;
               }).join('')}
               <tr class="total-row">
                 <td colspan="2" style="text-transform: uppercase; letter-spacing: 0.5px;">Grand Total Valuation</td>
-                <td style="text-align: right;">${filteredInventory.reduce((acc, item) => acc + (Number(item.quantity) || 0), 0)} Units</td>
+                <td style="text-align: right; font-weight: 800;">${totalStock} Units</td>
                 <td></td>
-                <td style="text-align: right; color: #4f46e5; font-size: 14px;">${symbol}${stats.totalValue.toFixed(2)}</td>
+                <td style="text-align: right; color: #7c3aed; font-size: 14px; font-weight: 800;">${symbol}${stats.totalValue.toFixed(2)}</td>
               </tr>
             </tbody>
           </table>

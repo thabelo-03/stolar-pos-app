@@ -245,89 +245,243 @@ export default function StockTakeScreen() {
     const shopName = selectedShop === 'all' ? 'All Shops' : shops.find(s => s._id === selectedShop)?.name || 'Unknown Shop';
     const dateStr = `${startDate.toLocaleDateString()} - ${endDate.toLocaleDateString()}`;
     const s = symbol;
+    const isDarkPdf = userRole === 'cashier';
+
+    // Styles & colors based on user role
+    const themeGradient = isDarkPdf 
+      ? 'linear-gradient(135deg, #0a0f1e 0%, #162444 100%)' 
+      : 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)';
+    const themeAccentColor = isDarkPdf ? '#06b6d4' : '#ffffff';
+    const themeCardHighlightBg = isDarkPdf ? '#ecfeff' : '#faf5ff';
+    const themeCardHighlightBorder = isDarkPdf ? '#a5f3fc' : '#ede9fe';
+    const themeCardHighlightText = isDarkPdf ? '#0891b2' : '#7c3aed';
 
     const html = `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
-            h1 { color: #1e3a8a; text-align: center; margin-bottom: 5px; }
-            h2 { color: #64748b; text-align: center; font-size: 16px; margin-top: 0; margin-bottom: 30px; }
-            .summary-box { border: 1px solid #e2e8f0; padding: 20px; border-radius: 8px; margin-bottom: 30px; background-color: #f8fafc; }
-            .row { display: flex; justify-content: space-between; margin-bottom: 10px; align-items: center; }
-            .label { font-weight: bold; color: #475569; }
-            .value { font-weight: bold; color: #1e293b; font-size: 16px; }
-            .divider { height: 1px; background-color: #e2e8f0; margin: 15px 0; }
-            .total-row { margin-top: 10px; font-size: 18px; color: #1e3a8a; }
-            .footer { margin-top: 40px; text-align: center; color: #94a3b8; font-size: 10px; }
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: ${themeGradient};
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+              box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15);
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: ${themeAccentColor};
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            /* KPI Grid */
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(2, 1fr);
+              gap: 16px;
+              margin-bottom: 28px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 16px;
+              background-color: #f8fafc;
+            }
+            .kpi-label {
+              font-size: 10px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 6px;
+            }
+            .kpi-value {
+              font-size: 18px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            
+            /* Section Title */
+            .section-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 14px;
+              font-weight: 700;
+              color: #475569;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 12px;
+              margin-top: 24px;
+              border-bottom: 1px solid #cbd5e1;
+              padding-bottom: 6px;
+            }
+
+            /* Rows styling */
+            .stats-box {
+              background-color: #ffffff;
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 8px 16px;
+              margin-bottom: 20px;
+            }
+            .stats-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 12px 0;
+              border-bottom: 1px solid #f1f5f9;
+            }
+            .stats-row:last-child {
+              border-bottom: none;
+            }
+            .stats-label {
+              font-size: 13px;
+              font-weight: 600;
+              color: #475569;
+            }
+            .stats-value {
+              font-size: 14px;
+              font-weight: 700;
+              color: #0f172a;
+              font-family: monospace;
+            }
+
+            /* Highlight Panel */
+            .highlight-panel {
+              background-color: ${themeCardHighlightBg};
+              border: 1px solid ${themeCardHighlightBorder};
+              border-radius: 14px;
+              padding: 20px;
+              margin-top: 24px;
+            }
+            .highlight-row {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              padding: 8px 0;
+            }
+            .highlight-label {
+              font-size: 13px;
+              font-weight: 700;
+              color: #475569;
+            }
+            .highlight-value {
+              font-size: 16px;
+              font-weight: 800;
+              color: ${themeCardHighlightText};
+              font-family: monospace;
+            }
+            .highlight-subtext {
+              font-size: 10px;
+              color: #64748b;
+              text-align: right;
+              margin-top: -4px;
+              margin-bottom: 10px;
+              font-weight: 500;
+            }
+
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
           </style>
         </head>
         <body>
-          <h1>Stock Take Report</h1>
-          <h2>${shopName}<br/>${dateStr}</h2>
+          <div class="header-banner">
+            <h1 class="header-title">Stock Take Report</h1>
+            <div class="header-subtitle">${shopName} • Shift Audit • ${dateStr}</div>
+          </div>
           
-          <div class="summary-box">
-            <h3>Cash Flow</h3>
-            <div class="row">
-              <span class="label">Total Cash Sales (Retail)</span>
-              <span class="value">${s}${metrics.totalSalesCash.toFixed(2)}</span>
+          <div class="section-title">Overview Metrics</div>
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Cash Collected (Sales)</div>
+              <div class="kpi-value">${s}${metrics.totalSalesCash.toFixed(2)}</div>
             </div>
-            
-            <div class="divider"></div>
-            
-            <h3>Stock Inventory</h3>
-            <div class="row">
-               <span class="label">Items Sold (${metrics.itemsSold} units)</span>
-               <span class="value">${s}${metrics.soldCost.toFixed(2)} (Cost)</span>
+            <div class="kpi-card">
+              <div class="kpi-label">Cost of Goods Sold</div>
+              <div class="kpi-value">${s}${metrics.soldCost.toFixed(2)}</div>
             </div>
-            <div class="row">
-               <span class="label">Available Stock (${metrics.itemsInStock} units)</span>
-               <span class="value">${s}${metrics.inventoryValue.toFixed(2)} (Retail)</span>
+            <div class="kpi-card">
+              <div class="kpi-label">Available Retail Valuation</div>
+              <div class="kpi-value">${s}${metrics.inventoryValue.toFixed(2)}</div>
             </div>
-            <div class="row">
-               <span class="label">Available Stock Cost</span>
-               <span class="value">${s}${metrics.inventoryCost.toFixed(2)} (Cost)</span>
+            <div class="kpi-card">
+              <div class="kpi-label">Available Stock Cost</div>
+              <div class="kpi-value">${s}${metrics.inventoryCost.toFixed(2)}</div>
             </div>
           </div>
 
-          <div class="summary-box">
-            <h3>Business Intelligence</h3>
-            <div class="row">
-               <span class="label">Gross Profit on Sales</span>
-               <span class="value" style="color: #16a34a; font-weight: bold;">${s}${(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}</span>
+          <div class="section-title">Business Intelligence & Profitability</div>
+          <div class="stats-box">
+            <div class="stats-row">
+              <span class="stats-label">Gross Profit on Sales</span>
+              <span class="stats-value" style="color: #16a34a;">${s}${(metrics.totalSalesCash - metrics.soldCost).toFixed(2)}</span>
             </div>
-            <div class="row">
-               <span class="label">Gross Profit Margin</span>
-               <span class="value" style="font-weight: bold;">${(metrics.totalSalesCash > 0 ? ((metrics.totalSalesCash - metrics.soldCost) / metrics.totalSalesCash) * 100 : 0).toFixed(1)}%</span>
+            <div class="stats-row">
+              <span class="stats-label">Gross Profit Margin</span>
+              <span class="stats-value">${(metrics.totalSalesCash > 0 ? ((metrics.totalSalesCash - metrics.soldCost) / metrics.totalSalesCash) * 100 : 0).toFixed(1)}%</span>
             </div>
-            <div class="row">
-               <span class="label">Unrealized Future Profit</span>
-               <span class="value" style="color: #2563eb; font-weight: bold;">${s}${(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}</span>
+            <div class="stats-row">
+              <span class="stats-label">Unrealized Future Profit</span>
+              <span class="stats-value" style="color: #2563eb;">${s}${(metrics.inventoryValue - metrics.inventoryCost).toFixed(2)}</span>
             </div>
-            <div class="row">
-               <span class="label">Inventory Sell-Through Rate</span>
-               <span class="value" style="font-weight: bold;">${((metrics.soldCost + metrics.inventoryCost) > 0 ? (metrics.soldCost / (metrics.soldCost + metrics.inventoryCost)) * 100 : 0).toFixed(1)}%</span>
+            <div class="stats-row">
+              <span class="stats-label">Inventory Sell-Through Rate</span>
+              <span class="stats-value">${((metrics.soldCost + metrics.inventoryCost) > 0 ? (metrics.soldCost / (metrics.soldCost + metrics.inventoryCost)) * 100 : 0).toFixed(1)}%</span>
+            </div>
+            <div class="stats-row">
+              <span class="stats-label">Items Sold</span>
+              <span class="stats-value" style="font-family: inherit;">${metrics.itemsSold} units</span>
+            </div>
+            <div class="stats-row">
+              <span class="stats-label">Available Stock</span>
+              <span class="stats-value" style="font-family: inherit;">${metrics.itemsInStock} units</span>
             </div>
           </div>
 
-          <div class="summary-box">
-            <div class="row total-row">
-               <span class="label">Total Stock Managed (Retail)</span>
-               <span class="value">${s}${(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}</span>
+          <div class="highlight-panel">
+            <div class="highlight-row">
+              <span class="highlight-label">Total Stock Managed (Retail)</span>
+              <span class="highlight-value">${s}${(metrics.totalSalesCash + metrics.inventoryValue).toFixed(2)}</span>
             </div>
-            <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 3px;">(Sales Retail + Available Retail)</div>
+            <div class="highlight-subtext">(Sales Retail + Available Retail)</div>
             
-            <div class="divider"></div>
+            <div style="border-top: 1px dashed #cbd5e1; margin: 12px 0;"></div>
             
-            <div class="row total-row" style="font-size: 16px; color: #475569;">
-               <span class="label">Total Stock Investment (Cost)</span>
-               <span class="value">${s}${(metrics.soldCost + metrics.inventoryCost).toFixed(2)}</span>
+            <div class="highlight-row">
+              <span class="highlight-label" style="font-size: 15px;">Total Stock Investment (Cost)</span>
+              <span class="highlight-value" style="font-size: 18px;">${s}${(metrics.soldCost + metrics.inventoryCost).toFixed(2)}</span>
             </div>
-            <div style="text-align: right; font-size: 11px; color: #64748b; margin-top: 3px;">(Sold Cost + Available Cost)</div>
+            <div class="highlight-subtext">(Sold Cost + Available Cost)</div>
           </div>
-
-          <div class="footer">Generated by Stolar POS</div>
+          
+          <div class="footer">
+            Stolar POS System • Adaptive Operations Intelligence
+          </div>
         </body>
       </html>
     `;

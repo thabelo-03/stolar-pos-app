@@ -194,76 +194,210 @@ export default function DailySummaryScreen() {
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
-            h1 { color: #1e40af; text-align: center; margin-bottom: 5px; }
-            .subtitle { text-align: center; color: #666; margin-bottom: 30px; }
-            .stats-container { display: flex; justify-content: space-between; margin-bottom: 30px; background-color: #f8fafc; padding: 15px; border-radius: 8px; }
-            .stat-box { text-align: center; }
-            .stat-label { font-size: 12px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-            .stat-value { font-size: 20px; font-weight: bold; color: #1e293b; margin-top: 5px; }
-            .section-title { font-size: 16px; font-weight: bold; color: #1e40af; border-bottom: 2px solid #e2e8f0; padding-bottom: 5px; margin-top: 20px; margin-bottom: 15px; }
-            table { width: 100%; border-collapse: collapse; font-size: 14px; }
-            th { text-align: left; padding: 10px; background-color: #f1f5f9; color: #475569; }
-            td { padding: 10px; border-bottom: 1px solid #e2e8f0; }
-            .refund-row { color: #94a3b8; }
-            .refund-text { text-decoration: line-through; }
-            .amount { font-weight: bold; }
-            .footer { margin-top: 40px; text-align: center; font-size: 12px; color: #94a3b8; }
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 24px; 
+              color: #1e293b;
+              background-color: #ffffff;
+              margin: 0;
+            }
+            .header-banner {
+              background: linear-gradient(135deg, #0a0f1e 0%, #162444 100%);
+              border-radius: 16px;
+              padding: 24px;
+              color: #ffffff;
+              margin-bottom: 24px;
+              box-shadow: 0 4px 12px rgba(10, 15, 30, 0.15);
+            }
+            .header-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 22px;
+              font-weight: 800;
+              margin: 0;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #06b6d4;
+            }
+            .header-subtitle {
+              font-size: 13px;
+              color: rgba(255, 255, 255, 0.85);
+              margin-top: 6px;
+              font-weight: 500;
+            }
+            
+            /* KPI Grid */
+            .kpi-grid {
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 12px;
+              margin-bottom: 24px;
+            }
+            .kpi-card {
+              border: 1px solid #e2e8f0;
+              border-radius: 14px;
+              padding: 12px;
+              background-color: #f8fafc;
+              text-align: center;
+            }
+            .kpi-label {
+              font-size: 9px;
+              font-weight: 700;
+              color: #64748b;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .kpi-value {
+              font-size: 16px;
+              font-weight: 800;
+              color: #0f172a;
+            }
+            .kpi-highlight {
+              background-color: #f0fdf4;
+              border-color: #bbf7d0;
+            }
+            .kpi-highlight .kpi-label {
+              color: #16a34a;
+            }
+            .kpi-highlight .kpi-value {
+              color: #14532d;
+            }
+            .kpi-danger {
+              background-color: #fef2f2;
+              border-color: #fca5a5;
+            }
+            .kpi-danger .kpi-label {
+              color: #ef4444;
+            }
+            .kpi-danger .kpi-value {
+              color: #7f1d1d;
+            }
+
+            .section-title {
+              font-family: 'Outfit', sans-serif;
+              font-size: 14px;
+              font-weight: 800;
+              color: #0f172a;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              border-bottom: 2px solid #cbd5e1;
+              padding-bottom: 6px;
+              margin-top: 24px;
+              margin-bottom: 12px;
+            }
+
+            /* Table Styling */
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              font-size: 12px;
+              margin-top: 10px;
+            }
+            th { 
+              background-color: #f8fafc; 
+              color: #475569; 
+              font-weight: 700; 
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              font-size: 11px;
+              border-bottom: 2px solid #cbd5e1;
+              padding: 10px 8px;
+              text-align: left;
+            }
+            td { 
+              border-bottom: 1px solid #f1f5f9; 
+              padding: 10px 8px; 
+              color: #334155;
+            }
+            tr:nth-child(even) td { 
+              background-color: #fafbfb; 
+            }
+            .refund-row td { 
+              color: #94a3b8; 
+              background-color: #fef2f2 !important; 
+            }
+            .refund-text { 
+              text-decoration: line-through; 
+              color: #ef4444; 
+            }
+            
+            .footer { 
+              margin-top: 48px; 
+              text-align: center; 
+              font-size: 10px; 
+              color: #94a3b8; 
+              border-top: 1px solid #f1f5f9;
+              padding-top: 16px;
+              font-weight: 500;
+            }
           </style>
         </head>
         <body>
-          <h1>${viewMode === 'daily' ? 'Daily' : 'Weekly'} Sales Report</h1>
-          <div class="subtitle">Generated on ${new Date().toLocaleString()} for ${date.toLocaleDateString()}</div>
+          <div class="header-banner">
+            <h1 class="header-title">${viewMode === 'daily' ? 'Daily' : 'Weekly'} Sales Summary</h1>
+            <div class="header-subtitle">Generated on ${new Date().toLocaleString()} for ${date.toLocaleDateString()}</div>
+          </div>
 
-          <div class="stats-container">
-            <div class="stat-box">
-              <div class="stat-label">Total Revenue</div>
-              <div class="stat-value">${symbol} ${totalSales.toFixed(2)}</div>
+          <div class="kpi-grid">
+            <div class="kpi-card kpi-highlight">
+              <div class="kpi-label">Total Revenue</div>
+              <div class="kpi-value">${symbol} ${totalSales.toFixed(2)}</div>
             </div>
-            <div class="stat-box">
-              <div class="stat-label">Transactions</div>
-              <div class="stat-value">${transactionCount}</div>
+            <div class="kpi-card">
+              <div class="kpi-label">Transactions</div>
+              <div class="kpi-value">${transactionCount}</div>
             </div>
-            <div class="stat-box">
-              <div class="stat-label">Avg Ticket</div>
-              <div class="stat-value">${symbol} ${avgTransaction.toFixed(2)}</div>
+            <div class="kpi-card">
+              <div class="kpi-label">Avg Ticket</div>
+              <div class="kpi-value">${symbol} ${avgTransaction.toFixed(2)}</div>
             </div>
-            <div class="stat-box">
-              <div class="stat-label" style="color: #ef4444;">Refunds</div>
-              <div class="stat-value" style="color: #ef4444;">${symbol} ${totalRefunds.toFixed(2)}</div>
+            <div class="kpi-card kpi-danger">
+              <div class="kpi-label">Refunds</div>
+              <div class="kpi-value">${symbol} ${totalRefunds.toFixed(2)}</div>
             </div>
           </div>
 
           <div class="section-title">Payment Breakdown</div>
           <table>
-            <tr>
-              <td>Cash</td>
-              <td class="amount">${symbol} ${paymentStats.cash.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td>Card</td>
-              <td class="amount">${symbol} ${paymentStats.card.toFixed(2)}</td>
-            </tr>
-            <tr>
-              <td>Other</td>
-              <td class="amount">${symbol} ${paymentStats.other.toFixed(2)}</td>
-            </tr>
+            <thead>
+              <tr>
+                <th>Payment Method</th>
+                <th style="text-align: right;">Total Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="font-weight: 600; color: #10b981;">Cash</td>
+                <td style="text-align: right; font-weight: 700; color: #0f172a;">${symbol} ${paymentStats.cash.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #3b82f6;">Card</td>
+                <td style="text-align: right; font-weight: 700; color: #0f172a;">${symbol} ${paymentStats.card.toFixed(2)}</td>
+              </tr>
+              <tr>
+                <td style="font-weight: 600; color: #f59e0b;">Other</td>
+                <td style="text-align: right; font-weight: 700; color: #0f172a;">${symbol} ${paymentStats.other.toFixed(2)}</td>
+              </tr>
+            </tbody>
           </table>
 
           <div class="section-title">Top Selling Items</div>
           <table>
             <thead>
               <tr>
+                <th style="width: 50px;">Rank</th>
                 <th>Item Name</th>
                 <th style="text-align: right;">Quantity Sold</th>
               </tr>
             </thead>
             <tbody>
-              ${topItems.map(item => `
+              ${topItems.map((item, index) => `
                 <tr>
-                  <td>${item.name}</td>
-                  <td style="text-align: right;">${item.qty}</td>
+                  <td style="font-weight: 700; color: #06b6d4;">#${index + 1}</td>
+                  <td style="font-weight: 600; color: #0f172a;">${item.name}</td>
+                  <td style="text-align: right; font-weight: 700; color: #475569;">${item.qty} units</td>
                 </tr>
               `).join('')}
             </tbody>
@@ -282,17 +416,17 @@ export default function DailySummaryScreen() {
             <tbody>
               ${transactions.map(t => `
                 <tr class="${t.refunded ? 'refund-row' : ''}">
-                  <td>${new Date(t.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${new Date(t.date).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</td>
-                  <td>${Array.isArray(t.items) ? t.items.length + ' items' : t.items} ${t.refunded ? '(Refunded)' : ''}</td>
-                  <td>${t.paymentMethod || 'Cash'}</td>
-                  <td style="text-align: right;" class="${t.refunded ? 'refund-text' : 'amount'}">${symbol} ${convert(t.total || t.amount || 0).toFixed(2)}</td>
+                  <td style="color: #64748b; font-weight: 500;">${new Date(t.date).toLocaleDateString([], { month: 'short', day: 'numeric' })} ${new Date(t.date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                  <td style="font-weight: 600; color: #0f172a;">${Array.isArray(t.items) ? t.items.length + ' items' : t.items} ${t.refunded ? '<span style="color: #ef4444; font-weight: 700;">(Refunded)</span>' : ''}</td>
+                  <td style="text-transform: capitalize; color: #475569; font-weight: 500;">${t.paymentMethod || 'Cash'}</td>
+                  <td style="text-align: right;" class="${t.refunded ? 'refund-text' : ''} font-weight: 700;">${symbol} ${convert(t.total || t.amount || 0).toFixed(2)}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
 
           <div class="footer">
-            Stolar POS System
+            Stolar POS System • Cashier Daily Shift Shift Summary Audit
           </div>
         </body>
       </html>

@@ -188,50 +188,200 @@ export default function LastSalesScreen() {
   const handleShareReceipt = async () => {
     if (!selectedSale) return;
 
+    const grandTotal = convert(Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0));
+
     const html = `
       <html>
         <head>
           <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@600;800&display=swap" rel="stylesheet">
           <style>
-            body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 20px; color: #333; }
-            h1 { text-align: center; margin-bottom: 5px; color: #1e40af; }
-            .subtitle { text-align: center; color: #666; margin-bottom: 20px; font-size: 14px; }
-            .divider { border-bottom: 1px dashed #ccc; margin: 20px 0; }
-            .item-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
-            .item-name { font-weight: bold; }
-            .total-row { display: flex; justify-content: space-between; font-weight: bold; font-size: 18px; margin-top: 10px; }
-            .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999; }
+            body { 
+              font-family: 'Inter', -apple-system, sans-serif; 
+              padding: 20px; 
+              color: #1e293b; 
+              background-color: #f1f5f9;
+              margin: 0;
+            }
+            .receipt-card {
+              max-width: 360px;
+              margin: 0 auto;
+              background-color: #ffffff;
+              border-radius: 16px;
+              padding: 24px;
+              box-shadow: 0 10px 25px rgba(15, 23, 42, 0.08);
+              border: 1px solid #e2e8f0;
+              position: relative;
+            }
+            .receipt-header {
+              text-align: center;
+              margin-bottom: 20px;
+            }
+            .brand-name {
+              font-family: 'Outfit', sans-serif;
+              font-size: 24px;
+              font-weight: 800;
+              color: #0f172a;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin: 0 0 4px 0;
+            }
+            .brand-tag {
+              font-size: 11px;
+              color: #06b6d4;
+              font-weight: 700;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              margin-bottom: 12px;
+            }
+            .meta-text {
+              font-size: 11px;
+              color: #64748b;
+              line-height: 1.6;
+              margin: 2px 0;
+              font-weight: 500;
+            }
+            .meta-value {
+              font-weight: 600;
+              color: #334155;
+            }
+            .divider { 
+              border-bottom: 2px dashed #e2e8f0; 
+              margin: 16px 0; 
+            }
+            .item-list {
+              margin: 12px 0;
+            }
+            .item-row { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: flex-start;
+              margin-bottom: 12px; 
+            }
+            .item-details {
+              flex: 1;
+              padding-right: 12px;
+            }
+            .item-name { 
+              font-weight: 600; 
+              font-size: 13px;
+              color: #0f172a;
+              margin-bottom: 2px;
+            }
+            .item-sub {
+              font-size: 11px; 
+              color: #64748b;
+              font-weight: 500;
+            }
+            .item-total {
+              font-weight: 700;
+              font-size: 13px;
+              color: #0f172a;
+              font-family: monospace;
+              white-space: nowrap;
+            }
+            .total-row { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center;
+              font-weight: 800; 
+              font-size: 18px; 
+              margin-top: 14px;
+              color: #0f172a;
+            }
+            .total-label {
+              font-family: 'Outfit', sans-serif;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+            }
+            .total-value {
+              font-family: monospace;
+              color: #06b6d4;
+            }
+            .barcode {
+              display: flex;
+              justify-content: center;
+              align-items: stretch;
+              height: 40px;
+              margin: 24px auto 8px auto;
+              width: 180px;
+            }
+            .barcode div {
+              background-color: #1e293b;
+              margin-right: 1px;
+            }
+            .footer { 
+              text-align: center; 
+              margin-top: 20px; 
+              font-size: 11px; 
+              color: #94a3b8;
+              font-weight: 500;
+              letter-spacing: 0.5px;
+            }
           </style>
         </head>
         <body>
-          <h1>Stolar POS</h1>
-          <div class="subtitle">
-            Date: ${new Date(selectedSale.date).toLocaleString()}<br>
-            Receipt #: ${selectedSale.id || selectedSale._id}<br>
-            Cashier: ${selectedSale.cashierName || 'N/A'}
-          </div>
-          
-          <div class="divider"></div>
-
-          ${(selectedSale.items || []).map((item: any) => `
-            <div class="item-row">
-              <div>
-                <div class="item-name">${item.name}</div>
-                <div style="font-size: 12px; color: #666;">${item.quantity} x $${Number(item.price).toFixed(2)}</div>
-              </div>
-              <div>$${(Number(item.price) * Number(item.quantity)).toFixed(2)}</div>
+          <div class="receipt-card">
+            <div class="receipt-header">
+              <div class="brand-name">Stolar POS</div>
+              <div class="brand-tag">Official Checkout Receipt</div>
+              <div class="meta-text">Date: <span class="meta-value">${new Date(selectedSale.date).toLocaleString()}</span></div>
+              <div class="meta-text">Receipt: <span class="meta-value">${selectedSale.id || selectedSale._id}</span></div>
+              <div class="meta-text">Cashier: <span class="meta-value">${selectedSale.cashierName || 'N/A'}</span></div>
             </div>
-          `).join('')}
-
-          <div class="divider"></div>
-
-          <div class="total-row">
-            <div>Total</div>
-            <div>$${Number(selectedSale.total || selectedSale.amount || selectedSale.totalUSD || 0).toFixed(2)}</div>
-          </div>
-          
-          <div class="footer">
-            Thank you for your business!
+            
+            <div class="divider"></div>
+            
+            <div class="item-list">
+              ${(selectedSale.items || []).map((item: any) => {
+                const itemPrice = convert(Number(item.price || 0));
+                const itemTotal = itemPrice * Number(item.quantity || 1);
+                return `
+                  <div class="item-row">
+                    <div class="item-details">
+                      <div class="item-name">${item.name}</div>
+                      <div class="item-sub">${item.quantity} × ${symbol}${itemPrice.toFixed(2)}</div>
+                    </div>
+                    <div class="item-total">${symbol}${itemTotal.toFixed(2)}</div>
+                  </div>
+                `;
+              }).join('')}
+            </div>
+            
+            <div class="divider"></div>
+            
+            <div class="total-row">
+              <div class="total-label">Total</div>
+              <div class="total-value">${symbol}${grandTotal.toFixed(2)}</div>
+            </div>
+            
+            <div class="barcode">
+              <div style="width: 2px;"></div>
+              <div style="width: 1px;"></div>
+              <div style="width: 3px;"></div>
+              <div style="width: 1px;"></div>
+              <div style="width: 4px;"></div>
+              <div style="width: 2px;"></div>
+              <div style="width: 1px;"></div>
+              <div style="width: 3px;"></div>
+              <div style="width: 2px;"></div>
+              <div style="width: 1px;"></div>
+              <div style="width: 4px;"></div>
+              <div style="width: 1px;"></div>
+              <div style="width: 2px;"></div>
+              <div style="width: 3px;"></div>
+              <div style="width: 1px;"></div>
+              <div style="width: 2px;"></div>
+              <div style="width: 4px;"></div>
+              <div style="width: 1px;"></div>
+            </div>
+            <div style="text-align: center; font-family: monospace; font-size: 9px; color: #94a3b8; letter-spacing: 2px; text-transform: uppercase;">
+              *${(selectedSale.id || selectedSale._id || 'STOLAR').substring(0, 12)}*
+            </div>
+            
+            <div class="footer">
+              Thank you for shopping with us!
+            </div>
           </div>
         </body>
       </html>
