@@ -23,6 +23,7 @@ interface User {
   subscriptionStatus?: string;
   nextBillingAmount?: number;
   planType?: string;
+  shopCount?: number;
 }
 
 export default function SubscriptionPage() {
@@ -85,9 +86,9 @@ export default function SubscriptionPage() {
             <View style={styles.logoWrapper}>
               <Image source={require('../../assets/images/stolar-logo.jpeg')} style={styles.logo} />
             </View>
-            <Text style={styles.title}>Subscription Required</Text>
+            <Text style={styles.title}>Subscription Panel</Text>
             <Text style={styles.subtitle}>
-              Your access to manager features is currently restricted. Please renew your subscription to continue managing your shop and access all functionalities.
+              Your access to manager features is currently restricted. Please renew your subscription to continue managing your shops and accessing AI Insights.
             </Text>
           </View>
 
@@ -98,30 +99,48 @@ export default function SubscriptionPage() {
             </View>
             <View style={styles.divider} />
             <View style={styles.row}>
+              <Text style={styles.label}>Active Shops:</Text>
+              <Text style={styles.value}>{user.shopCount || 1} Shop(s)</Text>
+            </View>
+            <View style={styles.divider} />
+            <View style={styles.row}>
               <Text style={styles.label}>Plan:</Text>
               <Text style={styles.value}>{user.planType || 'Standard'} (1 Month)</Text>
             </View>
             <View style={[styles.row, { marginTop: 10 }]}>
-              <Text style={styles.label}>Total:</Text>
-              <Text style={styles.amount}>R{(user.nextBillingAmount || 150).toFixed(2)}</Text>
+              <Text style={styles.label}>Total Monthly Due:</Text>
+              <Text style={styles.amount}>R{(user.nextBillingAmount !== undefined ? user.nextBillingAmount : 100).toFixed(2)}</Text>
             </View>
           </View>
 
+          <View style={[styles.paymentInfoBox, { backgroundColor: '#f0fdf4', borderColor: '#bbf7d0', marginBottom: 20 }]}>
+            <Text style={[styles.paymentTitle, { color: '#15803d', fontSize: 15, fontWeight: '700', marginBottom: 8 }]}>🎁 Active Pricing Benefits</Text>
+            <Text style={{ color: '#166534', fontSize: 13, lineHeight: 18, textAlign: 'center', marginBottom: 4 }}>
+              • **1st Month is 100% Free** for all new registered shops!
+            </Text>
+            <Text style={{ color: '#166534', fontSize: 13, lineHeight: 18, textAlign: 'center', marginBottom: 4 }}>
+              • **Standard Pricing:** Only R100.00/month per active shop.
+            </Text>
+            <Text style={{ color: '#166534', fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
+              • **Multi-Shop Reward:** **30% Discount** applied if you manage more than 3 shops!
+            </Text>
+          </View>
+
           <View style={styles.actions}>
-            <View style={styles.paymentInfoBox}>
-              <Text style={styles.paymentTitle}>Payment Options</Text>
+            <View style={[styles.paymentInfoBox, { backgroundColor: '#fdf2f8', borderColor: '#fbcfe8' }]}>
+              <Text style={[styles.paymentTitle, { color: '#be185d' }]}>Renewal Payment Details</Text>
               
               <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>EcoCash:</Text>
-                <Text style={styles.paymentValue}>+263 777 926 123</Text>
+                <Text style={[styles.paymentLabel, { color: '#be185d' }]}>EcoCash:</Text>
+                <Text style={[styles.paymentValue, { color: '#831843' }]}>+263 777 926 123</Text>
               </View>
               <View style={styles.paymentRow}>
-                <Text style={styles.paymentLabel}>Name:</Text>
-                <Text style={styles.paymentValue}>Thabelo Dumani</Text>
+                <Text style={[styles.paymentLabel, { color: '#be185d' }]}>Name:</Text>
+                <Text style={[styles.paymentValue, { color: '#831843' }]}>Thabelo Dumani</Text>
               </View>
               
-              <Text style={styles.instruction}>
-                Please send proof of payment to the admin to activate your account.
+              <Text style={[styles.instruction, { color: '#be185d' }]}>
+                Please send proof of payment to the admin/support via WhatsApp to instantly activate or extend your shops.
               </Text>
             </View>
 

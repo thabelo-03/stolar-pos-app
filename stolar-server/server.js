@@ -143,6 +143,8 @@ app.post('/api/auth/login', async (req, res) => {
     const isExpired = expiry < now;
 
     const shopCount = await Shop.countDocuments({ manager: user._id });
+    const baseCost = shopCount * 100;
+    const nextBillingAmount = shopCount > 3 ? baseCost * 0.7 : baseCost;
 
     res.json({ 
       success: true, 
@@ -153,7 +155,7 @@ app.post('/api/auth/login', async (req, res) => {
       subscriptionExpired: isExpired,
       subscriptionExpiry: user.subscriptionExpiry,
       shopCount,
-      nextBillingAmount: shopCount >= 2 ? 400 : 150
+      nextBillingAmount
     });
   } catch (err) {
     res.status(500).json({ message: err.message });
@@ -237,8 +239,9 @@ app.get('/api/users/:id', async (req, res) => {
     // Calculate Plan Details dynamically
     const shopCount = await Shop.countDocuments({ manager: user._id });
     user.shopCount = shopCount;
-    user.nextBillingAmount = shopCount >= 2 ? 400 : 150;
-    user.planType = shopCount >= 2 ? 'Premium' : 'Standard';
+    const baseCost = shopCount * 100;
+    user.nextBillingAmount = shopCount > 3 ? baseCost * 0.7 : baseCost;
+    user.planType = shopCount > 3 ? 'Multi-Shop Premium' : 'Standard';
 
     res.json(user);
   } catch (err) {
@@ -298,18 +301,39 @@ app.get('/api/shops/:id', async (req, res) => {
   }
 });
 
+app.delete('/api/shops/:id', async (req, res) => {
+  console.log(`Deleting shop: ${req.params.id}`);
+  try {
+    const shopId = req.params.id;
+    const shop = await Shop.findByIdAndDelete(shopId);
+    if (!shop) return res.status(404).json({ message: "Shop not found" });
+
+    // Cascade delete related records
+    await Product.deleteMany({ shopId });
+    await Sale.deleteMany({ shopId });
+
+    res.json({ success: true, message: "Shop and all associated inventory/sales deleted successfully" });
+  } catch (err) {
+    console.error("Error deleting shop:", err);
+    res.status(500).json({ message: "Server error: " + err.message });
+  }
+});
+
 app.post('/api/shops/register', async (req, res) => {
   console.log('Registering shop:', req.body.name);
   try {
     const { name, location, managerId, confirmPremium } = req.body;
 
-    // Premium Plan Check: Warn before adding 2nd shop
+    // Premium Plan Check: Warn before adding another shop
     const existingShops = await Shop.countDocuments({ manager: managerId });
     if (existingShops >= 1 && !confirmPremium) {
+      const newShopCount = existingShops + 1;
+      const baseCost = newShopCount * 100;
+      const newTotal = newShopCount > 3 ? baseCost * 0.7 : baseCost;
       return res.status(409).json({ 
         success: false,
         requiresConfirmation: true,
-        message: "Adding a second shop upgrades your subscription to the Premium Plan (R400/month). Do you want to proceed?"
+        message: `Adding another shop upgrades your subscription to R${newTotal.toFixed(2)}/month (R100 per shop, with a 30% discount for more than 3 shops). Do you want to proceed?`
       });
     }
 
@@ -937,14 +961,14 @@ app.post('/api/admin/activate-user', async (req, res) => {
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // Determine Rate: Allow manual override via planType, otherwise auto-detect
-    let monthlyRate = 150;
     const shopCount = await Shop.countDocuments({ manager: userId });
+    const baseCost = shopCount * 100;
+    const autoRate = shopCount > 3 ? baseCost * 0.7 : baseCost;
 
-    if (planType === 'premium') monthlyRate = 400;
-    else if (planType === 'standard') monthlyRate = 150;
-    else monthlyRate = shopCount >= 2 ? 400 : 150; // Auto-detect
+    let monthlyRate = autoRate;
+    if (planType === 'standard' && shopCount === 1) monthlyRate = 100;
 
-    const finalPlanType = monthlyRate === 400 ? 'Premium' : 'Standard';
+    const finalPlanType = shopCount > 3 ? 'Multi-Shop Premium' : 'Standard';
 
     // If currently valid, add to existing expiry. If expired, start from now.
     const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 

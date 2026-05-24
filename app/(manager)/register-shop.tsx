@@ -17,6 +17,14 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
+export const cleanPremiumMessage = (msg: string) => {
+  if (!msg) return "";
+  if (msg.includes("R400") || msg.includes("Premium Plan")) {
+    return "Adding another shop upgrades your subscription to R100.00 per active shop monthly (with a 30% discount if you manage more than 3 shops). Your first month is 100% free!";
+  }
+  return msg;
+};
+
 export default function RegisterShop() {
   const router = useRouter();
   const params = useLocalSearchParams(); 
@@ -26,6 +34,7 @@ export default function RegisterShop() {
   const [location, setLocation] = useState('');
   const [loading, setLoading] = useState(false);
   const [premiumModalVisible, setPremiumModalVisible] = useState(false);
+  const [premiumMessage, setPremiumMessage] = useState('');
   
   // Modal for a polished success experience
   const [showSuccess, setShowSuccess] = useState(false);
@@ -65,6 +74,7 @@ export default function RegisterShop() {
 
       if (response.status === 409 && data.requiresConfirmation) {
         setLoading(false);
+        setPremiumMessage(data.message || 'Adding this shop requires updating your subscription plan.');
         setPremiumModalVisible(true);
         return;
       }
@@ -119,6 +129,7 @@ export default function RegisterShop() {
                 style={styles.input} 
                 value={name} 
                 onChangeText={setName} 
+                editable={!loading}
               />
           </View>
 
@@ -131,6 +142,7 @@ export default function RegisterShop() {
                 style={styles.input} 
                 value={location} 
                 onChangeText={setLocation} 
+                editable={!loading}
               />
           </View>
 
@@ -154,33 +166,38 @@ export default function RegisterShop() {
           <View style={styles.modalContent}>
             <View style={styles.premiumHeader}>
               <Ionicons name="diamond" size={40} color="#f59e0b" style={{ marginBottom: 10 }} />
-              <Text style={styles.modalTitle}>Upgrade to Premium</Text>
+              <Text style={styles.modalTitle}>Multi-Shop Upgrade</Text>
             </View>
             
-            <Text style={styles.premiumDesc}>
-              You are adding multiple shops. This requires the <Text style={{fontWeight: 'bold', color: '#0ea5e9'}}>Premium Plan</Text>.
+            <Text style={[styles.premiumDesc, { color: '#0ea5e9', fontWeight: '700', fontSize: 16, marginBottom: 8 }]}>
+              🎁 1st Month is 100% Free!
+            </Text>
+            
+            <Text style={[styles.premiumDesc, { fontSize: 14, lineHeight: 20 }]}>
+              {cleanPremiumMessage(premiumMessage) || "Adding another shop expands your business operations."}
             </Text>
 
             <View style={styles.planDetails}>
               <View style={styles.planRow}>
                 <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-                <Text style={styles.planText}>Unlimited Shops</Text>
+                <Text style={styles.planText}>Multi-Shop Inter-Stock Transfers</Text>
               </View>
               <View style={styles.planRow}>
                 <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-                <Text style={styles.planText}>Advanced Reporting</Text>
+                <Text style={styles.planText}>Aggregated Business Intelligence</Text>
               </View>
               <View style={styles.planRow}>
                 <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-                <Text style={styles.planText}>Priority Support</Text>
+                <Text style={styles.planText}>Standard R100/month per active shop</Text>
               </View>
-              <View style={styles.priceTag}>
-                <Text style={styles.priceText}>R400.00 / month</Text>
+              <View style={styles.planRow}>
+                <Ionicons name="checkmark-circle" size={18} color="#10b981" />
+                <Text style={styles.planText}>30% Discount (for more than 3 shops)</Text>
               </View>
             </View>
 
             <View style={styles.paymentInfoBox}>
-              <Text style={styles.paymentTitle}>Payment Options</Text>
+              <Text style={styles.paymentTitle}>Renewal Details</Text>
               <View style={styles.paymentRow}>
                 <Text style={styles.paymentLabel}>EcoCash:</Text>
                 <Text style={styles.paymentValue}>+263 777 926 123</Text>
@@ -195,7 +212,7 @@ export default function RegisterShop() {
               style={[styles.modalBtn, { backgroundColor: '#0ea5e9' }]} 
               onPress={() => handleRegisterShop(true)}
             >
-              <Text style={styles.modalBtnText}>Accept & Create Shop</Text>
+              <Text style={styles.modalBtnText}>Confirm & Create Shop</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
@@ -206,7 +223,7 @@ export default function RegisterShop() {
             </TouchableOpacity>
             
             <Text style={styles.noteText}>
-              * You can pay via Paynow or Cash (Contact Admin) after creation.
+              * Trial is instant. Renewals are handled by EcoCash or Cash payment validation.
             </Text>
           </View>
         </View>
