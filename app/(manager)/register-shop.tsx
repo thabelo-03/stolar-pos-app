@@ -7,6 +7,8 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
+  KeyboardAvoidingView,
   ScrollView,
   StyleSheet,
   Text,
@@ -118,47 +120,52 @@ export default function RegisterShop() {
         <Text style={styles.title}>Branch Establishment</Text>
       </LinearGradient>
       
-      <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
-        <View style={styles.form}>
-          <Text style={styles.label}>Shop Name</Text>
-          <View style={styles.inputContainer}>
-              <Ionicons name="storefront" size={20} color="#0ea5e9" style={styles.icon} />
-              <TextInput 
-                placeholder="e.g. Zondo General Dealer" 
-                placeholderTextColor="#94a3b8"
-                style={styles.input} 
-                value={name} 
-                onChangeText={setName} 
-                editable={!loading}
-              />
-          </View>
+      <KeyboardAvoidingView 
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+        style={{ flex: 1 }}
+      >
+        <ScrollView contentContainerStyle={styles.formContainer} keyboardShouldPersistTaps="handled">
+          <View style={styles.form}>
+            <Text style={styles.label}>Shop Name</Text>
+            <View style={styles.inputContainer}>
+                <Ionicons name="storefront" size={20} color="#0ea5e9" style={styles.icon} />
+                <TextInput 
+                  placeholder="e.g. Zondo General Dealer" 
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input} 
+                  value={name} 
+                  onChangeText={setName} 
+                  editable={!loading}
+                />
+            </View>
 
-          <Text style={styles.label}>Shop Location</Text>
-          <View style={styles.inputContainer}>
-              <Ionicons name="location" size={20} color="#0ea5e9" style={styles.icon} />
-              <TextInput 
-                placeholder="e.g. Khalanyoni" 
-                placeholderTextColor="#94a3b8"
-                style={styles.input} 
-                value={location} 
-                onChangeText={setLocation} 
-                editable={!loading}
-              />
-          </View>
+            <Text style={styles.label}>Shop Location</Text>
+            <View style={styles.inputContainer}>
+                <Ionicons name="location" size={20} color="#0ea5e9" style={styles.icon} />
+                <TextInput 
+                  placeholder="e.g. Khalanyoni" 
+                  placeholderTextColor="#94a3b8"
+                  style={styles.input} 
+                  value={location} 
+                  onChangeText={setLocation} 
+                  editable={!loading}
+                />
+            </View>
 
-          <TouchableOpacity 
-            style={[styles.btn, loading && { backgroundColor: '#7dd3fc' }]} 
-            onPress={() => handleRegisterShop(false)}
-            disabled={loading}
-          >
-            {loading ? (
-              <ActivityIndicator color="white" />
-            ) : (
-              <Text style={styles.btnText}>Launch Shop Branch</Text>
-            )}
-          </TouchableOpacity>
-        </View>
-      </ScrollView>
+            <TouchableOpacity 
+              style={[styles.btn, loading && { backgroundColor: '#7dd3fc' }]} 
+              onPress={() => handleRegisterShop(false)}
+              disabled={loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="white" />
+              ) : (
+                <Text style={styles.btnText}>Launch Shop Branch</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* --- PREMIUM UPGRADE MODAL --- */}
       <Modal visible={premiumModalVisible} transparent animationType="slide">
