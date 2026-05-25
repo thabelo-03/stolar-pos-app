@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "346958256765",
+    "project_id": "stolar-40081",
+    "storage_bucket": "stolar-40081.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:346958256765:android:1ced6f8af7659a62d3ef14",
+        "android_client_info": {
+          "package_name": "com.stolar.pos"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAhbCUgsWsDtO2CAkBFQ-JBoyWsqJIODYY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
