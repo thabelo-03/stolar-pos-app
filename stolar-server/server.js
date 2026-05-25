@@ -893,11 +893,14 @@ app.post('/api/sales', async (req, res) => {
           const cashier = await User.findById(cashierId);
           const cashierName = cashier ? cashier.name : 'Cashier';
           
+          const zarRate = (shop.rates && shop.rates.ZAR) ? shop.rates.ZAR : 19.2;
+          const totalZAR = Number(totalUSD) * zarRate;
+          
           await new Notification({
             recipient: shop.manager,
             sender: cashierId,
             type: 'system',
-            message: `New Sale: R${Number(totalUSD).toFixed(2)} by ${cashierName}`,
+            message: `New Sale: R${totalZAR.toFixed(2)} by ${cashierName}`,
             relatedId: newSale._id
           }).save();
         }
