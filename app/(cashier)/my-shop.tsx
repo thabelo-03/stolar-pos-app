@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 import { Colors } from '../../constants/theme';
+import { refreshActiveShopGlobal } from '../../hooks/use-active-shop';
 
 interface Shop {
   _id: string;
@@ -168,6 +169,8 @@ export default function MyShopScreen() {
       }
 
       if (response.ok) {
+        await AsyncStorage.removeItem('shopId');
+        await refreshActiveShopGlobal();
         setModalVisible(false);
         setShop(null);
         Alert.alert("Success", modalType === 'switch' ? "Disconnected. Enter new branch code." : "You have left the shop.");
@@ -277,6 +280,7 @@ export default function MyShopScreen() {
 
   const handleSelectShop = async (selectedShop: any) => {
     await AsyncStorage.setItem('shopId', selectedShop._id);
+    await refreshActiveShopGlobal();
     setShopSelectionVisible(false);
     Alert.alert("Success", `Switched to ${selectedShop.name}`);
     fetchShopDetails();

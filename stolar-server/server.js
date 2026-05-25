@@ -873,8 +873,14 @@ app.post('/api/sales', async (req, res) => {
     await newSale.save();
 
     for (const item of items) {
+      const query = { barcode: item.barcode };
+      if (shopId && mongoose.Types.ObjectId.isValid(shopId)) {
+        query.shopId = { $in: [new mongoose.Types.ObjectId(shopId), shopId] };
+      } else if (shopId) {
+        query.shopId = shopId;
+      }
       await Product.findOneAndUpdate(
-        { barcode: item.barcode },
+        query,
         { $inc: { stockQuantity: -item.quantity } }
       );
     }
@@ -917,8 +923,14 @@ app.post('/api/sales/:id/refund', async (req, res) => {
 
     // Restore Stock
     for (const item of sale.items) {
+      const query = { barcode: item.barcode };
+      if (sale.shopId && mongoose.Types.ObjectId.isValid(sale.shopId)) {
+        query.shopId = { $in: [new mongoose.Types.ObjectId(sale.shopId), sale.shopId] };
+      } else if (sale.shopId) {
+        query.shopId = sale.shopId;
+      }
       await Product.findOneAndUpdate(
-        { barcode: item.barcode },
+        query,
         { $inc: { stockQuantity: item.quantity } }
       );
     }
