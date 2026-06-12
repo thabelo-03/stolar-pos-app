@@ -240,8 +240,8 @@ app.get('/api/users/:id', async (req, res) => {
     const shopCount = await Shop.countDocuments({ manager: user._id });
     user.shopCount = shopCount;
     const baseCost = shopCount * 100;
-    user.nextBillingAmount = shopCount > 3 ? baseCost * 0.7 : baseCost;
-    user.planType = shopCount > 3 ? 'Multi-Shop Premium' : 'Standard';
+    user.nextBillingAmount = shopCount >= 3 ? baseCost * 0.7 : baseCost;
+    user.planType = shopCount >= 3 ? 'Multi-Shop Premium' : 'Standard';
 
     res.json(user);
   } catch (err) {
@@ -978,12 +978,12 @@ app.post('/api/admin/activate-user', async (req, res) => {
     // Determine Rate: Allow manual override via planType, otherwise auto-detect
     const shopCount = await Shop.countDocuments({ manager: userId });
     const baseCost = shopCount * 100;
-    const autoRate = shopCount > 3 ? baseCost * 0.7 : baseCost;
+    const autoRate = shopCount >= 3 ? baseCost * 0.7 : baseCost;
 
     let monthlyRate = autoRate;
     if (planType === 'standard' && shopCount === 1) monthlyRate = 100;
 
-    const finalPlanType = shopCount > 3 ? 'Multi-Shop Premium' : 'Standard';
+    const finalPlanType = shopCount >= 3 ? 'Multi-Shop Premium' : 'Standard';
 
     // If currently valid, add to existing expiry. If expired, start from now.
     const currentExpiry = user.subscriptionExpiry && new Date(user.subscriptionExpiry) > new Date() 

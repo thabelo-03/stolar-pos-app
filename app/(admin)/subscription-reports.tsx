@@ -103,7 +103,9 @@ export default function SubscriptionReports() {
         if (user.role !== 'manager') return acc;
         const expired = user.subscriptionExpiry ? new Date(user.subscriptionExpiry) < new Date() : false;
         if (expired) return acc;
-        return acc + ((user.shopCount || 0) >= 2 ? 400 : 150);
+        const count = user.shopCount || 0;
+        const baseCost = count * 100;
+        return acc + (count >= 3 ? baseCost * 0.7 : baseCost);
       }, 0);
 
       // Month-over-month comparison

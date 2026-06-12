@@ -22,7 +22,7 @@ import { API_BASE_URL } from '../config';
 export const cleanPremiumMessage = (msg: string) => {
   if (!msg) return "";
   if (msg.includes("R400") || msg.includes("Premium Plan")) {
-    return "Adding another shop upgrades your subscription to R100.00 per active shop monthly (with a 30% discount if you manage more than 3 shops). Your first month is 100% free!";
+    return "Adding another shop upgrades your subscription to R100.00 per active shop monthly (with a 30% discount if you manage 3 shops or more). Your first month is 100% free!";
   }
   return msg;
 };
@@ -199,7 +199,7 @@ export default function RegisterShop() {
               </View>
               <View style={styles.planRow}>
                 <Ionicons name="checkmark-circle" size={18} color="#10b981" />
-                <Text style={styles.planText}>30% Discount (for more than 3 shops)</Text>
+                <Text style={styles.planText}>30% Discount (for 3 shops or more)</Text>
               </View>
             </View>
 

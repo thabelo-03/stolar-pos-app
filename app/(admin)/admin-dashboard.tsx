@@ -150,7 +150,8 @@ export default function AdminDashboard() {
           } else {
             activeManagers++;
             const count = user.shopCount || 0;
-            mrr += count >= 2 ? 400 : 150;
+            const baseCost = count * 100;
+            mrr += count >= 3 ? baseCost * 0.7 : baseCost;
           }
         }
       });
@@ -365,7 +366,7 @@ export default function AdminDashboard() {
                     <Text style={styles.activitySub}>{item.subtitle}</Text>
                   </View>
                   <Text style={styles.activityTime}>
-                    {item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    {item.date.toLocaleDateString([], { day: 'numeric', month: 'short' })} • {item.date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                   </Text>
                 </View>
               );

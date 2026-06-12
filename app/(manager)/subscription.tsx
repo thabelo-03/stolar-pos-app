@@ -122,7 +122,7 @@ export default function SubscriptionPage() {
               • **Standard Pricing:** Only R100.00/month per active shop.
             </Text>
             <Text style={{ color: '#166534', fontSize: 13, lineHeight: 18, textAlign: 'center' }}>
-              • **Multi-Shop Reward:** **30% Discount** applied if you manage more than 3 shops!
+              • **Multi-Shop Reward:** **30% Discount** applied if you manage 3 shops or more!
             </Text>
           </View>
 

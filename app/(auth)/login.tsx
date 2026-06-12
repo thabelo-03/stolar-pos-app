@@ -9,6 +9,7 @@ import {
   Animated,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Modal,
   Platform,
@@ -35,6 +36,7 @@ export default function Login() {
   const [managerData, setManagerData] = useState<any>(null);
   const [shops, setShops] = useState<any[]>([]);
   const [shopSelectionVisible, setShopSelectionVisible] = useState(false);
+  const [isKeyboardActive, setIsKeyboardActive] = useState(false);
 
   // Animations
   const logoAnim = useRef(new Animated.Value(0)).current;
@@ -86,6 +88,22 @@ export default function Login() {
     }
   }, [workspaceModalVisible]);
 
+  useEffect(() => {
+    const showSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      () => setIsKeyboardActive(true)
+    );
+    const hideSubscription = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setIsKeyboardActive(false)
+    );
+
+    return () => {
+      showSubscription.remove();
+      hideSubscription.remove();
+    };
+  }, []);
+
   const handleLogin = async () => {
     if (!email || !password) {
       Alert.alert("Error", "Please enter both email and password");
@@ -103,6 +121,7 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok && data.success) {
+        await AsyncStorage.setItem('userToken', 'logged-in');
         await AsyncStorage.setItem('userId', data.id);
         await AsyncStorage.setItem('userRole', data.role);
         await AsyncStorage.setItem('userName', data.name);
@@ -212,7 +231,7 @@ export default function Login() {
         style={styles.keyboardView}
       >
         <ScrollView
-          contentContainerStyle={[styles.scroll, { paddingTop: insets.top + 20 }]}
+          contentContainerStyle={[styles.scroll, { paddingTop: isKeyboardActive ? insets.top : insets.top + 20 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
@@ -220,6 +239,7 @@ export default function Login() {
           <Animated.View
             style={[
               styles.logoSection,
+              isKeyboardActive && styles.logoSectionKeyboardActive,
               {
                 opacity: logoAnim,
                 transform: [
@@ -228,22 +248,28 @@ export default function Login() {
               },
             ]}
           >
-            <Animated.View style={[styles.logoRing, { transform: [{ scale: pulseAnim }] }]}>
-              <View style={styles.logoInner}>
-                <Image
-                  source={require('../../assets/images/stolar-logo.jpeg')}
-                  style={styles.logoImage}
-                />
-              </View>
-            </Animated.View>
-            <Text style={styles.brandName}>STOLAR POS</Text>
-            <Text style={styles.brandTagline}>Management & Retail System</Text>
+            {!isKeyboardActive && (
+              <Animated.View style={[styles.logoRing, { transform: [{ scale: pulseAnim }] }]}>
+                <View style={styles.logoInner}>
+                  <Image
+                    source={require('../../assets/images/stolar-logo.jpeg')}
+                    style={styles.logoImage}
+                  />
+                </View>
+              </Animated.View>
+            )}
+            <Text style={[styles.brandName, isKeyboardActive && styles.brandNameKeyboardActive]}>STOLAR POS</Text>
+            {!isKeyboardActive && (
+              <>
+                <Text style={styles.brandTagline}>Management & Retail System</Text>
 
-            {/* Status dots */}
-            <View style={styles.statusRow}>
-              <View style={styles.statusDot} />
-              <Text style={styles.statusText}>Secure Connection</Text>
-            </View>
+                {/* Status dots */}
+                <View style={styles.statusRow}>
+                  <View style={styles.statusDot} />
+                  <Text style={styles.statusText}>Secure Connection</Text>
+                </View>
+              </>
+            )}
           </Animated.View>
 
           {/* Form Card */}
@@ -281,7 +307,7 @@ export default function Login() {
             <View collapsable={false} style={[styles.inputWrapper, passwordFocused && styles.inputWrapperFocused]}>
               <Ionicons name="lock-closed-outline" size={20} color={passwordFocused ? '#06b6d4' : '#475569'} style={styles.inputIcon} />
               <TextInput
-                style={styles.input}
+                style={[styles.input, { paddingRight: 8 }]}
                 placeholder="Password"
                 placeholderTextColor="#475569"
                 secureTextEntry={!showPassword}
@@ -290,8 +316,12 @@ export default function Login() {
                 onFocus={() => setPasswordFocused(true)}
                 onBlur={() => setPasswordFocused(false)}
               />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeBtn}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color="#475569" />
+              <TouchableOpacity
+                onPress={() => setShowPassword(!showPassword)}
+                style={styles.eyeBtn}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={passwordFocused ? '#06b6d4' : '#475569'} />
               </TouchableOpacity>
             </View>
 
@@ -516,9 +546,15 @@ const styles = StyleSheet.create({
     shadowColor: '#06b6d4', shadowOffset: { width: 0, height: 0 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  inputIcon: { marginRight: 12 },
+  inputIcon: { marginRight: 12, width: 20 },
   input: { flex: 1, fontSize: 15, color: '#f1f5f9' },
-  eyeBtn: { padding: 4 },
+  eyeBtn: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+  },
 
   forgotRow: { alignSelf: 'flex-end', marginBottom: 20 },
   forgotText: { fontSize: 13, color: '#06b6d4', fontWeight: '600' },
@@ -591,4 +627,12 @@ const styles = StyleSheet.create({
   },
   shopItemName: { fontSize: 15, fontWeight: '700', color: '#f1f5f9' },
   shopItemLoc: { fontSize: 12, color: '#64748b', marginTop: 2 },
+  logoSectionKeyboardActive: {
+    marginBottom: 8,
+  },
+  brandNameKeyboardActive: {
+    fontSize: 20,
+    letterSpacing: 2,
+    marginBottom: 2,
+  },
 });

@@ -365,7 +365,13 @@ export default function ManageUsers() {
   };
 
   const expiredManagers = users.filter(u => u.role === 'manager' && (u.subscriptionExpiry ? new Date(u.subscriptionExpiry) < new Date() : false));
-  const planPrice = planType === 'premium' ? 400 : 150;
+  const getPlanPrice = () => {
+    if (!selectedUser) return 100;
+    const shopCount = selectedUser.shopCount || 1;
+    const baseCost = shopCount * 100;
+    return shopCount >= 3 ? baseCost * 0.7 : baseCost;
+  };
+  const planPrice = getPlanPrice();
   const totalPrice = planPrice * (parseInt(monthsToAdd) || 1);
 
   const displayedUsers = getDisplayedUsers();
@@ -495,7 +501,10 @@ export default function ManageUsers() {
                   keyExtractor={i => i._id}
                   style={{ maxHeight: 220, marginBottom: 16 }}
                   renderItem={({ item }) => (
-                    <TouchableOpacity style={styles.selectItem} onPress={() => setSelectedUser(item)}>
+                    <TouchableOpacity style={styles.selectItem} onPress={() => {
+                      setSelectedUser(item);
+                      setPlanType((item.shopCount || 0) >= 2 ? 'premium' : 'standard');
+                    }}>
                       <View style={[styles.selectAvatar, { backgroundColor: 'rgba(245,158,11,0.15)' }]}>
                         <Text style={{ color: '#f59e0b', fontWeight: '800', fontSize: 15 }}>{item.name.charAt(0)}</Text>
                       </View>
@@ -525,19 +534,24 @@ export default function ManageUsers() {
                   </TouchableOpacity>
                 </View>
 
-                <Text style={styles.modalSectionLabel}>PLAN TYPE</Text>
-                <View style={styles.planToggle}>
-                  {(['standard', 'premium'] as const).map(p => (
-                    <TouchableOpacity
-                      key={p}
-                      style={[styles.planOption, planType === p && styles.planOptionActive]}
-                      onPress={() => setPlanType(p)}
-                    >
-                      <Text style={[styles.planOptionText, planType === p && styles.planOptionTextActive]}>
-                        {p === 'standard' ? 'Standard · R150/mo' : 'Premium · R400/mo'}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <Text style={styles.modalSectionLabel}>PLAN DETAILS</Text>
+                <View style={styles.planDetailsCard}>
+                  <View style={styles.planDetailRow}>
+                    <Text style={styles.planDetailLabel}>Active Shops:</Text>
+                    <Text style={styles.planDetailValue}>{selectedUser.shopCount || 1}</Text>
+                  </View>
+                  <View style={styles.planDetailRow}>
+                    <Text style={styles.planDetailLabel}>Rate Per Shop:</Text>
+                    <Text style={styles.planDetailValue}>
+                      R{(selectedUser.shopCount || 1) >= 3 ? '70.00' : '100.00'}/mo
+                    </Text>
+                  </View>
+                  {(selectedUser.shopCount || 1) >= 3 && (
+                    <View style={styles.discountBadge}>
+                      <Ionicons name="gift-outline" size={12} color="#10b981" />
+                      <Text style={styles.discountText}>30% Multi-Shop Discount Applied</Text>
+                    </View>
+                  )}
                 </View>
 
                 <Text style={styles.modalSectionLabel}>MONTHS TO ADD</Text>
@@ -823,4 +837,41 @@ const styles = StyleSheet.create({
   historyItemAmount: { color: '#10b981', fontSize: 14, fontWeight: '800' },
 
   emptyText: { color: '#334155', textAlign: 'center', padding: 24, fontStyle: 'italic' },
+  planDetailsCard: {
+    backgroundColor: 'rgba(255,255,255,0.02)',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    padding: 14,
+    marginBottom: 16,
+  },
+  planDetailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  planDetailLabel: {
+    color: '#94a3b8',
+    fontSize: 13,
+  },
+  planDetailValue: {
+    color: '#f1f5f9',
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  discountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16,185,129,0.15)',
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    marginTop: 8,
+    gap: 4,
+  },
+  discountText: {
+    color: '#10b981',
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });

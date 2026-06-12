@@ -201,7 +201,7 @@ const styles = StyleSheet.create({
   form: { width: '100%' },
   input: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingVertical: 12, fontSize: 16, color: '#1e293b' },
   passwordContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  passwordInput: { flex: 1, borderBottomWidth: 0, marginBottom: 0, ...(Platform.OS === 'web' ? ({ WebkitAppearance: 'none' } as any) : {}) },
+  passwordInput: { flex: 1, borderBottomWidth: 0, marginBottom: 0, paddingRight: 12, ...(Platform.OS === 'web' ? ({ WebkitAppearance: 'none' } as any) : {}) },
   eyeButton: { padding: 8 },
   roleLabel: { fontWeight: 'bold', color: '#1e3a8a', marginBottom: 10 },
   roleContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
