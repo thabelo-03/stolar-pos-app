@@ -142,6 +142,12 @@ app.post('/api/auth/login', async (req, res) => {
     // If expiry is in the past, they are expired
     const isExpired = expiry < now;
 
+    if (isExpired && user.role === 'manager' && user.subscriptionStatus !== 'expired') {
+      user.subscriptionStatus = 'expired';
+      await User.findByIdAndUpdate(user._id, { subscriptionStatus: 'expired' });
+      console.log(`[Login API] Auto-expired manager session on login: ${user.name}`);
+    }
+
     const shopCount = await Shop.countDocuments({ manager: user._id });
     const baseCost = shopCount * 100;
     const nextBillingAmount = shopCount > 3 ? baseCost * 0.7 : baseCost;
@@ -200,8 +206,17 @@ app.get('/api/users', async (req, res) => {
   try {
     const users = await User.find().select('-password').sort({ createdAt: -1 }).lean();
     
-    // Enrich users with shop count for Admin UI flagging
+    // Enrich users with shop count for Admin UI flagging and check subscription expiry
     const usersWithCounts = await Promise.all(users.map(async (user) => {
+      if (user.role === 'manager' && user.subscriptionExpiry) {
+        const now = new Date();
+        const expiry = new Date(user.subscriptionExpiry);
+        if (expiry < now && user.subscriptionStatus !== 'expired') {
+          user.subscriptionStatus = 'expired';
+          await User.findByIdAndUpdate(user._id, { subscriptionStatus: 'expired' });
+          console.log(`[Users API] Auto-expired manager: ${user.name}`);
+        }
+      }
       const count = await Shop.countDocuments({ manager: user._id });
       return { ...user, shopCount: count };
     }));
@@ -233,8 +248,19 @@ app.get('/api/users/cash-payers', async (req, res) => {
 
 app.get('/api/users/:id', async (req, res) => {
   try {
-    const user = await User.findById(req.params.id).select('-password').lean();
+    let user = await User.findById(req.params.id).select('-password').lean();
     if (!user) return res.status(404).json({ message: "User not found" });
+
+    // Auto-expire check
+    if (user.role === 'manager' && user.subscriptionExpiry) {
+      const now = new Date();
+      const expiry = new Date(user.subscriptionExpiry);
+      if (expiry < now && user.subscriptionStatus !== 'expired') {
+        user.subscriptionStatus = 'expired';
+        await User.findByIdAndUpdate(user._id, { subscriptionStatus: 'expired' });
+        console.log(`[Users API] Auto-expired manager: ${user.name}`);
+      }
+    }
     
     // Calculate Plan Details dynamically
     const shopCount = await Shop.countDocuments({ manager: user._id });
@@ -286,8 +312,18 @@ app.get('/api/shops/:id', async (req, res) => {
 
     // Manually fetch manager details to handle broken references gracefully
     if (shop.manager) {
-      const manager = await User.findById(shop.manager).select('name email subscriptionStatus subscriptionExpiry').lean();
+      let manager = await User.findById(shop.manager).select('name email subscriptionStatus subscriptionExpiry').lean();
       if (manager) {
+        // Auto-expire check
+        if (manager.subscriptionExpiry) {
+          const now = new Date();
+          const expiry = new Date(manager.subscriptionExpiry);
+          if (expiry < now && manager.subscriptionStatus !== 'expired') {
+            manager.subscriptionStatus = 'expired';
+            await User.findByIdAndUpdate(manager._id, { subscriptionStatus: 'expired' });
+            console.log(`[Shops API] Auto-expired manager for shop ${shop.name}: ${manager.name}`);
+          }
+        }
         shop.manager = manager;
       } else {
         shop.manager = { name: 'Unknown (User Deleted)', email: 'N/A' };
