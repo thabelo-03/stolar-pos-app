@@ -19,6 +19,7 @@ export default function Signup() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [role, setRole] = useState('cashier');
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -133,14 +134,26 @@ export default function Signup() {
           value={email}
           onChangeText={setEmail}
         />
-        <TextInput 
-          placeholder="Password" 
-          style={styles.input} 
-          placeholderTextColor="#94a3b8"
-          secureTextEntry 
-          value={password}
-          onChangeText={setPassword}
-        />
+        <View style={styles.passwordContainer}>
+          <TextInput 
+            placeholder="Password" 
+            style={[styles.input, styles.passwordInput]} 
+            placeholderTextColor="#94a3b8"
+            secureTextEntry={!showPassword}
+            value={password}
+            onChangeText={setPassword}
+          />
+          <TouchableOpacity
+            style={styles.eyeButton}
+            onPress={() => setShowPassword(prev => !prev)}
+          >
+            <Ionicons
+              name={showPassword ? 'eye-off-outline' : 'eye-outline'}
+              size={22}
+              color="#64748b"
+            />
+          </TouchableOpacity>
+        </View>
 
         <Text style={styles.roleLabel}>Select Staff Role:</Text>
         <View style={styles.roleContainer}>
@@ -186,7 +199,10 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: 'bold', color: '#1e3a8a' },
   subtitle: { color: '#64748b', fontSize: 16 },
   form: { width: '100%' },
-  input: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingVertical: 12, fontSize: 16, marginBottom: 20, color: '#1e293b' },
+  input: { borderBottomWidth: 1, borderBottomColor: '#e2e8f0', paddingVertical: 12, fontSize: 16, color: '#1e293b' },
+  passwordContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 20, borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
+  passwordInput: { flex: 1, borderBottomWidth: 0, marginBottom: 0, ...(Platform.OS === 'web' ? ({ WebkitAppearance: 'none' } as any) : {}) },
+  eyeButton: { padding: 8 },
   roleLabel: { fontWeight: 'bold', color: '#1e3a8a', marginBottom: 10 },
   roleContainer: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 30 },
   roleButton: { flex: 1, padding: 10, borderWidth: 1, borderColor: '#e2e8f0', marginHorizontal: 2, alignItems: 'center', borderRadius: 8 },
