@@ -14,12 +14,11 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
 
-// Define a type for safety
 interface Product {
   _id: string;
   name: string;
@@ -27,6 +26,24 @@ interface Product {
   stockQuantity: number;
   category?: string;
 }
+
+// ─── Stock level helpers ──────────────────────────────────────────────────────
+const getStockConfig = (qty: number): { color: string; label: string; pct: number } => {
+  if (qty === 0) return { color: '#ef4444', label: 'OUT OF STOCK', pct: 0 };
+  if (qty < 5)  return { color: '#ef4444', label: `${qty} units`, pct: qty / 50 };
+  if (qty < 20) return { color: '#f59e0b', label: `${qty} units`, pct: qty / 50 };
+  return { color: '#10b981', label: `${qty} units`, pct: Math.min(qty / 50, 1) };
+};
+
+const getCategoryIcon = (cat?: string): any => {
+  if (!cat) return 'cube-outline';
+  const c = cat.toLowerCase();
+  if (c.includes('drink') || c.includes('bev')) return 'wine-outline';
+  if (c.includes('food') || c.includes('snack')) return 'fast-food-outline';
+  if (c.includes('clean') || c.includes('hygiene')) return 'sparkles-outline';
+  if (c.includes('tech') || c.includes('electron')) return 'phone-portrait-outline';
+  return 'cube-outline';
+};
 
 export default function AllProducts() {
   const router = useRouter();
@@ -41,298 +58,194 @@ export default function AllProducts() {
     try {
       const res = await fetch(`${API_BASE_URL}/products`);
       const data = await res.json();
-      
-      if (Array.isArray(data)) {
-        setProducts(data);
-        setFilteredProducts(data); // Initialize filtered list
-      }
-    } catch (e) {
-      console.error("Failed to fetch products:", e);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
+      if (Array.isArray(data)) { setProducts(data); setFilteredProducts(data); }
+    } catch { console.error('Failed to fetch products'); }
+    finally { setLoading(false); setRefreshing(false); }
   };
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
+  useEffect(() => { fetchProducts(); }, []);
 
-  // Handle Search Filtering
   useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredProducts(products);
-    } else {
-      const lowerTerm = searchTerm.toLowerCase();
-      const filtered = products.filter(p => 
-        p.name.toLowerCase().includes(lowerTerm) || 
-        (p.category && p.category.toLowerCase().includes(lowerTerm))
-      );
-      setFilteredProducts(filtered);
-    }
+    if (!searchTerm.trim()) { setFilteredProducts(products); return; }
+    const q = searchTerm.toLowerCase();
+    setFilteredProducts(products.filter(p => p.name.toLowerCase().includes(q) || p.category?.toLowerCase().includes(q)));
   }, [searchTerm, products]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchProducts();
-  }, []);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchProducts(); }, []);
+
+  // Summary stats
+  const lowStockCount = products.filter(p => p.stockQuantity > 0 && p.stockQuantity < 20).length;
+  const outOfStockCount = products.filter(p => p.stockQuantity === 0).length;
+  const totalValue = products.reduce((sum, p) => sum + p.price * p.stockQuantity, 0);
 
   const handleExportPDF = async () => {
     const html = `
-      <html>
-        <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
-          <style>
-            body { 
-              font-family: 'Inter', -apple-system, sans-serif; 
-              padding: 24px; 
-              color: #1e293b;
-              background-color: #ffffff;
-              margin: 0;
-            }
-            .header-banner {
-              background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
-              border-radius: 16px;
-              padding: 24px;
-              color: #ffffff;
-              margin-bottom: 24px;
-              box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
-            }
-            .header-title {
-              font-family: 'Outfit', sans-serif;
-              font-size: 22px;
-              font-weight: 800;
-              margin: 0;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .header-subtitle {
-              font-size: 13px;
-              color: rgba(255, 255, 255, 0.85);
-              margin-top: 6px;
-              font-weight: 500;
-            }
-            
-            .meta-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 16px;
-              margin-bottom: 28px;
-            }
-            .meta-card {
-              border: 1px solid #e2e8f0;
-              border-radius: 14px;
-              padding: 12px;
-              background-color: #f8fafc;
-              text-align: center;
-            }
-            .meta-label {
-              font-size: 9px;
-              font-weight: 700;
-              color: #64748b;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              margin-bottom: 4px;
-            }
-            .meta-value {
-              font-size: 14px;
-              font-weight: 800;
-              color: #0f172a;
-            }
-
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              font-size: 11px;
-              margin-top: 20px;
-            }
-            th { 
-              background-color: #f8fafc; 
-              color: #475569; 
-              font-weight: 700; 
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              font-size: 10px;
-              border-bottom: 2px solid #cbd5e1;
-              padding: 10px 8px;
-              text-align: left;
-            }
-            td { 
-              border-bottom: 1px solid #f1f5f9; 
-              padding: 10px 8px; 
-              color: #334155;
-            }
-            tr:nth-child(even) td { 
-              background-color: #fafbfb; 
-            }
-            .price-text {
-              font-weight: 600;
-              color: #0f172a;
-            }
-            .low-stock {
-              color: #ef4444;
-              font-weight: 700;
-            }
-            
-            .footer { 
-              margin-top: 48px; 
-              text-align: center; 
-              font-size: 10px; 
-              color: #94a3b8; 
-              border-top: 1px solid #f1f5f9;
-              padding-top: 16px;
-              font-weight: 500;
-            }
-          </style>
-        </head>
-        <body>
-          <div class="header-banner">
-            <h1 class="header-title">System Inventory Report</h1>
-            <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
-          </div>
-          
-          <div class="meta-grid">
-            <div class="meta-card">
-              <div class="meta-label">Search Query</div>
-              <div class="meta-value">${searchTerm.trim() || 'None'}</div>
-            </div>
-            <div class="meta-card">
-              <div class="meta-label">Total Items Listed</div>
-              <div class="meta-value">${filteredProducts.length}</div>
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th>Product Name</th>
-                <th>Category</th>
-                <th>Stock level</th>
-                <th style="text-align: right;">Unit Price</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${filteredProducts.map(item => `
-                <tr>
-                  <td style="font-weight: 600; color: #0f172a;">${item.name}</td>
-                  <td style="color: #64748b;">${item.category || 'General'}</td>
-                  <td class="${item.stockQuantity < 10 ? 'low-stock' : ''}">
-                    ${item.stockQuantity === 0 ? "OUT OF STOCK" : `${item.stockQuantity} units`}
-                  </td>
-                  <td style="text-align: right;" class="price-text">R ${item.price.toFixed(2)}</td>
-                </tr>
-              `).join('')}
-            </tbody>
-          </table>
-          
-          <div class="footer">
-            Stolar POS System • Master Inventory Audit
-          </div>
-        </body>
-      </html>
+      <html><head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+        <style>
+          body { font-family: 'Inter', sans-serif; padding: 24px; color: #1e293b; background: #fff; margin: 0; }
+          .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; padding: 24px; color: #fff; margin-bottom: 24px; }
+          .header h1 { font-size: 20px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+          .header p { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 6px; }
+          .kpi-row { display: flex; gap: 10px; margin-bottom: 24px; }
+          .kpi { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; }
+          .kpi-label { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+          .kpi-value { font-size: 16px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+          table { width: 100%; border-collapse: collapse; font-size: 11px; }
+          th { background: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 9px; border-bottom: 2px solid #cbd5e1; padding: 10px 8px; text-align: left; }
+          td { border-bottom: 1px solid #f1f5f9; padding: 9px 8px; color: #334155; }
+          tr:nth-child(even) td { background: #fafbfb; }
+          .low { color: #f59e0b; font-weight: 700; }
+          .out { color: #ef4444; font-weight: 700; }
+          .ok { color: #10b981; font-weight: 600; }
+          .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; }
+        </style>
+      </head><body>
+        <div class="header">
+          <h1>System Inventory Audit</h1>
+          <p>Generated ${new Date().toLocaleString()} · ${filteredProducts.length} items</p>
+        </div>
+        <div class="kpi-row">
+          <div class="kpi"><div class="kpi-label">Total Items</div><div class="kpi-value">${filteredProducts.length}</div></div>
+          <div class="kpi"><div class="kpi-label">Low Stock</div><div class="kpi-value" style="color:#f59e0b">${lowStockCount}</div></div>
+          <div class="kpi"><div class="kpi-label">Out of Stock</div><div class="kpi-value" style="color:#ef4444">${outOfStockCount}</div></div>
+          <div class="kpi"><div class="kpi-label">Stock Value</div><div class="kpi-value" style="color:#10b981">R${totalValue.toFixed(0)}</div></div>
+        </div>
+        <table>
+          <thead><tr><th>Product Name</th><th>Category</th><th>Stock</th><th>Unit Price</th><th style="text-align:right">Value</th></tr></thead>
+          <tbody>
+            ${filteredProducts.map(item => {
+              const cls = item.stockQuantity === 0 ? 'out' : item.stockQuantity < 20 ? 'low' : 'ok';
+              const label = item.stockQuantity === 0 ? 'OUT OF STOCK' : `${item.stockQuantity} units`;
+              return `<tr>
+                <td style="font-weight:600;color:#0f172a">${item.name}</td>
+                <td style="color:#64748b">${item.category || 'General'}</td>
+                <td class="${cls}">${label}</td>
+                <td>R${item.price.toFixed(2)}</td>
+                <td style="text-align:right;font-weight:600">R${(item.price * item.stockQuantity).toFixed(2)}</td>
+              </tr>`;
+            }).join('')}
+          </tbody>
+        </table>
+        <div class="footer">Stolar POS System • Master Inventory Audit</div>
+      </body></html>
     `;
     try {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch (error) { 
-      Alert.alert('Error', 'Failed to generate PDF'); 
-    }
+    } catch { Alert.alert('Error', 'Failed to generate PDF'); }
   };
 
-  const renderProductItem = ({ item }: { item: Product }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={styles.iconContainer}>
-          <Ionicons name="cube-outline" size={22} color="#0ea5e9" />
+  const renderProductItem = ({ item }: { item: Product }) => {
+    const stock = getStockConfig(item.stockQuantity);
+    const catIcon = getCategoryIcon(item.category);
+    const stockValue = item.price * item.stockQuantity;
+
+    return (
+      <View style={[styles.productCard, item.stockQuantity === 0 && styles.productCardOut]}>
+        <View style={styles.productTop}>
+          <View style={[styles.productIcon, { backgroundColor: item.stockQuantity === 0 ? 'rgba(239,68,68,0.12)' : 'rgba(59,130,246,0.12)', borderColor: item.stockQuantity === 0 ? 'rgba(239,68,68,0.3)' : 'rgba(59,130,246,0.25)' }]}>
+            <Ionicons name={catIcon} size={20} color={item.stockQuantity === 0 ? '#ef4444' : '#3b82f6'} />
+          </View>
+          <View style={{ flex: 1, marginLeft: 12 }}>
+            <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.productCategory}>{item.category || 'General'}</Text>
+          </View>
+          <View style={{ alignItems: 'flex-end' }}>
+            <Text style={styles.productPrice}>R{item.price.toFixed(2)}</Text>
+            <Text style={styles.productValue}>R{stockValue.toFixed(0)} val</Text>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
-          <Text style={styles.categoryText}>{item.category || 'General'}</Text>
+
+        {/* Stock progress bar */}
+        <View style={styles.stockRow}>
+          <Text style={[styles.stockLabel, { color: stock.color }]}>
+            {item.stockQuantity === 0 && <Ionicons name="warning-outline" size={10} color="#ef4444" />}
+            {' '}{stock.label}
+          </Text>
+          <View style={styles.stockBarBg}>
+            <View style={[styles.stockBarFill, { width: `${Math.round(stock.pct * 100)}%` as any, backgroundColor: stock.color }]} />
+          </View>
         </View>
-        <Text style={styles.price}>R{item.price.toFixed(2)}</Text>
       </View>
-      
-      <View style={styles.divider} />
-      
-      <View style={styles.cardFooter}>
-        <Text style={[
-          styles.stockText, 
-          item.stockQuantity < 10 && styles.lowStockText // Red if low stock
-        ]}>
-          {item.stockQuantity === 0 ? "Out of Stock" : `${item.stockQuantity} in stock`}
-        </Text>
-        <Ionicons 
-          name="chevron-forward" 
-          size={16} 
-          color="#cbd5e1" 
-        />
-      </View>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
-      {/* Header Section */}
-      <LinearGradient 
-        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
-        start={{ x: 0, y: 0 }} 
-        end={{ x: 1, y: 1 }} 
-        style={[styles.header, { paddingTop: insets.top + 15 }]}
-      >
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+
+      {/* ── Header ── */}
+      <LinearGradient colors={['#0f172a', '#111827']} style={[styles.header, { paddingTop: insets.top + 12 }]}>
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={20} color="#94a3b8" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>System Inventory</Text>
-            <Text style={styles.subtitle}>{filteredProducts.length} items registered</Text>
+            <Text style={styles.headerTitle}>System Inventory</Text>
+            <Text style={styles.headerSub}>{filteredProducts.length} items registered</Text>
           </View>
-          <TouchableOpacity onPress={handleExportPDF} style={styles.backButton}>
-            <Ionicons name="document-text-outline" size={24} color="white" />
+          <TouchableOpacity onPress={handleExportPDF} style={styles.backBtn}>
+            <Ionicons name="document-text-outline" size={20} color="#94a3b8" />
           </TouchableOpacity>
         </View>
-        
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#94a3b8" />
+
+        {/* Summary Strip */}
+        <View style={styles.summaryStrip}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{products.length}</Text>
+            <Text style={styles.summaryLabel}>TOTAL</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: '#f59e0b' }]}>{lowStockCount}</Text>
+            <Text style={styles.summaryLabel}>LOW STOCK</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: outOfStockCount > 0 ? '#ef4444' : '#475569' }]}>{outOfStockCount}</Text>
+            <Text style={styles.summaryLabel}>OUT</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: '#10b981', fontSize: 14 }]}>R{totalValue >= 1000 ? `${(totalValue / 1000).toFixed(1)}k` : totalValue.toFixed(0)}</Text>
+            <Text style={styles.summaryLabel}>VALUE</Text>
+          </View>
+        </View>
+
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={16} color="#475569" />
           <TextInput
-            placeholder="Search products..."
-            placeholderTextColor="#94a3b8"
+            placeholder="Search products or categories..."
+            placeholderTextColor="#334155"
             style={styles.searchInput}
             value={searchTerm}
             onChangeText={setSearchTerm}
             autoCapitalize="none"
           />
           {searchTerm.length > 0 && (
-            <Ionicons 
-              name="close-circle" 
-              size={20} 
-              color="#cbd5e1" 
-              onPress={() => setSearchTerm('')} 
-            />
+            <TouchableOpacity onPress={() => setSearchTerm('')}>
+              <Ionicons name="close-circle" size={16} color="#475569" />
+            </TouchableOpacity>
           )}
         </View>
       </LinearGradient>
 
-      {/* Content Section */}
+      {/* ── List ── */}
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0ea5e9" />
-        </View>
+        <View style={styles.center}><ActivityIndicator size="large" color="#3b82f6" /></View>
       ) : (
         <FlatList
           data={filteredProducts}
-          keyExtractor={(item) => item._id}
+          keyExtractor={item => item._id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" colors={['#3b82f6']} />}
           renderItem={renderProductItem}
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} tintColor="#0ea5e9" />
-          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="basket-outline" size={64} color="#bae6fd" style={{ marginBottom: 16 }} />
+              <Ionicons name="basket-outline" size={56} color="#1e293b" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyText}>No products found</Text>
             </View>
           }
@@ -343,78 +256,44 @@ export default function AllProducts() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f9ff' },
+  container: { flex: 1, backgroundColor: '#0a0f1e' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
+
   // Header
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: "#0284c7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, marginRight: 15 },
-  title: { fontSize: 22, fontWeight: 'bold', color: 'white', letterSpacing: 0.5 },
-  subtitle: { fontSize: 13, color: 'rgba(255, 255, 255, 0.8)', marginTop: 2 },
-  
-  // Search Bar
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 50,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#0f172a',
-  },
+  header: { paddingHorizontal: 16, paddingBottom: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, marginRight: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  headerTitle: { color: '#f1f5f9', fontSize: 20, fontWeight: '800' },
+  headerSub: { color: '#475569', fontSize: 12, marginTop: 2 },
+
+  // Summary strip
+  summaryStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryValue: { color: '#f1f5f9', fontSize: 18, fontWeight: '800' },
+  summaryLabel: { color: '#334155', fontSize: 8, fontWeight: '700', letterSpacing: 0.6, marginTop: 2 },
+  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.06)' },
+
+  // Search
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  searchInput: { flex: 1, color: '#94a3b8', marginLeft: 8, fontSize: 14 },
 
   // Product Card
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    marginBottom: 16,
-    padding: 16,
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  iconContainer: {
-    width: 44, height: 44,
-    backgroundColor: '#f0f9ff',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  productName: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
-  categoryText: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  price: { fontSize: 16, fontWeight: '800', color: '#10b981' },
-  
-  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
-  
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  stockText: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  lowStockText: { color: '#f43f5e' }, // Red Color for low stock
+  productCard: { backgroundColor: '#111827', borderRadius: 16, marginBottom: 10, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  productCardOut: { borderColor: 'rgba(239,68,68,0.2)', backgroundColor: '#120f18' },
+  productTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  productIcon: { width: 44, height: 44, borderRadius: 12, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  productName: { color: '#e2e8f0', fontSize: 14, fontWeight: '700' },
+  productCategory: { color: '#475569', fontSize: 11, marginTop: 2 },
+  productPrice: { color: '#10b981', fontSize: 15, fontWeight: '800' },
+  productValue: { color: '#334155', fontSize: 10, fontWeight: '600', marginTop: 2 },
 
-  // Empty State
+  // Stock bar
+  stockRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stockLabel: { fontSize: 10, fontWeight: '700', width: 90 },
+  stockBarBg: { flex: 1, height: 4, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 2, overflow: 'hidden' },
+  stockBarFill: { height: '100%', borderRadius: 2 },
+
+  // Empty
   emptyState: { alignItems: 'center', marginTop: 80 },
-  emptyText: { fontSize: 15, color: '#94a3b8', fontWeight: '600' },
+  emptyText: { color: '#334155', fontSize: 14, fontWeight: '600' },
 });

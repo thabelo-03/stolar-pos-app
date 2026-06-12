@@ -14,7 +14,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
-  View
+  View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { API_BASE_URL } from '../config';
@@ -27,8 +27,27 @@ interface Shop {
     name: string;
     email: string;
     subscriptionStatus?: string;
+    subscriptionExpiry?: string;
   } | string;
 }
+
+// ─── Category icon map ────────────────────────────────────────────────────────
+const getCategoryIcon = (cat?: string): any => {
+  if (!cat) return 'storefront-outline';
+  const c = cat.toLowerCase();
+  if (c.includes('grocer') || c.includes('food')) return 'basket-outline';
+  if (c.includes('restaurant') || c.includes('cafe')) return 'restaurant-outline';
+  if (c.includes('cloth') || c.includes('fashion')) return 'shirt-outline';
+  if (c.includes('pharmacy') || c.includes('health')) return 'medical-outline';
+  if (c.includes('tech') || c.includes('electron')) return 'hardware-chip-outline';
+  return 'storefront-outline';
+};
+
+// ─── Days remaining ───────────────────────────────────────────────────────────
+const getDaysLeft = (expiry?: string): number | null => {
+  if (!expiry) return null;
+  return Math.ceil((new Date(expiry).getTime() - Date.now()) / 86400000);
+};
 
 export default function ShopsList() {
   const router = useRouter();
@@ -42,280 +61,168 @@ export default function ShopsList() {
   const fetchShops = async () => {
     try {
       if (!refreshing) setLoading(true);
-      // Fetch shops
-      const shopsRes = await fetch(`${API_BASE_URL}/shops`);
+      const [shopsRes, usersRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/shops`),
+        fetch(`${API_BASE_URL}/users`),
+      ]);
       const shopsData = await shopsRes.json();
-      
-      // Fetch users to map managers
-      const usersRes = await fetch(`${API_BASE_URL}/users`);
       const usersData = await usersRes.json();
-      
-      const userMap = new Map();
-      if (Array.isArray(usersData)) {
-        usersData.forEach((u: any) => userMap.set(u._id, u));
-      }
+
+      const userMap = new Map<string, any>();
+      if (Array.isArray(usersData)) usersData.forEach((u: any) => userMap.set(u._id, u));
 
       if (Array.isArray(shopsData)) {
         const enriched = shopsData.map((s: any) => {
           const managerId = typeof s.manager === 'object' ? s.manager?._id : s.manager;
-          const managerUser = userMap.get(managerId);
+          const mu = userMap.get(managerId);
           return {
             ...s,
-            manager: managerUser ? {
-              name: managerUser.name,
-              email: managerUser.email,
-              subscriptionStatus: managerUser.subscriptionStatus || 'active'
-            } : { name: 'Unknown Manager', email: 'N/A', subscriptionStatus: 'expired' }
+            manager: mu
+              ? { name: mu.name, email: mu.email, subscriptionStatus: mu.subscriptionStatus || 'active', subscriptionExpiry: mu.subscriptionExpiry }
+              : { name: 'Unknown Manager', email: 'N/A', subscriptionStatus: 'expired', subscriptionExpiry: undefined },
           };
         });
         setShops(enriched);
         setFilteredShops(enriched);
       }
-    } catch (e) {
-      console.error("Failed to fetch shops:", e);
-      Alert.alert("Error", "Could not fetch registered shops.");
+    } catch {
+      Alert.alert('Error', 'Could not fetch registered shops.');
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    fetchShops();
-  }, []);
+  useEffect(() => { fetchShops(); }, []);
 
   useEffect(() => {
-    if (searchTerm.trim() === '') {
-      setFilteredShops(shops);
-    } else {
-      const q = searchTerm.toLowerCase();
-      const filtered = shops.filter(s => 
-        s.name.toLowerCase().includes(q) || 
-        (s.category && s.category.toLowerCase().includes(q)) ||
-        (s.manager && typeof s.manager === 'object' && s.manager.name && s.manager.name.toLowerCase().includes(q))
-      );
-      setFilteredShops(filtered);
-    }
+    if (!searchTerm.trim()) { setFilteredShops(shops); return; }
+    const q = searchTerm.toLowerCase();
+    setFilteredShops(shops.filter(s =>
+      s.name.toLowerCase().includes(q) ||
+      (s.category && s.category.toLowerCase().includes(q)) ||
+      (s.manager && typeof s.manager === 'object' && s.manager.name?.toLowerCase().includes(q))
+    ));
   }, [searchTerm, shops]);
 
-  const onRefresh = useCallback(() => {
-    setRefreshing(true);
-    fetchShops();
-  }, []);
+  const onRefresh = useCallback(() => { setRefreshing(true); fetchShops(); }, []);
+
+  // Summary counts
+  const activeCount = filteredShops.filter(s => {
+    const mgr = s.manager && typeof s.manager === 'object' ? s.manager : null;
+    return mgr?.subscriptionStatus === 'active';
+  }).length;
+  const expiredCount = filteredShops.length - activeCount;
 
   const handleExportPDF = async () => {
     const html = `
       <html>
         <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
           <style>
-            body { 
-              font-family: 'Inter', -apple-system, sans-serif; 
-              padding: 24px; 
-              color: #1e293b;
-              background-color: #ffffff;
-              margin: 0;
-            }
-            .header-banner {
-              background: linear-gradient(135deg, #0284c7 0%, #0ea5e9 100%);
-              border-radius: 16px;
-              padding: 24px;
-              color: #ffffff;
-              margin-bottom: 24px;
-              box-shadow: 0 4px 12px rgba(14, 165, 233, 0.15);
-            }
-            .header-title {
-              font-family: 'Outfit', sans-serif;
-              font-size: 22px;
-              font-weight: 800;
-              margin: 0;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-            }
-            .header-subtitle {
-              font-size: 13px;
-              color: rgba(255, 255, 255, 0.85);
-              margin-top: 6px;
-              font-weight: 500;
-            }
-            
-            .meta-grid {
-              display: grid;
-              grid-template-columns: repeat(2, 1fr);
-              gap: 16px;
-              margin-bottom: 28px;
-            }
-            .meta-card {
-              border: 1px solid #e2e8f0;
-              border-radius: 14px;
-              padding: 12px;
-              background-color: #f8fafc;
-              text-align: center;
-            }
-            .meta-label {
-              font-size: 9px;
-              font-weight: 700;
-              color: #64748b;
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              margin-bottom: 4px;
-            }
-            .meta-value {
-              font-size: 14px;
-              font-weight: 800;
-              color: #0f172a;
-            }
-
-            table { 
-              width: 100%; 
-              border-collapse: collapse; 
-              font-size: 11px;
-              margin-top: 20px;
-            }
-            th { 
-              background-color: #f8fafc; 
-              color: #475569; 
-              font-weight: 700; 
-              text-transform: uppercase;
-              letter-spacing: 0.5px;
-              font-size: 10px;
-              border-bottom: 2px solid #cbd5e1;
-              padding: 10px 8px;
-              text-align: left;
-            }
-            td { 
-              border-bottom: 1px solid #f1f5f9; 
-              padding: 10px 8px; 
-              color: #334155;
-            }
-            tr:nth-child(even) td { 
-              background-color: #fafbfb; 
-            }
-            .status-active {
-              color: #10b981;
-              font-weight: 700;
-            }
-            .status-expired {
-              color: #ef4444;
-              font-weight: 700;
-            }
-            
-            .footer { 
-              margin-top: 48px; 
-              text-align: center; 
-              font-size: 10px; 
-              color: #94a3b8; 
-              border-top: 1px solid #f1f5f9;
-              padding-top: 16px;
-              font-weight: 500;
-            }
+            body { font-family: 'Inter', sans-serif; padding: 24px; color: #1e293b; background: #fff; margin: 0; }
+            .header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); border-radius: 16px; padding: 24px; color: #fff; margin-bottom: 24px; }
+            .header h1 { font-size: 20px; font-weight: 800; margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+            .header p { font-size: 12px; color: rgba(255,255,255,0.6); margin-top: 6px; }
+            .kpi-row { display: flex; gap: 12px; margin-bottom: 24px; }
+            .kpi { flex: 1; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 12px; text-align: center; }
+            .kpi-label { font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px; }
+            .kpi-value { font-size: 18px; font-weight: 800; color: #0f172a; margin-top: 4px; }
+            table { width: 100%; border-collapse: collapse; font-size: 11px; }
+            th { background: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; font-size: 9px; border-bottom: 2px solid #cbd5e1; padding: 10px 8px; text-align: left; }
+            td { border-bottom: 1px solid #f1f5f9; padding: 10px 8px; color: #334155; }
+            tr:nth-child(even) td { background: #fafbfb; }
+            .active { color: #10b981; font-weight: 700; }
+            .expired { color: #ef4444; font-weight: 700; }
+            .footer { margin-top: 40px; text-align: center; font-size: 10px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 16px; }
           </style>
         </head>
         <body>
-          <div class="header-banner">
-            <h1 class="header-title">System Shops Report</h1>
-            <div class="header-subtitle">Generated on ${new Date().toLocaleString()}</div>
+          <div class="header">
+            <h1>Registered Shops Report</h1>
+            <p>Generated ${new Date().toLocaleString()} — ${filteredShops.length} shops</p>
           </div>
-          
-          <div class="meta-grid">
-            <div class="meta-card">
-              <div class="meta-label">Search Query</div>
-              <div class="meta-value">${searchTerm.trim() || 'None'}</div>
-            </div>
-            <div class="meta-card">
-              <div class="meta-label">Total Registered Shops</div>
-              <div class="meta-value">${filteredShops.length}</div>
-            </div>
+          <div class="kpi-row">
+            <div class="kpi"><div class="kpi-label">Total Shops</div><div class="kpi-value">${filteredShops.length}</div></div>
+            <div class="kpi"><div class="kpi-label">Active</div><div class="kpi-value" style="color:#10b981">${activeCount}</div></div>
+            <div class="kpi"><div class="kpi-label">Expired</div><div class="kpi-value" style="color:#ef4444">${expiredCount}</div></div>
           </div>
-
           <table>
-            <thead>
-              <tr>
-                <th>Shop Name</th>
-                <th>Category</th>
-                <th>Manager</th>
-                <th>Manager Email</th>
-                <th>Subscription</th>
-              </tr>
-            </thead>
+            <thead><tr><th>Shop Name</th><th>Category</th><th>Manager</th><th>Email</th><th>Status</th></tr></thead>
             <tbody>
-              ${filteredShops.map(item => {
-                const mgrName = item.manager && typeof item.manager === 'object' ? item.manager.name : 'Unknown';
-                const mgrEmail = item.manager && typeof item.manager === 'object' ? item.manager.email : 'N/A';
-                const subStatus = item.manager && typeof item.manager === 'object' ? item.manager.subscriptionStatus || 'active' : 'active';
-                return `
-                  <tr>
-                    <td style="font-weight: 600; color: #0f172a;">${item.name}</td>
-                    <td style="color: #64748b;">${item.category || 'General'}</td>
-                    <td>${mgrName}</td>
-                    <td>${mgrEmail}</td>
-                    <td class="${subStatus === 'active' ? 'status-active' : 'status-expired'}">${subStatus.toUpperCase()}</td>
-                  </tr>
-                `;
+              ${filteredShops.map(s => {
+                const m = s.manager && typeof s.manager === 'object' ? s.manager : null;
+                return `<tr>
+                  <td style="font-weight:600;color:#0f172a">${s.name}</td>
+                  <td style="color:#64748b">${s.category || 'General'}</td>
+                  <td>${m?.name || 'Unknown'}</td>
+                  <td>${m?.email || 'N/A'}</td>
+                  <td class="${m?.subscriptionStatus === 'active' ? 'active' : 'expired'}">${(m?.subscriptionStatus || 'expired').toUpperCase()}</td>
+                </tr>`;
               }).join('')}
             </tbody>
           </table>
-          
-          <div class="footer">
-            Stolar POS System • Master Shops Directory
-          </div>
+          <div class="footer">Stolar POS System • Master Shops Directory</div>
         </body>
       </html>
     `;
     try {
       const { uri } = await Print.printToFileAsync({ html });
       await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-    } catch (error) { 
-      Alert.alert('Error', 'Failed to generate PDF'); 
-    }
+    } catch { Alert.alert('Error', 'Failed to generate PDF'); }
   };
 
   const renderShopItem = ({ item }: { item: Shop }) => {
-    const mgrName = item.manager && typeof item.manager === 'object' ? item.manager.name : 'Unknown';
-    const mgrEmail = item.manager && typeof item.manager === 'object' ? item.manager.email : 'N/A';
-    const subStatus = item.manager && typeof item.manager === 'object' ? item.manager.subscriptionStatus || 'active' : 'active';
+    const mgr = item.manager && typeof item.manager === 'object' ? item.manager : null;
+    const isActive = mgr?.subscriptionStatus === 'active';
+    const daysLeft = getDaysLeft(mgr?.subscriptionExpiry);
+    const isExpiringSoon = daysLeft !== null && daysLeft > 0 && daysLeft <= 7;
+    const catIcon = getCategoryIcon(item.category);
 
     return (
-      <TouchableOpacity 
-        style={styles.card}
-        onPress={() => router.push({
-          pathname: '/(admin)/shop-reports',
-          params: { shopId: item._id, shopName: item.name }
-        })}
+      <TouchableOpacity
+        style={[styles.shopCard, !isActive && styles.shopCardExpired]}
+        onPress={() => router.push({ pathname: '/(admin)/shop-reports', params: { shopId: item._id, shopName: item.name } })}
+        activeOpacity={0.8}
       >
-        <View style={styles.cardHeader}>
-          <View style={styles.iconContainer}>
-            <Ionicons name="storefront-outline" size={22} color="#0ea5e9" />
+        {/* Top row */}
+        <View style={styles.shopCardTop}>
+          <View style={[styles.shopIcon, { backgroundColor: isActive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', borderColor: isActive ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' }]}>
+            <Ionicons name={catIcon} size={22} color={isActive ? '#10b981' : '#ef4444'} />
           </View>
-          <View style={{ flex: 1 }}>
+          <View style={{ flex: 1, marginLeft: 12 }}>
             <Text style={styles.shopName} numberOfLines={1}>{item.name}</Text>
-            <Text style={styles.categoryText}>{item.category || 'Retail Shop'}</Text>
+            <Text style={styles.shopCategory}>{item.category || 'General Retail'}</Text>
           </View>
-          <View style={[
-            styles.badge, 
-            { backgroundColor: subStatus === 'active' ? '#ecfdf5' : '#fef2f2' }
-          ]}>
-            <Text style={[
-              styles.badgeText, 
-              { color: subStatus === 'active' ? '#10b981' : '#ef4444' }
-            ]}>
-              {subStatus.toUpperCase()}
+          <View style={[styles.statusBadge, { backgroundColor: isActive ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)', borderColor: isActive ? 'rgba(16,185,129,0.3)' : 'rgba(239,68,68,0.3)' }]}>
+            <View style={[styles.statusDot, { backgroundColor: isActive ? '#10b981' : '#ef4444' }]} />
+            <Text style={[styles.statusText, { color: isActive ? '#10b981' : '#ef4444' }]}>
+              {isActive ? 'ACTIVE' : 'EXPIRED'}
             </Text>
           </View>
         </View>
-        
-        <View style={styles.divider} />
-        
-        <View style={styles.cardFooter}>
-          <View>
-            <Text style={styles.managerLabel}>MANAGER</Text>
-            <Text style={styles.managerName}>{mgrName}</Text>
-            <Text style={styles.managerEmail}>{mgrEmail}</Text>
+
+        {/* Days remaining bar for expiring soon */}
+        {isActive && isExpiringSoon && daysLeft !== null && (
+          <View style={styles.expiryWarning}>
+            <Ionicons name="warning-outline" size={12} color="#f59e0b" />
+            <Text style={styles.expiryWarningText}>Expires in {daysLeft} day{daysLeft !== 1 ? 's' : ''}</Text>
           </View>
-          <View style={styles.viewReportBtn}>
-            <Text style={styles.viewReportText}>Reports</Text>
-            <Ionicons name="chevron-forward" size={14} color="#0ea5e9" />
+        )}
+
+        <View style={styles.shopDivider} />
+
+        {/* Manager info */}
+        <View style={styles.shopCardBottom}>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.mgrLabel}>MANAGER</Text>
+            <Text style={styles.mgrName}>{mgr?.name || 'Unknown'}</Text>
+            <Text style={styles.mgrEmail}>{mgr?.email || 'N/A'}</Text>
+          </View>
+          <View style={styles.reportsBtn}>
+            <Text style={styles.reportsBtnText}>Reports</Text>
+            <Ionicons name="chevron-forward" size={14} color="#3b82f6" />
           </View>
         </View>
       </TouchableOpacity>
@@ -325,65 +232,75 @@ export default function ShopsList() {
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" />
-      
-      {/* Header Section */}
-      <LinearGradient 
-        colors={['#0284c7', '#0ea5e9', '#38bdf8']} 
-        start={{ x: 0, y: 0 }} 
-        end={{ x: 1, y: 1 }} 
-        style={[styles.header, { paddingTop: insets.top + 15 }]}
+
+      {/* ── Header ── */}
+      <LinearGradient
+        colors={['#0f172a', '#111827']}
+        style={[styles.header, { paddingTop: insets.top + 12 }]}
       >
-        <View style={styles.headerTopRow}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-            <Ionicons name="arrow-back" size={24} color="white" />
+        <View style={styles.headerRow}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Ionicons name="arrow-back" size={20} color="#94a3b8" />
           </TouchableOpacity>
           <View style={{ flex: 1 }}>
-            <Text style={styles.title}>Registered Shops</Text>
-            <Text style={styles.subtitle}>{filteredShops.length} active stores in system</Text>
+            <Text style={styles.headerTitle}>Registered Shops</Text>
+            <Text style={styles.headerSub}>{filteredShops.length} stores in system</Text>
           </View>
-          <TouchableOpacity onPress={handleExportPDF} style={styles.backButton}>
-            <Ionicons name="document-text-outline" size={24} color="white" />
+          <TouchableOpacity onPress={handleExportPDF} style={styles.backBtn}>
+            <Ionicons name="document-text-outline" size={20} color="#94a3b8" />
           </TouchableOpacity>
         </View>
-        
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={20} color="#94a3b8" />
+
+        {/* Summary Strip */}
+        <View style={styles.summaryStrip}>
+          <View style={styles.summaryItem}>
+            <Text style={styles.summaryValue}>{filteredShops.length}</Text>
+            <Text style={styles.summaryLabel}>TOTAL</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: '#10b981' }]}>{activeCount}</Text>
+            <Text style={styles.summaryLabel}>ACTIVE</Text>
+          </View>
+          <View style={styles.summaryDivider} />
+          <View style={styles.summaryItem}>
+            <Text style={[styles.summaryValue, { color: expiredCount > 0 ? '#ef4444' : '#475569' }]}>{expiredCount}</Text>
+            <Text style={styles.summaryLabel}>EXPIRED</Text>
+          </View>
+        </View>
+
+        {/* Search */}
+        <View style={styles.searchBox}>
+          <Ionicons name="search-outline" size={16} color="#475569" />
           <TextInput
             placeholder="Search shops or managers..."
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor="#334155"
             style={styles.searchInput}
             value={searchTerm}
             onChangeText={setSearchTerm}
             autoCapitalize="none"
           />
           {searchTerm.length > 0 && (
-            <Ionicons 
-              name="close-circle" 
-              size={20} 
-              color="#cbd5e1" 
-              onPress={() => setSearchTerm('')} 
-            />
+            <TouchableOpacity onPress={() => setSearchTerm('')}>
+              <Ionicons name="close-circle" size={16} color="#475569" />
+            </TouchableOpacity>
           )}
         </View>
       </LinearGradient>
 
-      {/* Content Section */}
+      {/* ── List ── */}
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#0ea5e9" />
-        </View>
+        <View style={styles.center}><ActivityIndicator size="large" color="#3b82f6" /></View>
       ) : (
         <FlatList
           data={filteredShops}
-          keyExtractor={(item) => item._id}
+          keyExtractor={item => item._id}
+          contentContainerStyle={{ padding: 16, paddingBottom: 60 }}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#3b82f6" colors={['#3b82f6']} />}
           renderItem={renderShopItem}
-          contentContainerStyle={{ padding: 20, paddingBottom: 100 }}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#0ea5e9']} tintColor="#0ea5e9" />
-          }
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="storefront-outline" size={64} color="#bae6fd" style={{ marginBottom: 16 }} />
+              <Ionicons name="storefront-outline" size={56} color="#1e293b" style={{ marginBottom: 12 }} />
               <Text style={styles.emptyText}>No registered shops found</Text>
             </View>
           }
@@ -394,98 +311,50 @@ export default function ShopsList() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f9ff' },
+  container: { flex: 1, backgroundColor: '#0a0f1e' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
+
   // Header
-  header: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    borderBottomLeftRadius: 24,
-    borderBottomRightRadius: 24,
-    shadowColor: "#0284c7",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 12,
-    elevation: 4,
-  },
-  headerTopRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backButton: { padding: 8, backgroundColor: 'rgba(255, 255, 255, 0.2)', borderRadius: 12, marginRight: 15 },
-  title: { fontSize: 20, fontWeight: 'bold', color: 'white', letterSpacing: 0.5 },
-  subtitle: { fontSize: 13, color: 'rgba(255, 255, 255, 0.8)', marginTop: 2 },
-  
-  // Search Bar
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    height: 50,
-  },
-  searchInput: {
-    flex: 1,
-    marginLeft: 12,
-    fontSize: 16,
-    color: '#0f172a',
-  },
+  header: { paddingHorizontal: 16, paddingBottom: 16 },
+  headerRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  backBtn: { padding: 8, backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 10, marginRight: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  headerTitle: { color: '#f1f5f9', fontSize: 20, fontWeight: '800' },
+  headerSub: { color: '#475569', fontSize: 12, marginTop: 2 },
 
-  // Cards
-  card: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    marginBottom: 16,
-    padding: 16,
-    shadowColor: '#0284c7',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.06,
-    shadowRadius: 16,
-    elevation: 4,
-  },
-  cardHeader: { flexDirection: 'row', alignItems: 'center' },
-  iconContainer: {
-    width: 44, height: 44,
-    backgroundColor: '#f0f9ff',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  shopName: { fontSize: 15, fontWeight: '700', color: '#0f172a' },
-  categoryText: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  badge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
-    marginLeft: 'auto',
-  },
-  badgeText: {
-    fontSize: 11,
-    fontWeight: '700',
-  },
-  
-  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 12 },
-  
-  cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
-  managerLabel: { fontSize: 9, fontWeight: '800', color: '#94a3b8', letterSpacing: 0.5, marginBottom: 2 },
-  managerName: { fontSize: 13, fontWeight: '700', color: '#334155' },
-  managerEmail: { fontSize: 11, color: '#64748b', marginTop: 1 },
-  viewReportBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f9ff',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 10,
-    gap: 4,
-  },
-  viewReportText: { fontSize: 12, fontWeight: '700', color: '#0ea5e9' },
+  // Summary strip
+  summaryStrip: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 12, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  summaryItem: { flex: 1, alignItems: 'center' },
+  summaryValue: { color: '#f1f5f9', fontSize: 20, fontWeight: '800' },
+  summaryLabel: { color: '#334155', fontSize: 9, fontWeight: '700', letterSpacing: 0.8, marginTop: 2 },
+  summaryDivider: { width: 1, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 4 },
 
-  // Empty State
+  // Search
+  searchBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 12, height: 44, borderWidth: 1, borderColor: 'rgba(255,255,255,0.07)' },
+  searchInput: { flex: 1, color: '#94a3b8', marginLeft: 8, fontSize: 14 },
+
+  // Shop Card
+  shopCard: { backgroundColor: '#111827', borderRadius: 18, marginBottom: 12, padding: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  shopCardExpired: { borderColor: 'rgba(239,68,68,0.2)', backgroundColor: '#110f18' },
+  shopCardTop: { flexDirection: 'row', alignItems: 'center' },
+  shopIcon: { width: 46, height: 46, borderRadius: 13, justifyContent: 'center', alignItems: 'center', borderWidth: 1 },
+  shopName: { color: '#e2e8f0', fontSize: 15, fontWeight: '700' },
+  shopCategory: { color: '#475569', fontSize: 11, marginTop: 2 },
+  statusBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, borderWidth: 1 },
+  statusDot: { width: 5, height: 5, borderRadius: 3 },
+  statusText: { fontSize: 9, fontWeight: '800', letterSpacing: 0.5 },
+
+  expiryWarning: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(245,158,11,0.1)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 5, marginTop: 10 },
+  expiryWarningText: { color: '#f59e0b', fontSize: 11, fontWeight: '700' },
+
+  shopDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.04)', marginVertical: 12 },
+  shopCardBottom: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end' },
+  mgrLabel: { color: '#334155', fontSize: 9, fontWeight: '700', letterSpacing: 0.5, marginBottom: 2 },
+  mgrName: { color: '#94a3b8', fontSize: 13, fontWeight: '700' },
+  mgrEmail: { color: '#475569', fontSize: 11, marginTop: 2 },
+  reportsBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: 'rgba(59,130,246,0.1)', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, borderWidth: 1, borderColor: 'rgba(59,130,246,0.25)' },
+  reportsBtnText: { color: '#3b82f6', fontSize: 12, fontWeight: '700' },
+
+  // Empty
   emptyState: { alignItems: 'center', marginTop: 80 },
-  emptyText: { fontSize: 15, color: '#94a3b8', fontWeight: '600' },
+  emptyText: { color: '#334155', fontSize: 14, fontWeight: '600' },
 });
