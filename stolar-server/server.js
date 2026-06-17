@@ -764,9 +764,21 @@ app.get('/api/sales/stats', async (req, res) => {
 app.get('/api/sales', async (req, res) => {
   console.log('Fetching sales history with filters:', req.query);
   try {
-    const { shopId, cashierId } = req.query;
+    const { shopId, cashierId, managerId } = req.query;
     let query = {};
-    if (shopId) query.shopId = shopId;
+    if (shopId) {
+      query.shopId = shopId;
+    } else if (managerId) {
+      // Look up all shops belonging to this manager and filter sales to only those
+      const managerShops = await Shop.find({ manager: managerId }).select('_id').lean();
+      const shopIds = managerShops.map(s => s._id);
+      if (shopIds.length > 0) {
+        query.shopId = { $in: shopIds };
+      } else {
+        // Manager has no shops — return empty
+        return res.json([]);
+      }
+    }
     if (cashierId) query.cashierId = cashierId;
 
     const sales = await Sale.find(query).sort({ date: -1 });
@@ -783,10 +795,22 @@ app.get('/api/sales/recent', async (req, res) => {
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
     const skip = (page - 1) * limit;
-    const { refunded, startDate, endDate, shopId, cashierId } = req.query;
+    const { refunded, startDate, endDate, shopId, cashierId, managerId } = req.query;
 
     let query = {};
-    if (shopId) query.shopId = shopId;
+    if (shopId) {
+      query.shopId = shopId;
+    } else if (managerId) {
+      // Look up all shops belonging to this manager and filter sales to only those
+      const managerShops = await Shop.find({ manager: managerId }).select('_id').lean();
+      const shopIds = managerShops.map(s => s._id);
+      if (shopIds.length > 0) {
+        query.shopId = { $in: shopIds };
+      } else {
+        // Manager has no shops — return empty
+        return res.json([]);
+      }
+    }
     if (cashierId) query.cashierId = cashierId;
     if (refunded === 'true') query.refunded = true;
     if (startDate && endDate) {
